@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>عائلة الشيخ مسلم بن نصيب المعشني — إصدار: عبدالرحمن المعشني</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@600;700;800&family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <!-- Socket.IO (يعمل عند تشغيل خادم Node محلي) -->
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    body { font-family: 'Tajawal','Cairo','Noto Sans Arabic',system-ui,-apple-system,'Segoe UI',Tahoma,Arial,sans-serif; touch-action: manipulation; }
+    .font-display { font-family: 'Cairo','Tajawal','Noto Sans Arabic',system-ui,-apple-system,'Segoe UI',Tahoma,Arial,sans-serif; }
+    button, input { min-height: 44px; touch-action: manipulation; }
+    .no-highlight { -webkit-tap-highlight-color: transparent; user-select: none; }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-b from-emerald-50 to-white text-gray-900 no-highlight">
+  <header class="px-6 py-5 border-b bg-gradient-to-r from-emerald-700 to-emerald-600 text-white sticky top-0 z-10 shadow">
+    <div class="max-w-5xl mx-auto flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl md:text-3xl font-extrabold tracking-tight font-display">عائلة الشيخ مسلم بن نصيب المعشني</h1>
+        <p class="text-sm md:text-base text-emerald-100/90">إصدار: عبدالرحمن المعشني</p>
+      </div>
+      <div class="text-right">
+        <div class="text-xs text-emerald-100/80">رمز الانضمام:</div>
+        <div id="pin" class="text-2xl font-bold tracking-widest"></div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-5xl mx-auto px-6 py-6">
+    <!-- اختيار الدور (مضيف/لاعب) -->
+    <section id="roleSelect" class="space-y-4">
+      <div class="bg-white border rounded-2xl p-6 shadow-sm">
+        <h2 class="text-xl font-bold font-display mb-2">اختر الدور</h2>
+        <p class="text-sm text-gray-600">هذه نسخة متعددة الأجهزة مثل كهوت: <span class="font-semibold">المضيف</span> ينشئ جلسة برمز PIN، و<span class="font-semibold">كل لاعب</span> يدخل من جهازه ويجيب باللمس.</p>
+        <div id="serverNotice" class="hidden mt-3 p-3 rounded-xl bg-rose-50 text-rose-800 border border-rose-200 text-sm">
+          ⚠️ غير متصل بالخادم. لتشغيل اللعب الجماعي: شغّل <span class="font-mono">server.js</span> ثم حدّث الصفحة.
+        </div>
+        <div class="mt-4 flex gap-3">
+          <button id="roleHostBtn" class="px-5 py-3 rounded-2xl bg-emerald-600 text-white font-semibold">أنا المضيف</button>
+          <button id="rolePlayerBtn" class="px-5 py-3 rounded-2xl bg-sky-600 text-white font-semibold">أنا لاعب</button>
+        </div>
+        <p class="text-xs text-gray-500 mt-3">لن يختار المضيف إجابات بالنيابة عن أحد — كل لاعب يجيب من جهازه فقط.</p>
+      </div>
+    </section>
+
+    <!-- ======= وضع المضيف ======= -->
+    <section id="hostUI" class="space-y-6 hidden">
+      <!-- اللوبي (مضيف) -->
+      <section id="hostLobby" class="space-y-4">
+        <div class="bg-white border rounded-2xl p-5 shadow-sm">
+          <button id="createBtn" class="px-6 py-3 rounded-2xl bg-emerald-600 text-white text-lg font-semibold hover:bg-emerald-700 shadow">إنشاء جلسة جديدة</button>
+          <div id="lobbyBox" class="mt-4 hidden">
+            <div class="text-gray-700">أخبر اللاعبين بفتح هذه الصفحة، اختيار <span class="font-semibold">أنا لاعب</span> ثم إدخال الرمز.</div>
+            <div class="mt-3">
+              <h3 class="font-semibold">اللاعبون المنضمون:</h3>
+              <ul id="playerList" class="list-disc pr-5 text-gray-800"></ul>
+            </div>
+            <button id="hostStartBtn" class="mt-3 px-4 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 hidden">بدء اللعبة</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- اللعب (مضيف) -->
+      <section id="hostPlaying" class="space-y-6 hidden">
+        <div class="bg-white border rounded-2xl p-5 shadow-sm">
+          <div class="flex items-center justify-between">
+            <div>
+              <div id="h_qCounter" class="text-sm text-gray-500"></div>
+              <h2 id="h_qText" class="text-xl md:text-2xl font-bold font-display"></h2>
+            </div>
+            <div class="text-right">
+              <div class="text-sm text-gray-500">الوقت</div>
+              <div id="h_timeLeft" class="text-2xl font-bold">--</div>
+            </div>
+          </div>
+          <div id="h_options" class="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+        </div>
+
+        <div class="bg-white border rounded-2xl p-5 shadow-sm">
+          <div class="flex items-center justify-between">
+            <div class="space-x-2 space-x-reverse">
+              <button id="h_endBtn" class="px-4 py-2 rounded-xl bg-amber-600 text-white hover:bg-amber-700">إنهاء الآن</button>
+              <button id="h_nextBtn" class="px-4 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700">السؤال التالي</button>
+            </div>
+            <div id="h_answeredInfo" class="text-sm text-gray-500"></div>
+          </div>
+        </div>
+
+        <div class="bg-white border rounded-2xl p-5 shadow-sm">
+          <h3 class="text-lg font-bold mb-3 font-display">لوحة الصدارة (Top 5)</h3>
+          <ol id="h_top5" class="space-y-2"></ol>
+        </div>
+      </section>
+
+      <!-- كشف الإجابات (مضيف) -->
+      <section id="hostReveal" class="space-y-6 hidden">
+        <div class="bg-white border rounded-2xl p-5 shadow-sm">
+          <div class="flex items-center justify-between">
+            <div><h2 id="h_rQText" class="text-xl md:text-2xl font-bold font-display"></h2></div>
+            <div id="h_rExplain" class="text-right text-sm text-gray-600"></div>
+          </div>
+          <div id="h_distribution" class="mt-4 space-y-2"></div>
+        </div>
+        <div class="bg-white border rounded-2xl p-5 shadow-sm">
+          <h3 class="text-lg font-bold mb-3 font-display">لوحة الصدارة (Top 5)</h3>
+          <ol id="h_top5b" class="space-y-2"></ol>
+        </div>
+        <button id="h_nextBtn2" class="px-6 py-3 rounded-2xl bg-emerald-600 text-white text-lg font-semibold hover:bg-emerald-700 shadow">السؤال التالي</button>
+      </section>
+
+      <!-- النهائي (مضيف) -->
+      <section id="hostFinal" class="space-y-6 hidden">
+        <div class="bg-white border rounded-2xl p-5 shadow-sm">
+          <h2 class="text-2xl font-extrabold mb-2 font-display">الترتيب النهائي</h2>
+          <table class="w-full text-sm">
+            <thead><tr class="text-right text-gray-600"><th class="py-2">#</th><th class="py-2">الاسم</th><th class="py-2">النقاط</th><th class="py-2">سلسلة صحيحة</th></tr></thead>
+            <tbody id="h_finalTable"></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+
+    <!-- ======= وضع اللاعب ======= -->
+    <section id="playerUI" class="space-y-6 hidden">
+      <!-- الانضمام -->
+      <section id="p_join">
+        <div class="bg-white border rounded-2xl p-5 shadow-sm space-y-3">
+          <h1 class="text-xl font-bold font-display">انضمام إلى اللعبة</h1>
+          <input id="p_pin" inputmode="numeric" pattern="[0-9]*" placeholder="أدخل رمز الانضمام (PIN)" class="w-full border rounded-xl px-3 py-3 focus:outline-none focus:ring focus:ring-emerald-300">
+          <input id="p_name" placeholder="اسمك" class="w-full border rounded-xl px-3 py-3 focus:outline-none focus:ring focus:ring-emerald-300 mt-2" maxlength="24">
+          <button id="p_joinBtn" class="w-full mt-2 px-4 py-3 rounded-2xl bg-emerald-600 text-white text-lg font-semibold hover:bg-emerald-700">انضم</button>
+          <p id="p_joinError" class="text-sm text-red-600 hidden"></p>
+        </div>
+      </section>
+
+      <!-- انتظار/لعب/كشف/نهائي -->
+      <section id="p_waiting" class="hidden"><div class="bg-white border rounded-2xl p-5 shadow-sm"><p>تم الانضمام. انتظر بدء المضيف…</p></div></section>
+
+      <section id="p_playing" class="hidden space-y-4">
+        <div class="bg-white border rounded-2xl p-5 shadow-sm">
+          <div class="flex items-center justify-between">
+            <div><div id="p_qCounter" class="text-sm text-gray-500"></div><h2 id="p_qText" class="text-xl font-bold font-display"></h2></div>
+            <div class="text-right"><div class="text-sm text-gray-500">الوقت</div><div id="p_timeLeft" class="text-2xl font-bold">--</div></div>
+          </div>
+        </div>
+        <div id="p_options" class="grid grid-cols-1 gap-3"></div>
+        <p id="p_answeredMsg" class="text-center text-emerald-700 font-semibold hidden">✔️ تم إرسال إجابتك</p>
+      </section>
+
+      <section id="p_reveal" class="hidden space-y-4">
+        <div class="bg-white border rounded-2xl p-5 shadow-sm"><h2 id="p_rQText" class="text-xl font-bold font-display"></h2><p id="p_rExplain" class="text-sm text-gray-600"></p></div>
+        <div id="p_distribution" class="space-y-2"></div>
+      </section>
+
+      <section id="p_final" class="hidden space-y-4">
+        <div class="bg-white border rounded-2xl p-5 shadow-sm"><h2 class="text-2xl font-extrabold font-display">الترتيب النهائي</h2><ol id="p_finalList" class="mt-3 space-y-2"></ol></div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+  // =================== أسئلة اللعبة ===================
+  const QUESTIONS = [
+    { id: 1, text: 'من صاحب أجمل صوت في العائلة؟', options: ['أحمد','محمد','نور','حسن'], correct: 0, time: 30, points: 1000 },
+    { id: 2, text: 'من أكثر واحد يرد متأخر على الرسائل؟', options: ['فاطمة','حسن','محمد','نور'], correct: 0, time: 30, points: 1000 },
+    { id: 3, text: 'من أكثر شخص يسولف بصوت عالي في  العائلة؟', options: ['محمد','خالد','سالم','أحمد'], correct: 0, time: 30, points: 1000 },
+    { id: 4, text: 'من اكثر واحد يشرب قهوة؟', options: ['نور','فاطمة','حسن','محمد'], correct: 0, time: 30, points: 1000 },
+    { id: 5, text: 'متى ولد أكبر حفيد في العائلة؟', options: ['٠٩/٧/٢٠١٥','١٠/٧/٢٠١٥','١١/٧/٢٠١٥','١٢/٧/٢٠١٥'], correct: 3, time: 30, points: 1000 },
+    { id: 6, text: 'بماذا تُلقّب أصغر حفيده في العائلة(ساره)؟', options: ['سنيوريتا','آبور','صتيت','أمن وسلام'], correct: 0, time: 30, points: 1000 },
+    { id: 7, text: 'من الشخص الذي يسافر أكثر من غيره؟', options: ['حسن','أحمد','خالد','فاطمة'], correct: 0, time: 30, points: 1000 },
+    { id: 8, text: 'من أكثر شخص ينام بسرعه؟', options: ['ماما','بابا','نور','جميلة'], correct: 0, time: 30, points: 1000 },
+    { id: 9, text: 'من أكثر واحد يضيّع اغراضه؟', options: ['خالد','محمد','حسن','سالم'], correct: 0, time: 30, points: 1000 },
+    { id: 10, text: 'وين انولد بابا؟', options: ['اصيريتا','فنزخت','انفنيتي','زع'], correct: 1, time: 30, points: 1000 },
+    { id: 11, text: 'من اكثر واحد كان يتخبئ و هو صغير؟', options: ['نور','سالم','محمد','خالد'], correct: 0, time: 30, points: 1000 },
+    { id: 12, text: 'من أكثر شخص يهتم بالتصوير وتوثيق اللحظات؟', options: ['فاطمه','أنيسة','جميلة','عائشة'], correct: 0, time: 30, points: 1000 },
+    { id: 13, text: 'في أي سنة تخرّجت جميلة؟', options: ['٢٠٠٥','٢٠٠٦','٢٠٠٧','٢٠٠٩'], correct: 0, time: 30, points: 1000 },
+    { id: 14, text: 'من أكثر واحد كان يمثل انه مريض وهو صغير عشان بابا يشلّه؟', options: ['سالم','محمد','حسن','نور'], correct: 0, time: 30, points: 1000 },
+    { id: 15, text: 'من الشخص الذي يشارك صور الأكل كثيرًا في جروبات العائلة؟', options: ['انيسه','فاطمة','جميلة','نور'], correct: 0, time: 30, points: 1000 },
+    { id: 16, text: 'من كان أكثر واحد شقي في طفولته ع كلام ماما؟', options: ['جميلة','سالم','محمد','حسن'], correct: 0, time: 30, points: 1000 },
+    { id: 17, text: 'من أكثر شخص في العائلة يرد بسرعة على الرسائل و المكالمات؟', options: ['حسن','فاطمة','أحمد','ماما'], correct: 0, time: 30, points: 1000 },
+    { id: 18, text: 'من أكثر شخص ما يخلي شيء في خاطره؟', options: ['محمد','نور','عائشة','خالد'], correct: 0, time: 30, points: 1000 },
+    { id: 19, text: 'في اي شهر دخلنا بيتنا الجديدة؟', options: ['مارس','أبريل','مايو','يونيو'], correct: 1, time: 30, points: 1000 },
+    { id: 20, text: 'من أكثر واحد يعشق جو الدراسه؟', options: ['نور','جميلة','أحمد','سالم'], correct: 0, time: 30, points: 1000 },
+    { id: 21, text: 'من أكثر شخص يحب الزهور؟', options: ['أنيسة','فاطمة','جميلة','عائشة'], correct: 0, time: 30, points: 1000 },
+    { id: 22, text: 'مين اكثر شخص يعرف يسوي شاي؟', options: ['جميلة','عائشة','فاطمة','محمد'], correct: 0, time: 30, points: 1000 },
+    { id: 23, text: 'من أكثر واحد يخاف من الحشرات؟', options: ['عائشة','فاطمة','جميلة','نور'], correct: 0, time: 30, points: 1000 },
+    { id: 24, text: 'اول سيارة اشتراها بابا؟', options: ['صالون','كروزر','باص','بيك آب'], correct: 3, time: 30, points: 1000 },
+    { id: 25, text: 'كم كان عمر ماما لما جابت آخر طفل؟', options: ['٣٢','٣٣','٣٥','٣٦'], correct: 0, time: 30, points: 1000 },
+    { id: 26, text: 'من اكثر واحد يقوم بسرعه في الاجازات ؟', options: ['سالم','أحمد','محمد','خالد'], correct: 0, time: 30, points: 1000 },
+    { id: 27, text: 'متى دخل بابا قوات الفرق؟', options: ['نوفمبر ١٩٧٥','نوفمبر ١٩٧٨','نوفمبر ١٩٧٨','نوفمبر ١٩٧٩'], correct: 1, time: 30, points: 1000 },
+    { id: 28, text: 'أكثر أكلة ماما تحبها من زمان؟', options: ['معجين','عصيدة','زر','خبز'], correct: 0, time: 30, points: 1000 },
+    { id: 29, text: 'وين انولدت ماما؟', options: ['ايتفات','زع','قدم','ألسان'], correct: 1, time: 30, points: 1000 },
+    { id: 30, text: 'متى كانت لمة العائلة الكريمة السنه الماضيه؟', options: ['١٥ اغسطس','١٦ اغسطس','١٧ اغسطس','١٨ اغسطس'], correct: 0, time: 30, points: 1000 },
+  ];
+
+  // =================== وظائف عامة ===================
+  function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
+  function calcPoints(pointsPossible, timeLimitSec, responseTimeSec, isCorrect, mode = 'speed') {
+    if (!isCorrect) return 0;
+    if (pointsPossible <= 0) return 0;
+    if (mode === 'accuracy') return pointsPossible;
+    const ratio = responseTimeSec / timeLimitSec; const factor = 1 - (ratio / 2); return Math.round(pointsPossible * clamp(factor, 0, 1));
+  }
+  function arabicIndex(i){ return String.fromCharCode(0x0661 + i); }
+  function show(el){ el.classList.remove('hidden'); } function hide(el){ el.classList.add('hidden'); } function clearEl(el){ el.innerHTML=''; }
+
+  // =================== Socket.IO ===================
+  let socket = null; let serverOK = false; if (window.io) { try { socket = io(); serverOK = true; } catch(e){ serverOK = false; } }
+
+  // عناصر عامة
+  const roleSelect = document.getElementById('roleSelect');
+  const serverNotice = document.getElementById('serverNotice');
+  const hostUI = document.getElementById('hostUI');
+  const playerUI = document.getElementById('playerUI');
+  const pinEl = document.getElementById('pin');
+
+  // أزرار اختيار الدور
+  const roleHostBtn = document.getElementById('roleHostBtn');
+  const rolePlayerBtn = document.getElementById('rolePlayerBtn');
+
+  if(!serverOK){ serverNotice.classList.remove('hidden'); }
+
+  roleHostBtn.onclick = () => {
+    if(!serverOK){ alert('🤚 لازم تشغّل الخادم server.js أولاً.'); return; }
+    hide(roleSelect); show(hostUI); hide(playerUI);
+  };
+  rolePlayerBtn.onclick = () => {
+    if(!serverOK){ alert('🤚 لازم تشغّل الخادم server.js أولاً.'); return; }
+    hide(roleSelect); hide(hostUI); show(playerUI);
+  };
+
+  // =================== منطق المضيف ===================
+  if(serverOK){
+    const createBtn = document.getElementById('createBtn');
+    const lobbyBox = document.getElementById('lobbyBox');
+    const playerList = document.getElementById('playerList');
+    const hostStartBtn = document.getElementById('hostStartBtn');
+    const h_qCounter = document.getElementById('h_qCounter');
+    const h_qText = document.getElementById('h_qText');
+    const h_timeLeft = document.getElementById('h_timeLeft');
+    const h_options = document.getElementById('h_options');
+    const h_endBtn = document.getElementById('h_endBtn');
+    const h_nextBtn = document.getElementById('h_nextBtn');
+    const h_answeredInfo = document.getElementById('h_answeredInfo');
+    const h_top5 = document.getElementById('h_top5');
+    const h_rQText = document.getElementById('h_rQText');
+    const h_rExplain = document.getElementById('h_rExplain');
+    const h_distribution = document.getElementById('h_distribution');
+    const h_top5b = document.getElementById('h_top5b');
+    const h_nextBtn2 = document.getElementById('h_nextBtn2');
+    const h_finalTable = document.getElementById('h_finalTable');
+
+    let pinVal = null; let total = 0; let current = null;
+
+    createBtn.onclick = () => { socket.emit('host_create'); };
+    socket.on('host_created', ({ pin, total: t }) => { pinVal = pin; total = t; pinEl.textContent = pin; show(lobbyBox); });
+    socket.on('lobby_update', ({ players }) => { clearEl(playerList); players.forEach(n=>{ const li=document.createElement('li'); li.textContent=n; playerList.appendChild(li); }); hostStartBtn.classList.toggle('hidden', players.length===0); });
+    hostStartBtn.onclick = () => socket.emit('host_start', { pin: pinVal });
+
+    socket.on('question_host', (q) => {
+      hide(document.getElementById('hostLobby')); hide(document.getElementById('hostReveal')); hide(document.getElementById('hostFinal')); show(document.getElementById('hostPlaying'));
+      current = q; h_qCounter.textContent = `سؤال ${q.index+1} من ${q.total}`; h_qText.textContent = q.text; clearEl(h_options); q.options.forEach((opt,i)=>{ const d=document.createElement('div'); d.className='border rounded-2xl p-4 bg-gray-50 ring-1 ring-gray-200'; d.innerHTML=`<div class="text-lg font-semibold">${arabicIndex(i)}. ${opt}</div>`; h_options.appendChild(d); });
+      h_timeLeft.textContent = q.time + ' ث';
+    });
+
+    socket.on('time_left', ({ seconds }) => { h_timeLeft.textContent = seconds + ' ث'; });
+
+    h_endBtn.onclick = () => socket.emit('host_end', { pin: pinVal });
+    h_nextBtn.onclick = () => socket.emit('host_next', { pin: pinVal });
+    h_nextBtn2.onclick = () => socket.emit('host_next', { pin: pinVal });
+    socket.on('answered_count', ({answered,total}) => { h_answeredInfo.textContent = `أجاب: ${answered}/${total}`; });
+
+    function renderTop5(target, arr){ clearEl(target); arr.forEach((p, idx)=>{ const li=document.createElement('li'); li.className='flex items-center justify-between border rounded-xl px-3 py-2 bg-gray-50'; li.innerHTML=`<div class="flex items-center gap-3"><div class="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center font-bold">${idx+1}</div><div><div class="font-semibold">${p.name}</div><div class="text-xs text-gray-500">سلسلة صحيحة: ${p.streak}</div></div></div><div class="text-right"><div class="font-bold">${p.score} نقطة</div><div class="text-xs ${p.lastDelta>0?'text-emerald-600':'text-gray-400'}">${p.lastDelta>0? '+'+p.lastDelta : '+0'}</div></div>`; target.appendChild(li); }); }
+
+    socket.on('reveal_host', (data) => { hide(document.getElementById('hostPlaying')); show(document.getElementById('hostReveal')); h_rQText.textContent = current.text; const isSurvey = data.isSurvey; h_rExplain.textContent = isSurvey ? 'استبيان — لا نقاط تُحتسب' : `الإجابة الصحيحة: ${current.options[data.correctIndex]}`; clearEl(h_distribution); const totalVotes = data.distribution.reduce((a,b)=>a+b,0)||1; data.distribution.forEach((c,i)=>{ const pct=Math.round((c/totalVotes)*100); const correct = !isSurvey && i===data.correctIndex; const div=document.createElement('div'); div.className=`p-3 border rounded-xl ${correct?'ring-2 ring-emerald-400 bg-emerald-100':'ring-1 ring-gray-200'} bg-gray-50`; div.innerHTML=`<div class="flex items-center justify-between mb-1"><div class="font-medium">${arabicIndex(i)}. ${current.options[i]} ${correct?'<span class=\"text-xs px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-900\">الصحيحة</span>':''}</div><div class="text-sm text-gray-600">${c} صوت / ${pct}%</div></div><div class="w-full h-2 bg-gray-200 rounded-full overflow-hidden"><div class="h-full bg-emerald-600" style="width:${pct}%"></div></div>`; h_distribution.appendChild(div); }); renderTop5(h_top5b, data.leaderboardTop5); });
+
+    socket.on('question', ()=>{ renderTop5(h_top5, []); });
+    socket.on('final_host', ({ leaderboard }) => { hide(document.getElementById('hostReveal')); show(document.getElementById('hostFinal')); clearEl(h_finalTable); leaderboard.forEach((p,idx)=>{ const tr=document.createElement('tr'); tr.className='border-t'; tr.innerHTML=`<td class="py-2">${idx+1}</td><td class="py-2 font-medium">${p.name}</td><td class="py-2">${p.score}</td><td class="py-2">${p.streak}</td>`; h_finalTable.appendChild(tr); }); });
+
+    socket.on('game_closed', ()=>{ alert('انتهت الجلسة (المضيف غادر).'); location.reload(); });
+  }
+
+  // =================== منطق اللاعب ===================
+  if(serverOK){
+    const p_join = document.getElementById('p_join'); const p_waiting=document.getElementById('p_waiting'); const p_playing=document.getElementById('p_playing'); const p_reveal=document.getElementById('p_reveal'); const p_final=document.getElementById('p_final');
+    const p_pin = document.getElementById('p_pin'); const p_name=document.getElementById('p_name'); const p_joinBtn=document.getElementById('p_joinBtn'); const p_joinError=document.getElementById('p_joinError');
+    const p_qCounter=document.getElementById('p_qCounter'); const p_qText=document.getElementById('p_qText'); const p_timeLeft=document.getElementById('p_timeLeft'); const p_options=document.getElementById('p_options'); const p_answeredMsg=document.getElementById('p_answeredMsg');
+    const p_rQText=document.getElementById('p_rQText'); const p_rExplain=document.getElementById('p_rExplain'); const p_distribution=document.getElementById('p_distribution'); const p_finalList=document.getElementById('p_finalList');
+
+    let gamePin=null; let myName=null; let p_current=null;
+
+    p_joinBtn.onclick = ()=>{ p_joinError.classList.add('hidden'); const pin=(p_pin.value||'').trim(); const name=(p_name.value||'').trim(); if(!pin||!name){ p_joinError.textContent='أدخل الرمز والاسم'; p_joinError.classList.remove('hidden'); return; } socket.emit('player_join',{ pin, name }); };
+    socket.on('join_error', ({ message })=>{ p_joinError.textContent = message; p_joinError.classList.remove('hidden'); });
+    socket.on('joined', ({ pin, name })=>{ gamePin=pin; myName=name; hide(p_join); show(p_waiting); });
+
+    socket.on('question', (q)=>{ hide(p_waiting); hide(p_reveal); hide(p_final); show(p_playing); p_current=q; p_qCounter.textContent=`سؤال ${q.index+1} من ${q.total}`; p_qText.textContent=q.text; clearEl(p_options); p_answeredMsg.classList.add('hidden'); q.options.forEach((opt,i)=>{ const btn=document.createElement('button'); btn.className='w-full text-right px-4 py-4 border rounded-2xl bg-white hover:bg-gray-50'; btn.textContent=`${arabicIndex(i)}. ${opt}`; btn.onclick=()=>{ socket.emit('player_answer', { pin: gamePin, name: myName, option: i }); Array.from(p_options.children).forEach(b=>b.disabled=true); p_answeredMsg.classList.remove('hidden'); }; btn.ontouchend = btn.onclick; p_options.appendChild(btn); }); p_timeLeft.textContent=q.time+' ث'; });
+
+    socket.on('time_left', ({ seconds }) => { p_timeLeft.textContent = seconds + ' ث'; });
+
+    socket.on('reveal', (data)=>{ hide(p_playing); show(p_reveal); p_rQText.textContent=p_current.text; const isSurvey=data.isSurvey; p_rExplain.textContent = isSurvey? 'استبيان — لا نقاط تُحتسب' : `الإجابة الصحيحة: ${p_current.options[data.correctIndex]}`; clearEl(p_distribution); const totalVotes=data.distribution.reduce((a,b)=>a+b,0)||1; data.distribution.forEach((c,i)=>{ const pct=Math.round((c/totalVotes)*100); const correct=!isSurvey && i===data.correctIndex; const div=document.createElement('div'); div.className=`p-3 border rounded-xl ${correct?'ring-2 ring-emerald-400 bg-emerald-100':'ring-1 ring-gray-200'} bg-gray-50`; div.innerHTML=`<div class=\"flex items-center justify-between mb-1\"><div class=\"font-medium\">${arabicIndex(i)}. ${p_current.options[i]} ${correct?'<span class=\"text-xs px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-900\">الصحيحة</span>':''}</div><div class=\"text-sm text-gray-600\">${c} صوت / ${pct}%</div></div><div class=\"w-full h-2 bg-gray-200 rounded-full overflow-hidden\"><div class=\"h-full bg-emerald-600\" style=\"width:${pct}%\"></div></div>`; p_distribution.appendChild(div); }); });
+
+    socket.on('final', ({ leaderboard })=>{ hide(p_playing); hide(p_reveal); show(p_final); clearEl(p_finalList); leaderboard.forEach((p,idx)=>{ const li=document.createElement('li'); li.className='flex items-center justify-between border rounded-xl px-3 py-2 bg-gray-50'; li.innerHTML=`<div class=\"flex items-center gap-3\"><div class=\"w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center font-bold\">${idx+1}</div><div class=\"font-semibold\">${p.name}</div></div><div class=\"font-bold\">${p.score} نقطة</div>`; p_finalList.appendChild(li); }); });
+  }
+  </script>
+  
+  <!-- =================== خادم متعدد الأجهزة (Node + Socket.IO) ===================
+       انسخ المحتوى التالي واحفظه كملف مستقل باسم server.js بجانب هذا الملف.
+       لتشغيل اللعب متعددة الأجهزة: npm install express socket.io && node server.js ثم افتح هذه الصفحة. -->
+  <script type="text/plain" id="server-js">/* server.js — Quiz server (Node + Express + Socket.IO) */
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const path = require('path');
+
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server, { cors: { origin: '*' } });
+
+app.use(express.static(path.join(__dirname)));
+
+// 30 Questions — نفس بيانات الواجهة
+const QUESTIONS = [
+  { id: 1, text: 'من صاحب أجمل صوت في العائلة؟', options: ['أحمد','محمد','نور','حسن'], correct: 0, time: 30, points: 1000 },
+  { id: 2, text: 'من أكثر واحد يرد متأخر على الرسائل؟', options: ['فاطمة','حسن','محمد','نور'], correct: 0, time: 30, points: 1000 },
+  { id: 3, text: 'من أكثر شخص يسولف بصوت عالي في  العائلة؟', options: ['محمد','خالد','سالم','أحمد'], correct: 0, time: 30, points: 1000 },
+  { id: 4, text: 'من اكثر واحد يشرب قهوة؟', options: ['نور','فاطمة','حسن','محمد'], correct: 0, time: 30, points: 1000 },
+  { id: 5, text: 'متى ولد أكبر حفيد في العائلة؟', options: ['٠٩/٧/٢٠١٥','١٠/٧/٢٠١٥','١١/٧/٢٠١٥','١٢/٧/٢٠١٥'], correct: 3, time: 30, points: 1000 },
+  { id: 6, text: 'بماذا تُلقّب أصغر حفيده في العائلة(ساره)؟', options: ['سنيوريتا','آبور','صتيت','أمن وسلام'], correct: 0, time: 30, points: 1000 },
+  { id: 7, text: 'من الشخص الذي يسافر أكثر من غيره؟', options: ['حسن','أحمد','خالد','فاطمة'], correct: 0, time: 30, points: 1000 },
+  { id: 8, text: 'من أكثر شخص ينام بسرعه؟', options: ['ماما','بابا','نور','جميلة'], correct: 0, time: 30, points: 1000 },
+  { id: 9, text: 'من أكثر واحد يضيّع اغراضه؟', options: ['خالد','محمد','حسن','سالم'], correct: 0, time: 30, points: 1000 },
+  { id: 10, text: 'وين انولد بابا؟', options: ['اصيريتا','فنزخت','انفنيتي','زع'], correct: 1, time: 30, points: 1000 },
+  { id: 11, text: 'من اكثر واحد كان يتخبئ و هو صغير؟', options: ['نور','سالم','محمد','خالد'], correct: 0, time: 30, points: 1000 },
+  { id: 12, text: 'من أكثر شخص يهتم بالتصوير وتوثيق اللحظات؟', options: ['فاطمه','أنيسة','جميلة','عائشة'], correct: 0, time: 30, points: 1000 },
+  { id: 13, text: 'في أي سنة تخرّجت جميلة؟', options: ['٢٠٠٥','٢٠٠٦','٢٠٠٧','٢٠٠٩'], correct: 0, time: 30, points: 1000 },
+  { id: 14, text: 'من أكثر واحد كان يمثل انه مريض وهو صغير عشان بابا يشلّه؟', options: ['سالم','محمد','حسن','نور'], correct: 0, time: 30, points: 1000 },
+  { id: 15, text: 'من الشخص الذي يشارك صور الأكل كثيرًا في جروبات العائلة؟', options: ['انيسه','فاطمة','جميلة','نور'], correct: 0, time: 30, points: 1000 },
+  { id: 16, text: 'من كان أكثر واحد شقي في طفولته ع كلام ماما؟', options: ['جميلة','سالم','محمد','حسن'], correct: 0, time: 30, points: 1000 },
+  { id: 17, text: 'من أكثر شخص في العائلة يرد بسرعة على الرسائل و المكالمات؟', options: ['حسن','فاطمة','أحمد','ماما'], correct: 0, time: 30, points: 1000 },
+  { id: 18, text: 'من أكثر شخص ما يخلي شيء في خاطره؟', options: ['محمد','نور','عائشة','خالد'], correct: 0, time: 30, points: 1000 },
+  { id: 19, text: 'في اي شهر دخلنا بيتنا الجديدة؟', options: ['مارس','أبريل','مايو','يونيو'], correct: 1, time: 30, points: 1000 },
+  { id: 20, text: 'من أكثر واحد يعشق جو الدراسه؟', options: ['نور','جميلة','أحمد','سالم'], correct: 0, time: 30, points: 1000 },
+  { id: 21, text: 'من أكثر شخص يحب الزهور؟', options: ['أنيسة','فاطمة','جميلة','عائشة'], correct: 0, time: 30, points: 1000 },
+  { id: 22, text: 'مين اكثر شخص يعرف يسوي شاي؟', options: ['جميلة','عائشة','فاطمة','محمد'], correct: 0, time: 30, points: 1000 },
+  { id: 23, text: 'من أكثر واحد يخاف من الحشرات؟', options: ['عائشة','فاطمة','جميلة','نور'], correct: 0, time: 30, points: 1000 },
+  { id: 24, text: 'اول سيارة اشتراها بابا؟', options: ['صالون','كروزر','باص','بيك آب'], correct: 3, time: 30, points: 1000 },
+  { id: 25, text: 'كم كان عمر ماما لما جابت آخر طفل؟', options: ['٣٢','٣٣','٣٥','٣٦'], correct: 0, time: 30, points: 1000 },
+  { id: 26, text: 'من اكثر واحد يقوم بسرعه في الاجازات ؟', options: ['سالم','أحمد','محمد','خالد'], correct: 0, time: 30, points: 1000 },
+  { id: 27, text: 'متى دخل بابا قوات الفرق؟', options: ['نوفمبر ١٩٧٥','نوفمبر ١٩٧٨','نوفمبر ١٩٧٨','نوفمبر ١٩٧٩'], correct: 1, time: 30, points: 1000 },
+  { id: 28, text: 'أكثر أكلة ماما تحبها من زمان؟', options: ['معجين','عصيدة','زر','خبز'], correct: 0, time: 30, points: 1000 },
+  { id: 29, text: 'وين انولدت ماما؟', options: ['ايتفات','زع','قدم','ألسان'], correct: 1, time: 30, points: 1000 },
+  { id: 30, text: 'متى كانت لمة العائلة الكريمة السنه الماضيه؟', options: ['١٥ اغسطس','١٦ اغسطس','١٧ اغسطس','١٨ اغسطس'], correct: 0, time: 30, points: 1000 },
+];
+
+function clamp(n, min, max){ return Math.max(min, Math.min(max, n)); }
+function calcPoints(pointsPossible, timeLimitSec, responseTimeSec, isCorrect, mode = 'speed') {
+  if (!isCorrect) return 0;
+  if (pointsPossible <= 0) return 0;
+  if (mode === 'accuracy') return pointsPossible;
+  const ratio = responseTimeSec / timeLimitSec;
+  const factor = 1 - (ratio / 2);
+  return Math.round(pointsPossible * clamp(factor, 0, 1));
+}
+
+const games = new Map(); // pin -> state
+function genPin(){ let pin; do { pin = String(Math.floor(100000 + Math.random() * 900000)); } while (games.has(pin)); return pin; }
+function shuffle(arr){ const a=[...arr]; for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+
+function createGame(hostSocketId){
+  const pin = genPin();
+  const state = {
+    pin,
+    hostId: hostSocketId,
+    players: new Map(), // name -> { name, score, streak, lastDelta, answered }
+    questions: QUESTIONS,
+    qIndex: -1,
+    questionStartedAt: null,
+    accepting: false,
+    timer: null,
+    ticker: null,
+    tLeft: 0,
+    current: null, // { options: [...], correctIndex }
+  };
+  games.set(pin, state);
+  return state;
+}
+
+function getLeaderboard(state){
+  return Array.from(state.players.values()).sort((a,b)=> b.score - a.score).map(p => ({ name: p.name, score: p.score, streak: p.streak, lastDelta: p.lastDelta }));
+}
+
+function startQuestion(state){
+  state.qIndex += 1;
+  const q = state.questions[state.qIndex];
+  if(!q){ return finishGame(state); }
+  // إعداد ترتيب الخيارات عشوائيًا حتى لا تكون الإجابة دائمًا رقم 1
+  const order = shuffle(q.options.map((_,i)=>i));
+  const optionsShuffled = order.map(i=>q.options[i]);
+  const correctIndex = order.indexOf(q.correct);
+  state.current = { options: optionsShuffled, correctIndex };
+
+  state.questionStartedAt = Date.now();
+  state.players.forEach(p => { p.answered = null; p.lastDelta = 0; });
+  state.accepting = true;
+  state.tLeft = q.time;
+
+  io.to(state.pin).emit('question', { index: state.qIndex, total: state.questions.length, text: q.text, options: optionsShuffled, time: q.time });
+  io.to(state.hostId).emit('question_host', { index: state.qIndex, total: state.questions.length, text: q.text, options: optionsShuffled, time: q.time, correct: correctIndex, points: q.points });
+
+  clearTimeout(state.timer); clearInterval(state.ticker);
+  state.ticker = setInterval(()=>{ state.tLeft = Math.max(0, state.tLeft-1); io.to(state.pin).emit('time_left',{ seconds: state.tLeft }); io.to(state.hostId).emit('time_left',{ seconds: state.tLeft }); if(state.tLeft<=0){ clearInterval(state.ticker); } },1000);
+  state.timer = setTimeout(() => endQuestion(state), q.time * 1000);
+}
+
+function endQuestion(state){
+  if(!state) return; if(!state.accepting) return; // منع التكرار
+  const q = state.questions[state.qIndex];
+  state.accepting = false;
+  clearTimeout(state.timer); clearInterval(state.ticker); state.timer=null; state.ticker=null; state.tLeft=0;
+
+  const counts = Array(state.current.options.length).fill(0);
+  state.players.forEach(p => {
+    const a = p.answered;
+    if(a && a.option != null && counts[a.option] != null) counts[a.option]++;
+    if(a){
+      const isCorrect = a.option === state.current.correctIndex;
+      const tSec = a.t;
+      const points = calcPoints(q.points, q.time, tSec, isCorrect, 'speed');
+      p.score += points; p.streak = isCorrect ? (p.streak+1) : 0; p.lastDelta = points; p.answered = { ...a, correct: isCorrect, points };
+    } else { p.streak = 0; p.lastDelta = 0; }
+  });
+  const leaderboard = getLeaderboard(state);
+  io.to(state.pin).emit('reveal', { index: state.qIndex, correctIndex: state.current.correctIndex, isSurvey: q.points === 0 || q.correct === null, distribution: counts, leaderboardTop5: leaderboard.slice(0,5) });
+  io.to(state.hostId).emit('reveal_host', { index: state.qIndex, correctIndex: state.current.correctIndex, isSurvey: q.points === 0 || q.correct === null, distribution: counts, leaderboardTop5: leaderboard.slice(0,5), leaderboardFull: leaderboard });
+}
+
+function nextOrFinish(state){ if(state.qIndex + 1 < state.questions.length){ startQuestion(state); } else { finishGame(state); } }
+function finishGame(state){ clearTimeout(state.timer); clearInterval(state.ticker); state.timer=null; state.ticker=null; const leaderboard = getLeaderboard(state); io.to(state.pin).emit('final', { leaderboard }); io.to(state.hostId).emit('final_host', { leaderboard }); }
+
+io.on('connection', (socket) => {
+  socket.on('host_create', () => { const state = createGame(socket.id); socket.join(state.pin); socket.emit('host_created', { pin: state.pin, total: state.questions.length }); });
+  socket.on('player_join', ({ pin, name }) => { const state = games.get(pin); if(!state){ socket.emit('join_error',{message:'رمز غير صحيح'}); return; }
+    const nm = String(name||'').trim(); if(!nm){ socket.emit('join_error',{message:'أدخل اسمًا صالحًا'}); return; }
+    // منع تكرار الأسماء (بدون حساسية حالة)
+    const taken = Array.from(state.players.keys()).some(k => k.toLowerCase() === nm.toLowerCase());
+    if(taken){ socket.emit('join_error',{message:'الاسم مستخدم — اختر اسمًا آخر'}); return; }
+    socket.join(pin); state.players.set(nm,{ name: nm, score:0, streak:0, lastDelta:0, answered:null, sid: socket.id }); io.to(state.hostId).emit('lobby_update',{ players: Array.from(state.players.keys()) }); socket.emit('joined',{ pin, name: nm }); });
+
+  socket.on('host_start', ({ pin }) => { const state = games.get(pin); if(!state || state.hostId !== socket.id) return; startQuestion(state); });
+
+  socket.on('player_answer', ({ pin, name, option }) => { const state = games.get(pin); if(!state || !state.accepting) return; const p = state.players.get(name); if(!p) return; if(p.answered) return; const tSec = (Date.now()-state.questionStartedAt)/1000; p.answered = { option, t: tSec }; const answeredCount = Array.from(state.players.values()).filter(x => !!x.answered).length; io.to(state.hostId).emit('answered_count', { answered: answeredCount, total: state.players.size }); });
+
+  socket.on('host_end', ({ pin }) => { const state = games.get(pin); if(!state || state.hostId !== socket.id) return; endQuestion(state); });
+  socket.on('host_next', ({ pin }) => { const state = games.get(pin); if(!state || state.hostId !== socket.id) return; nextOrFinish(state); });
+
+  socket.on('disconnect', () => { for (const [pin, state] of games) { if(state.hostId === socket.id){ io.to(pin).emit('game_closed'); games.delete(pin); break; } for (const [name, p] of state.players) { if(p.sid === socket.id){ state.players.delete(name); io.to(state.hostId).emit('lobby_update', { players: Array.from(state.players.keys()) }); break; } } } });
+});
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => { console.log('Quiz server running on http://localhost:'+PORT); });
+</script>
+
+</body>
+</html>
