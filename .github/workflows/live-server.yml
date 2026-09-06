@@ -10,11 +10,6 @@ on:
         description: 'مدة تشغيل الخادم بالدقائق (حتى 330)'
         default: '300'
         required: false
-  push:
-    branches:
-      - claude/digital-education-platform-1w1zvq
-    paths:
-      - '.github/workflows/live-server.yml'
 permissions:
   contents: read
   pull-requests: write
@@ -62,6 +57,8 @@ jobs:
           HOST: 0.0.0.0
           TRUST_PROXY: "true"
           ALLOW_DEMO_SEED: "1"
+          # سرّ اختياري في المستودع: رقمك يصبح مدير المنصّة تلقائياً عند كل تشغيل
+          ADMIN_PHONE: ${{ secrets.ADMIN_PHONE }}
           PAYMENT_PROVIDERS: mock,wallet,manual
           ROOM_PROVIDER: internal
           # خادم تجربة: حدود أوسع لرموز التحقّق حتى لا تُحجب المحاولات المتكرّرة
