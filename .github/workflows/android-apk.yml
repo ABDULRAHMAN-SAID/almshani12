@@ -3,6 +3,15 @@
 # توقيع مستقر للتحديثات: أضف الأسرار ANDROID_KEYSTORE_BASE64 / ANDROID_KEYSTORE_PASSWORD / ANDROID_KEY_ALIAS / ANDROID_KEY_PASSWORD؛ بدونها يُستعمل مفتاح التطوير الثابت من قالب Expo (صالح للتجربة، لا للمتجر).
 name: android-apk
 on:
+  # يُبنى تلقائياً عند كل دفعة تمسّ التطبيق (يُلغى البناء السابق إن كان جارياً)، ويدوياً من Run workflow
+  push:
+    branches:
+      - claude/digital-education-platform-1w1zvq
+      - main
+    paths:
+      - "apps/mobile/**"
+      - "packages/**"
+      - ".github/workflows/android-apk.yml"
   workflow_dispatch:
     inputs:
       server_url:
