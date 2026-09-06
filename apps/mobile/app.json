@@ -18,15 +18,24 @@
       "bundleIdentifier": "om.manassah.app",
       "infoPlist": {
         "CFBundleDevelopmentRegion": "ar",
-        "CFBundleLocalizations": ["ar", "en"],
+        "CFBundleLocalizations": [
+          "ar",
+          "en"
+        ],
         "NSCameraUsageDescription": "تُستخدم الكاميرا في الحصص المباشرة",
         "NSMicrophoneUsageDescription": "يُستخدم الميكروفون في الحصص المباشرة"
       }
     },
     "android": {
       "package": "om.manassah.app",
-      "adaptiveIcon": { "foregroundImage": "./assets/adaptive-icon.png", "backgroundColor": "#F8F6F1" },
-      "permissions": ["CAMERA", "RECORD_AUDIO"]
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#F8F6F1"
+      },
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -38,9 +47,31 @@
       "expo-font",
       "expo-localization",
       "expo-secure-store",
-      ["expo-splash-screen", { "backgroundColor": "#F8F6F1", "image": "./assets/splash-icon.png", "imageWidth": 160 }]
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#F8F6F1",
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 160
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "تُستخدم الكاميرا في الحصص المباشرة",
+          "microphonePermission": "يُستخدم الميكروفون في الحصص المباشرة"
+        }
+      ],
+      "expo-video",
+      "expo-web-browser",
+      "expo-document-picker"
     ],
-    "experiments": { "typedRoutes": true },
-    "extra": { "supportsRTL": true, "router": {} }
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "supportsRTL": true,
+      "router": {}
+    }
   }
 }

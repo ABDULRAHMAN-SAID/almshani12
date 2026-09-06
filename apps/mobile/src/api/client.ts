@@ -24,7 +24,7 @@ export function errorMessageKey(err: unknown): string {
       validation_error: 'errors.validation', payment_failed: 'errors.paymentFailed', booking_conflict: 'errors.bookingConflict',
       teacher_unavailable: 'errors.teacherUnavailable', slot_expired: 'errors.slotExpired',
       content_unavailable: 'errors.contentUnavailable', otp_invalid: 'errors.otpInvalid', otp_expired: 'errors.otpExpired',
-      forbidden: 'errors.forbidden', not_found: 'errors.notFound', rate_limited: 'errors.rateLimited',
+      forbidden: 'errors.forbidden', not_found: 'errors.notFound', rate_limited: 'errors.rateLimited', insufficient_funds: 'errors.insufficientFunds',
     };
     return map[err.code] ?? 'errors.generic';
   }

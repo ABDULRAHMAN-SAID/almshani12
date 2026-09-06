@@ -20,6 +20,7 @@ export const ICONS = {
   lock: 'lock-closed-outline', wifi: 'wifi-outline', wifiOff: 'cloud-offline-outline', warning: 'alert-circle-outline',
   info: 'information-circle-outline', empty: 'file-tray-outline', refresh: 'refresh-outline', trash: 'trash-outline',
   edit: 'create-outline', plus: 'add', minus: 'remove', upload: 'cloud-upload-outline', download: 'download-outline',
+  copy: 'copy-outline', card: 'card-outline', bank: 'business-outline', speed: 'speedometer-outline', replay: 'play-back-outline', forward10: 'play-forward-outline', send: 'send', camera: 'camera-outline', mute: 'volume-mute-outline', timer: 'timer-outline', screen: 'desktop-outline', end: 'stop-circle-outline', document: 'document-text-outline', attach: 'attach', reading: 'reader-outline', arrowUp: 'arrow-up',
   location: 'location-outline', phone: 'call-outline', mail: 'mail-outline', school: 'school-outline', grade: 'ribbon-outline',
 } as const;
 
