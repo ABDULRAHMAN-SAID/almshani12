@@ -5,6 +5,7 @@ import { grantAccess, revokeAccess, checkAccess } from './access.ts';
 import * as wallet from './wallet.ts';
 import { recordEarning, reverseEarning } from './earnings.ts';
 import { notify } from './notifications.ts';
+import { sendReceipt, notifyBookingConfirmed } from './mail.ts';
 
 export type ItemType = 'book' | 'course' | 'lesson' | 'package' | 'subscription';
 export interface ResolvedItem {
@@ -106,6 +107,15 @@ export function createOrder(userId: number, { items, couponCode, meta, learnerId
 
 /* ---------- التنفيذ بعد الدفع (آمن للتكرار) ---------- */
 export function fulfillOrder(orderId: number, { provider, providerRef }: { provider: string; providerRef?: string | null }) {
+  const result = fulfillOrderTx(orderId, { provider, providerRef });
+  if (!result.alreadyPaid) {
+    // بريد بعد الالتزام (fire-and-forget): إيصال للحساب، وتأكيد لكل حصة صارت مؤكَّدة بهذا الطلب — لا يمسّ منطق المال
+    void sendReceipt(result.order);
+    for (const it of q.all<{ item_id: number }>("SELECT item_id FROM order_items WHERE order_id = ? AND item_type = 'lesson'", orderId)) void notifyBookingConfirmed(it.item_id);
+  }
+  return result;
+}
+function fulfillOrderTx(orderId: number, { provider, providerRef }: { provider: string; providerRef?: string | null }) {
   return db.transaction(() => {
     const order = q.get<any>('SELECT * FROM orders WHERE id = ?', orderId);
     if (!order) throw notFound('الطلب غير موجود');

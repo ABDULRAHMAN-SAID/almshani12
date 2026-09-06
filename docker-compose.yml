@@ -34,8 +34,45 @@ services:
       # الحماية: الدول المسموحة وأهداف الاختبار
       SMS_ALLOWED_COUNTRIES: ${SMS_ALLOWED_COUNTRIES:-+968}
       OTP_TEST_TARGETS: ${OTP_TEST_TARGETS:-}
-      PAYMENT_PROVIDERS: ${PAYMENT_PROVIDERS:-mock,wallet,manual}
+      PAYMENT_PROVIDERS: ${PAYMENT_PROVIDERS:-mock,wallet,manual}   # للإنتاج: thawani,wallet,manual
+      # الدفع: ثواني (UAT للتجربة أو live من بوابة التاجر) وStripe — README «ثواني»
+      THAWANI_SECRET_KEY: ${THAWANI_SECRET_KEY:-}
+      THAWANI_PUBLISHABLE_KEY: ${THAWANI_PUBLISHABLE_KEY:-}
+      THAWANI_WEBHOOK_SECRET: ${THAWANI_WEBHOOK_SECRET:-}
+      THAWANI_MODE: ${THAWANI_MODE:-}                    # فارغ = live في الإنتاج | uat للتجربة
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      # الدخول الاجتماعي (معرّفات العملاء؛ فارغ = مخفي)
+      GOOGLE_CLIENT_IDS: ${GOOGLE_CLIENT_IDS:-}
+      APPLE_CLIENT_IDS: ${APPLE_CLIENT_IDS:-}
+      APPLE_SERVICES_ID: ${APPLE_SERVICES_ID:-}
+      # الغرف: LiveKit للجوال، وTURN ثابت أو ديناميكي (Twilio/Metered)
       ROOM_PROVIDER: ${ROOM_PROVIDER:-internal}
+      LIVEKIT_URL: ${LIVEKIT_URL:-}
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-}
+      TURN_URL: ${TURN_URL:-}
+      TURN_USERNAME: ${TURN_USERNAME:-}
+      TURN_CREDENTIAL: ${TURN_CREDENTIAL:-}
+      TURN_SOURCE: ${TURN_SOURCE:-}                      # فارغ = تلقائي | static | metered
+      METERED_API_KEY: ${METERED_API_KEY:-}
+      METERED_DOMAIN: ${METERED_DOMAIN:-}
+      TURN_TTL: ${TURN_TTL:-3600}
+      # الإشعارات الفورية: VAPID يُولَّد تلقائياً ويُحفَظ في /data إن تُرك فارغاً
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-}
+      EXPO_ACCESS_TOKEN: ${EXPO_ACCESS_TOKEN:-}
+      # المراقبة والنسخ الاحتياطية والبريد
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_TRACES: ${SENTRY_TRACES:-0}
+      BACKUP_ENABLED: ${BACKUP_ENABLED:-true}            # نسخ تلقائية في /data/backups
+      BACKUP_KEEP: ${BACKUP_KEEP:-7}
+      BACKUP_EVERY_HOURS: ${BACKUP_EVERY_HOURS:-24}
+      MAIL_RECEIPTS: ${MAIL_RECEIPTS:-true}              # إيصال بالبريد بعد الدفع
+      # النشر (للعرض في لوحة الإدارة)
+      DOMAIN: ${DOMAIN:-}
+      GHCR_IMAGE: ${GHCR_IMAGE:-}
     volumes:
       - manassah-data:/data
     restart: unless-stopped

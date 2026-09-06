@@ -5,6 +5,7 @@ import { isWithinAvailability } from './slots.ts';
 import { createOrder, refundOrder, refundPercentFor } from './checkout.ts';
 import { recordEarning, releaseEarnings, reverseEarning } from './earnings.ts';
 import { notify } from './notifications.ts';
+import { notifyBookingConfirmed } from './mail.ts';
 import type { LearnerRow } from './learners.ts';
 
 export interface BookingRow {
@@ -84,6 +85,7 @@ export function createBooking(studentId: number, input: {
       // المعلّم يرى اسم المتعلّم وصفّه فقط — لا هاتف ولا بريد ولا معرّف حساب
       const subject = q.val<string>('SELECT name FROM subjects WHERE id = ?', input.subjectId) ?? '';
       notify(input.teacherId, { type: 'booking_confirmed', title: 'حجز جديد', body: `حجز جديد: ${learnerLabel(learner)} — ${subject}`, data: { bookingId } });
+      void notifyBookingConfirmed(bookingId); // تأكيد بالبريد للحساب الدافع (إن كان له بريد ومزوّد)
       return { booking: q.get<BookingRow>('SELECT * FROM bookings WHERE id = ?', bookingId)!, order: null };
     }
     const order = createOrder(studentId, { items: [{ type: 'lesson', id: bookingId }], couponCode: input.couponCode ?? null, meta: { bookingId }, learnerId: learner.id });

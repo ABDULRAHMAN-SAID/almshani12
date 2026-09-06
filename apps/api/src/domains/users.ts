@@ -106,6 +106,7 @@ router.delete('/me', requireAuth, asyncHandler(async (req, res) => {
     projectSelfLearner(uid); // لا متعلّم ذاتي فعّال → تُمسح صفوف الجدولين القديمين
     q.run('UPDATE refresh_tokens SET revoked = 1 WHERE user_id = ?', uid);
     q.run('DELETE FROM device_tokens WHERE user_id = ?', uid);
+    q.run('DELETE FROM push_devices WHERE user_id = ?', uid);
     q.run('DELETE FROM auth_identities WHERE user_id = ?', uid);
   })();
   audit(req, 'user.delete', 'user', uid);

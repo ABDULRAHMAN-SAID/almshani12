@@ -11,7 +11,7 @@ after(() => c.close());
 test('GET /auth/methods: بلا مزوّد يبقى الهاتف والبريد متاحين بالرمز الثابت، وواتساب غير متاح', async () => {
   const r = await c.api('/api/auth/methods');
   assert.equal(r.status, 200);
-  assert.deepEqual(AuthMethods.parse(r.json), { phone: true, whatsapp: false, email: true, testCode: true });
+  assert.deepEqual(AuthMethods.parse(r.json), { phone: true, whatsapp: false, email: true, testCode: true, google: false, apple: false });
 });
 
 test('الطلب يعيد delivery=test مع الرمز الثابت؛ التحقّق به يعمل والخاطئ يُرفض', async () => {
@@ -49,5 +49,9 @@ test('GET /admin/system: للمدير فقط، بالشكل المتّفق عل�
   assert.deepEqual(info.otp.allowedCountries, ['+968']); assert.equal(info.otp.testTargets, 0);
   assert.equal(info.bootstrap.adminPhone, false); assert.equal(typeof info.rooms.turn, 'boolean');
   assert.deepEqual(info.payments.providers, ['mock', 'wallet', 'manual']);
-  for (const word of ['secret', 'token', 'pass', 'apikey', 'sid', 'test-jwt']) assert.equal(r.text.toLowerCase().includes(word), false, `لا يظهر ${word}`);
+  // أسماء المتغيّرات الناقصة في قسم الربط (مثل TWILIO_AUTH_TOKEN) ليست أسراراً — تُستثنى من فحص الكلمات
+  const text = JSON.stringify({ ...r.json, integrations: undefined }).toLowerCase();
+  for (const word of ['secret', 'token', 'pass', 'apikey', 'sid', 'test-jwt']) assert.equal(text.includes(word), false, `لا يظهر ${word}`);
+  assert.equal(info.integrations.length > 0, true); assert.equal(info.summary.total, info.integrations.flatMap(g => g.items).length);
+  assert.equal(info.integrations.flatMap(g => g.items).some(i => JSON.stringify(i).toLowerCase().includes('test-jwt')), false);
 });

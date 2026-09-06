@@ -1,0 +1,48 @@
+# نشر إنتاجي بأمر واحد على أي خادم فيه Docker (VPS): التطبيق + Caddy لشهادة HTTPS تلقائية.
+#   cp apps/api/.env.production.example .env   ← عدّل القيم (PUBLIC_URL=https://app.example.om …)
+#   DOMAIN=app.example.om docker compose -f deploy/docker-compose.prod.yml up -d
+# البيانات (قاعدة البيانات، الملفات، النسخ الاحتياطية) في المجلّد /data داخل الحاوية = volume manassah-data.
+services:
+  manassah:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: manassah:latest                   # للصورة الجاهزة من GHCR بدل البناء: docker pull ghcr.io/<owner>/<repo>:latest ثم docker tag … manassah:latest
+    env_file:
+      - ../.env
+    environment:
+      NODE_ENV: production
+      DATA_DIR: /data
+      TRUST_PROXY: "true"                    # خلف Caddy: عنوان العميل الحقيقي من X-Forwarded-For
+      DOMAIN: ${DOMAIN:-}                    # النطاق العام (يظهر في لوحة الإدارة ← الربط والخدمات)
+      PUBLIC_URL: https://${DOMAIN:-localhost}       # العنوان العام = النطاق خلف Caddy (يغلب ما في .env)
+      GHCR_IMAGE: ${GHCR_IMAGE:-}
+    volumes:
+      - manassah-data:/data
+    expose:
+      - "4000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+  caddy:
+    image: caddy:2
+    environment:
+      DOMAIN: ${DOMAIN:?اضبط DOMAIN=app.example.om}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"                        # HTTP/3
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - manassah
+    restart: unless-stopped
+volumes:
+  manassah-data:
+  caddy_data:
+  caddy_config:

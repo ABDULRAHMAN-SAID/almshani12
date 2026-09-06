@@ -804,6 +804,22 @@ CREATE TABLE IF NOT EXISTS device_tokens (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- أجهزة الإشعارات الفورية: اشتراك المتصفح (Web Push: token = endpoint + مفتاحا auth/p256dh) أو رمز Expo — أُضيف بالترحيل 004
+CREATE TABLE IF NOT EXISTS push_devices (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  kind         TEXT NOT NULL CHECK (kind IN ('expo','web')),
+  token        TEXT NOT NULL,
+  auth         TEXT,
+  p256dh       TEXT,
+  platform     TEXT,
+  user_agent   TEXT,
+  last_used_at TEXT,
+  created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (kind, token)
+);
+CREATE INDEX IF NOT EXISTS idx_push_devices_user ON push_devices(user_id);
+
 -- ------------------------- النظام -------------------------
 CREATE TABLE IF NOT EXISTS settings (
   key   TEXT PRIMARY KEY,

@@ -6,7 +6,7 @@ import {
 } from '@manassah/shared';
 import type { LearnerRef, Overview, PersonDetail, ReviewAdmin, BookingStatus } from '@manassah/shared';
 import { db, q, json, settings, nowIso } from '../db/index.ts';
-import { AppError, notFound, badRequest, forbidden, conflict } from '../lib/errors.ts';
+import { AppError, notFound, badRequest, forbidden, conflict, asyncHandler } from '../lib/errors.ts';
 import { validate, body, idParam } from '../lib/validate.ts';
 import { requireAuth, requireRole, requireExactRole, hasRole } from '../lib/auth.ts';
 import { money, slugify, paginate, pageMeta } from '../lib/helpers.ts';
@@ -24,6 +24,8 @@ import { audit } from '../lib/audit.ts';
 import { config } from '../config.ts';
 import { SCHEMA_VERSION } from '../db/migrations.ts';
 import { otpMethods } from '../services/otp.ts';
+import { listIntegrations, runChecks, summary as integrationsSummary } from '../services/integrations.ts';
+import { runBackup, listBackups, BACKUP_DIR } from '../services/backups.ts';
 
 /**
  * لوحة الإدارة — كل مسار يفرض دوره في الخادم.
@@ -584,6 +586,7 @@ router.post('/payouts/:id/decision', requireRole('finance'), validate(PayoutDeci
 /* ---------- حالة النظام (قراءة فقط — لا أسرار أبداً) ---------- */
 router.get('/system', requireRole('admin'), (_req, res) => {
   const { otp, payments, rooms, bootstrap } = config;
+  const backups = listBackups();
   const turn = rooms.iceServers.some(s => (Array.isArray(s.urls) ? s.urls : [s.urls]).some(u => u.startsWith('turn')));
   res.json({
     publicUrl: config.publicUrl, env: config.env, schemaVersion: SCHEMA_VERSION,
@@ -591,7 +594,26 @@ router.get('/system', requireRole('admin'), (_req, res) => {
     payments: { providers: payments.providers },
     rooms: { provider: rooms.provider, turn },
     bootstrap: { allowDemoSeed: bootstrap.allowDemoSeed, adminPhone: !!bootstrap.adminPhone },
+    integrations: listIntegrations(), summary: integrationsSummary(),
+    backups: { last: backups[0]?.at ?? null, count: backups.length, dir: BACKUP_DIR },
+    deploy: { domain: config.deploy.domain || null, image: config.deploy.image || null },
   });
+});
+
+/** فحص الاتصال الفعلي بالخدمات — مرة كل ١٠ ثوانٍ لكل عملية (الفحوصات تلمس شبكات خارجية) */
+let lastCheckAt = 0;
+router.post('/system/check', requireRole('admin'), validate(z.object({ ids: z.array(z.string().min(1).max(60)).max(60).optional() })), asyncHandler(async (req, res) => {
+  if (Date.now() - lastCheckAt < 10_000) throw new AppError('rate_limited', 'انتظر ١٠ ثوانٍ قبل فحص آخر', 429);
+  lastCheckAt = Date.now();
+  const results = await runChecks(req.body.ids);
+  audit(req, 'system.check', 'system', null, { ids: Object.keys(results).length });
+  res.json(results);
+}));
+
+router.post('/system/backup', requireRole('admin'), (req, res) => {
+  const b = runBackup();
+  audit(req, 'system.backup', 'system', null, { file: b.file, bytes: b.bytes });
+  res.json(b);
 });
 
 /* ---------- الإعدادات (السياسات) ---------- */

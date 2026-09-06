@@ -1,18 +1,20 @@
 import type { Server } from 'socket.io';
 import { q } from '../db/index.ts';
+import { sendPush } from './push.ts';
 
 let io: Server | null = null;
 export const bindIo = (server: Server) => { io = server; };
 
 export interface NotifyInput { type: string; title: string; body?: string | null; data?: Record<string, unknown> | null }
 
-/** يُنشئ إشعاراً ويبثّه فوراً لمن هو متصل — والدفع للجوال (push) يُضاف في المرحلة ١ */
+/** يُنشئ إشعاراً ويبثّه فوراً لمن هو متصل، ثم يدفعه لأجهزة المستخدم (متصفح/Expo) دون انتظار */
 export function notify(userId: number, { type, title, body = null, data = null }: NotifyInput) {
   if (!userId || !title) return null;
   const info = q.run('INSERT INTO notifications (user_id, type, title, body, data) VALUES (?,?,?,?,?)',
     userId, type, title, body, data ? JSON.stringify(data) : null);
   const row = q.get<any>('SELECT * FROM notifications WHERE id = ?', info.lastInsertRowid);
   io?.to(`user:${userId}`).emit('notification', { ...row, data });
+  void sendPush(userId, { title, body, data: { ...(data ?? {}), type, notificationId: row.id } });
   return row;
 }
 

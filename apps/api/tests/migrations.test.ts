@@ -14,7 +14,7 @@ before(async () => { c = await boot(); dir = fs.mkdtempSync(path.join(os.tmpdir(
 after(() => { c.close(); fs.rmSync(dir, { recursive: true, force: true }); });
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const TOUCHED = ['users', 'learners', 'learner_subjects', 'bookings', 'orders', 'package_purchases', 'teacher_documents', 'reviews', 'audit_logs', 'otp_codes'];
+const TOUCHED = ['users', 'learners', 'learner_subjects', 'bookings', 'orders', 'package_purchases', 'teacher_documents', 'reviews', 'audit_logs', 'otp_codes', 'push_devices'];
 const open = (file: string) => { const d = new Database(file); d.pragma('journal_mode = WAL'); d.pragma('foreign_keys = ON'); return d; };
 const tableInfo = (d: Database.Database, t: string) =>
   (d.pragma(`table_info(${t})`) as any[]).map(x => ({ cid: x.cid, name: x.name, type: x.type, notnull: x.notnull, dflt: x.dflt_value, pk: x.pk }));
@@ -93,14 +93,14 @@ test('قاعدة v0: نسخة احتياطية، متعلّم لكل student_pro
 test('قاعدة جديدة: user_version نهائي والترحيلات لا تفعل شيئاً و/api/health يعلن الإصدار', async () => {
   const mig = await import('../src/db/migrations.ts');
   assert.equal(c.db.pragma('user_version', { simple: true }), mig.SCHEMA_VERSION);
-  assert.equal(mig.SCHEMA_VERSION, 3);
+  assert.equal(mig.SCHEMA_VERSION, 4);
   const h = await c.api('/api/health');
   assert.equal(h.status, 200); assert.equal(h.json.schemaVersion, mig.SCHEMA_VERSION);
   assert.equal(c.q.val('SELECT COUNT(*) FROM sqlite_master WHERE type = ? AND name IN (?, ?)', 'table', 'learners', 'learner_subjects'), 2);
   assert.deepEqual(c.db.pragma('foreign_key_check'), []);
 });
 
-test('قاعدة v2 → v3: عمودا provider/via وفهرس created_at على otp_codes، والصفوف القديمة تصبح local/test', async () => {
+test('قاعدة v2 → الأحدث: عمودا provider/via وفهرس created_at على otp_codes، والصفوف القديمة تصبح local/test، وجدول push_devices', async () => {
   const dbm = await import('../src/db/index.ts');
   const mig = await import('../src/db/migrations.ts');
   const file = path.join(dir, 'v2.db');
@@ -113,10 +113,12 @@ test('قاعدة v2 → v3: عمودا provider/via وفهرس created_at على
   d.pragma('user_version = 2');
   d.exec("INSERT INTO otp_codes (channel, target, code_hash, expires_at) VALUES ('phone','+96890000001','h',0)");
   assert.equal(mig.hasColumn(d, 'otp_codes', 'provider'), false);
+  assert.equal(mig.hasTable(d, 'push_devices'), false);
   dbm.migrateDb(d, file, { backup: false });
-  assert.equal(d.pragma('user_version', { simple: true }), 3);
+  assert.equal(d.pragma('user_version', { simple: true }), mig.SCHEMA_VERSION);
   assert.equal(mig.hasColumn(d, 'otp_codes', 'provider'), true); assert.equal(mig.hasColumn(d, 'otp_codes', 'via'), true);
   assert.ok(indexNames(d).includes('idx_otp_created'));
+  assert.equal(mig.hasTable(d, 'push_devices'), true); assert.ok(indexNames(d).includes('idx_push_devices_user'));
   assert.deepEqual(d.prepare('SELECT provider, via FROM otp_codes').get(), { provider: 'local', via: 'test' }, 'الصفوف القديمة لا تُحتسب إرسالاً حقيقياً');
   const fresh = new Database(':memory:');
   dbm.migrateDb(fresh, ':memory:');

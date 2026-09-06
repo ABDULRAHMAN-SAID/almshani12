@@ -30,7 +30,11 @@ export const OtpRequestResult = z.object({
 export type OtpRequestResult = z.infer<typeof OtpRequestResult>;
 
 /** طرق الدخول المتاحة على الخادم (GET /auth/methods) */
-export const AuthMethods = z.object({ phone: z.boolean(), whatsapp: z.boolean(), email: z.boolean(), testCode: z.boolean() });
+export const AuthMethods = z.object({
+  phone: z.boolean(), whatsapp: z.boolean(), email: z.boolean(), testCode: z.boolean(),
+  /** الدخول الاجتماعي مضبوط على الخادم (معرّفات العملاء موجودة) */
+  google: z.boolean().default(false), apple: z.boolean().default(false),
+});
 export type AuthMethods = z.infer<typeof AuthMethods>;
 
 export const OtpVerify = z.object({
@@ -123,3 +127,37 @@ export const StudentSetup = z.object({
 export type StudentSetup = z.infer<typeof StudentSetup>;
 
 export const RefreshRequest = z.object({ refreshToken: z.string().min(10) });
+
+/* ---------- الدخول الاجتماعي (POST /auth/google، /auth/apple) ---------- */
+export const GoogleLogin = z.object({
+  /** ID token من Google Identity Services أو expo-auth-session */
+  idToken: z.string().min(20).max(8192),
+  role: SignupRole.optional(),
+  locale: z.enum(['ar', 'en']).default('ar'),
+});
+export type GoogleLogin = z.infer<typeof GoogleLogin>;
+export const AppleLogin = z.object({
+  identityToken: z.string().min(20).max(8192),
+  /** Apple يرسل الاسم مرة واحدة فقط عند أول تفويض */
+  fullName: z.object({ givenName: z.string().trim().max(60).optional().nullable(), familyName: z.string().trim().max(60).optional().nullable() }).optional().nullable(),
+  role: SignupRole.optional(),
+  locale: z.enum(['ar', 'en']).default('ar'),
+});
+export type AppleLogin = z.infer<typeof AppleLogin>;
+
+/* ---------- الإشعارات الفورية (POST/DELETE /me/push) ---------- */
+export const PushKind = z.enum(['expo', 'web']);
+export type PushKind = z.infer<typeof PushKind>;
+export const WebPushSubscription = z.object({
+  endpoint: z.string().url().max(2000),
+  keys: z.object({ p256dh: z.string().min(10).max(500), auth: z.string().min(5).max(200) }),
+});
+export type WebPushSubscription = z.infer<typeof WebPushSubscription>;
+export const PushRegister = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('expo'), token: z.string().min(10).max(500), platform: z.enum(['ios', 'android']).optional() }),
+  z.object({ kind: z.literal('web'), subscription: WebPushSubscription, platform: z.literal('web').optional() }),
+]);
+export type PushRegister = z.infer<typeof PushRegister>;
+export const PushUnregister = z.object({ kind: PushKind, token: z.string().min(10).max(2000).optional(), endpoint: z.string().min(10).max(2000).optional() })
+  .refine(v => !!(v.token || v.endpoint), { message: 'token أو endpoint مطلوب', path: ['token'] });
+export type PushUnregister = z.infer<typeof PushUnregister>;

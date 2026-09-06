@@ -165,5 +165,5 @@ export const api = {
     request<T>('POST', path, body ?? {}, schema, opts),
   patch: <T>(path: string, body?: unknown, schema?: z.ZodType<T>) => request<T>('PATCH', path, body ?? {}, schema),
   put: <T>(path: string, body?: unknown, schema?: z.ZodType<T>) => request<T>('PUT', path, body ?? {}, schema),
-  delete: <T>(path: string, schema?: z.ZodType<T>) => request<T>('DELETE', path, undefined, schema),
+  delete: <T>(path: string, schema?: z.ZodType<T>, body?: unknown) => request<T>('DELETE', path, body, schema),
 };

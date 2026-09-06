@@ -2,7 +2,7 @@
 export const ar = {
   common: {
     appName: 'منصّة',
-    ok: 'حسناً', cancel: 'إلغاء', save: 'حفظ', back: 'رجوع', next: 'التالي', done: 'تم',
+    ok: 'حسناً', cancel: 'إلغاء', save: 'حفظ', back: 'رجوع', next: 'التالي', done: 'تم', or: 'أو',
     retry: 'حاول مرة أخرى', seeAll: 'عرض الكل', details: 'التفاصيل', close: 'إغلاق',
     loading: 'جارٍ التحميل…', search: 'بحث', filters: 'تصفية', apply: 'تطبيق', reset: 'مسح',
     free: 'مجاناً', from: 'يبدأ من', minutes: 'دقيقة', hours: 'ساعة', today: 'اليوم', tomorrow: 'غداً',
@@ -197,7 +197,7 @@ export const ar = {
     otpTitle: 'أدخل رقم هاتفك أو بريدك', otpBody: 'سنرسل رمز تحقّق من ٦ أرقام — لا كلمات مرور',
     usePhone: 'الهاتف', useEmail: 'البريد', phonePlaceholder: '9XXXXXXX', emailPlaceholder: 'name@example.com', omanCode: '+968',
     devCode: 'وضع التطوير — الرمز: {{code}}', changeTarget: 'تغيير', apple: 'المتابعة بحساب Apple', google: 'المتابعة بحساب Google',
-    socialUnavailable: 'يتطلّب ضبط مفاتيح المتاجر — يُفعَّل عند النشر', invalidTarget: 'أدخل رقماً عُمانياً (8 أرقام) أو بريداً صحيحاً',
+    socialUnavailable: 'الدخول بهذا الحساب غير مفعّل على هذا الخادم', socialFailed: 'تعذّر الدخول بالحساب — حاول مجدداً أو استخدم رمز التحقّق', invalidTarget: 'أدخل رقماً عُمانياً (8 أرقام) أو بريداً صحيحاً',
     welcomeBack: 'أهلاً بعودتك', setupLater: 'يمكنك تعديل صفّك لاحقاً من حسابي',
     sendVia: 'أرسل الرمز عبر', viaSms: 'رسالة نصية', viaWhatsapp: 'واتساب',
     sentSms: 'أرسلنا رسالة نصية إلى', sentWhatsapp: 'أرسلنا رسالة واتساب إلى', sentEmail: 'أرسلنا رسالة إلى بريدك', sentTest: 'حساب تجريبي — رمز ثابت لـ',
@@ -225,6 +225,7 @@ export const ar = {
     waiting: 'بانتظار تأكيد الدفع…', checkStatus: 'تحقّق من الحالة', orderNumber: 'رقم الطلب', bank: 'بيانات التحويل', backHome: 'العودة للرئيسية',
     viewLesson: 'عرض الحصة', lessonPay: 'دفع الحصة', packageBuy: 'شراء الباقة', walletBalance: 'رصيد المحفظة', openGateway: 'افتح بوابة الدفع',
     paidElsewhere: 'أكملت الدفع في المتصفح؟', secure: 'لا تُحفظ بيانات بطاقتك في التطبيق', expired: 'انتهت مهلة الطلب', gotoLibrary: 'مكتبتي',
+    testMode: 'وضع التجربة', confirming: 'جارٍ التحقّق من الدفع لدى البوابة…', cancelled: 'أُلغيت عملية الدفع', cancelledBody: 'لم يُخصم أي مبلغ — يمكنك المحاولة مجدداً متى شئت',
   },
   messagesUi: { title: 'الرسائل', placeholder: 'اكتب رسالة…', send: 'إرسال', empty: 'لا محادثات بعد', emptyHint: 'تواصل مع معلّم من صفحته', withTeacher: 'مراسلة المعلّم', blocked: 'محادثة محظورة', today: 'اليوم' },
   walletUi: { title: 'المحفظة', balance: 'الرصيد المتاح', history: 'الحركات', empty: 'لا حركات بعد', note: 'يُضاف الرصيد من الاسترجاعات والهدايا ويُستخدم للدفع فوراً', types: { topup: 'شحن', purchase: 'شراء', refund: 'استرجاع', adjustment: 'تسوية', bonus: 'هدية' } },
@@ -237,6 +238,8 @@ export const ar = {
     testConnection: 'اختبار الاتصال', connected: 'الاتصال ناجح', connectionFailed: 'تعذّر الاتصال', serverInvalid: 'العنوان يجب أن يبدأ بـ http:// أو https://', serverTimeout: 'انتهت مهلة الاتصال',
     demoMode: 'نسخة تجريبية', liveMode: 'متصل بخادم', demoHint: 'بيانات محلية بلا خادم — اضبط عنوان خادمك للاتصال الحقيقي', useDemo: 'العودة للنسخة التجريبية',
     learners: 'المتعلّمون والصفوف',
+    notifications: 'التنبيهات', pushToggle: 'تنبيهات المتصفح/الجهاز', pushHint: 'تذكيرات الحصص والرسائل تصلك حتى والتطبيق مغلق',
+    pushOn: 'مفعّلة', pushOff: 'غير مفعّلة', pushUnsupported: 'غير مدعومة على هذا الجهاز', pushUnconfigured: 'غير مضبوطة في هذا الإصدار من التطبيق', pushDenied: 'مرفوضة — اسمح بالتنبيهات من إعدادات المتصفح أو الجهاز', pushChecking: 'جارٍ التحقّق…',
   },
   purchases: { sharedNote: 'المشتريات متاحة لكل المتعلّمين في حسابك' },
   teacherUi: {

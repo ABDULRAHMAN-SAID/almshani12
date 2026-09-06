@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction, RequestHandler } from 'express';
 import type { ErrorCode } from '@manassah/shared';
+import { captureException } from './monitoring.ts';
 
 export class AppError extends Error {
   constructor(
@@ -27,7 +28,7 @@ export function notFoundHandler(req: Request, res: Response, next: NextFunction)
 }
 
 /** أخطاء 5xx التي تصل رسالتها كما هي إلى العميل */
-const USER_FACING_5XX = new Set<string>(['otp_send_failed', 'otp_delivery_unavailable']);
+const USER_FACING_5XX = new Set<string>(['otp_send_failed', 'otp_delivery_unavailable', 'content_unavailable']);
 
 export function errorHandler(err: unknown, _req: Request, res: Response, _next: NextFunction) {
   const e = err as AppError & { statusCode?: number; type?: string };
@@ -36,7 +37,7 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
   const status = e.status || e.statusCode || 500;
   // رسائل 5xx المقصودة للمستخدم هي رموز التحقّق فقط (نصّها ثابت من عندنا)؛ غيرها يُخفى ويُسجَّل كاملاً حتى لا يتسرّب نصّ بوابة خارجية
   const intended = err instanceof AppError && USER_FACING_5XX.has(e.code);
-  if (status >= 500) console.error('[error]', intended ? `${e.code}: ${e.message}` : err);
+  if (status >= 500) { console.error('[error]', intended ? `${e.code}: ${e.message}` : err); if (!intended) captureException(err); }
   res.status(status).json({
     error: {
       code: e.code || 'server_error',

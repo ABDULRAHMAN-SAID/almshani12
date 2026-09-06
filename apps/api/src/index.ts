@@ -21,8 +21,13 @@ import { sendLessonReminders } from './services/reminders.ts';
 import { attachRealtime } from './realtime/index.ts';
 import { bootstrapIfEmpty } from './db/seed.ts';
 import { otpMethods } from './services/otp.ts';
+import { summary as integrationsSummary } from './services/integrations.ts';
+import { availableProviders } from './services/payments.ts';
+import { startBackupScheduler } from './services/backups.ts';
+import { initMonitoring } from './lib/monitoring.ts';
 import auth from './domains/auth.ts';
 import users from './domains/users.ts';
+import pushRouter from './domains/push.ts';
 import catalog from './domains/catalog.ts';
 import books from './domains/books.ts';
 import courses from './domains/courses.ts';
@@ -38,7 +43,8 @@ export function createApp() {
   const app = express();
   app.disable('x-powered-by');
   if (config.security.trustProxy) app.set('trust proxy', 1);
-  app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' }, contentSecurityPolicy: false }));
+  // COOP «same-origin-allow-popups»: نوافذ Google/Apple المنبثقة على الويب تعيد الرمز عبر postMessage — «same-origin» الافتراضي يقطعها
+  app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' }, crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' }, contentSecurityPolicy: false }));
   app.use(cors({
     origin: config.security.corsOrigins.length ? config.security.corsOrigins : true, credentials: true,
     // X-Learner-Id: المتعلّم النشط في العميل (انظر services/learners.ts)
@@ -55,10 +61,14 @@ export function createApp() {
   }));
   app.use(attachUser);
 
-  app.get('/api/health', (_req, res) => res.json({ ok: true, name: config.brand.name.ar, env: config.env, time: new Date().toISOString(), schemaVersion: SCHEMA_VERSION, otp: otpMethods() }));
+  app.get('/api/health', (_req, res) => res.json({ ok: true, name: config.brand.name.ar, env: config.env, time: new Date().toISOString(), schemaVersion: SCHEMA_VERSION, otp: otpMethods(), integrations: integrationsSummary() }));
   app.get('/api/config', (_req, res) => res.json({
     brand: config.brand, paymentProviders: config.payments.providers, roomProvider: config.rooms.provider,
     devOtp: !!config.otp.fixedCode, mockPayments: config.env !== 'production' && config.payments.providers.includes('mock'),
+    // ما يحتاجه التطبيق ليُظهر أزرار الدخول الاجتماعي والإشعارات ووسائل الدفع الفعلية — معرّفات عامة فقط
+    auth: { google: config.auth.google.clientIds[0] ?? null, apple: { servicesId: config.auth.apple.servicesId || null, native: config.auth.apple.clientIds.length > 0 } },
+    push: { web: config.push.vapid.publicKey || null },
+    payments: { providers: availableProviders(), thawaniMode: availableProviders().includes('thawani') ? config.payments.thawani.mode : null },
   }));
 
   /* ---------- الملفات: عامة بلا توقيع، وخاصة بتوقيع قصير العمر ---------- */
@@ -83,6 +93,7 @@ export function createApp() {
 
   app.use('/api/auth', auth);
   app.use('/api', users);
+  app.use('/api', pushRouter);
   app.use('/api/catalog', catalog);
   app.use('/api/books', books);
   app.use('/api/courses', courses);
@@ -107,7 +118,7 @@ export function createApp() {
   const webDist = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../mobile/dist');
   if (fs.existsSync(path.join(webDist, 'index.html'))) {
     app.use(express.static(webDist, { index: 'index.html', maxAge: '1h' }));
-    app.get(/^(?!\/api\/|\/admin|\/static\/|\/pay\/).*/, (_req, res) => res.sendFile(path.join(webDist, 'index.html')));
+    app.get(/^(?!\/api\/|\/admin|\/static\/|\/pay\/mock\/).*/, (_req, res) => res.sendFile(path.join(webDist, 'index.html')));
   }
 
   app.use(notFoundHandler);
@@ -132,6 +143,8 @@ export function start() {
     console.log(`✔ ${config.brand.name.ar} API — ${config.publicUrl}  (${config.env})`);
     console.log(`  users: ${q.val<number>('SELECT COUNT(*) FROM users')}  providers: ${config.payments.providers.join(',')}  rooms: ${config.rooms.provider}`);
   });
+  void initMonitoring();
+  startBackupScheduler();
   runMaintenance();
   const timer = setInterval(runMaintenance, 60_000);
   timer.unref();

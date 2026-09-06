@@ -1,6 +1,8 @@
-import { Fragment, useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../api';
+import { api, when } from '../api';
+import { SummaryChips } from './System';
 import { Page, Field, useToast, errMsg, can, type Me } from '../ui';
 import type { SystemInfo } from '@manassah/shared';
 
@@ -11,32 +13,17 @@ const NUM: [string, string, string][] = [
   ['earnings_hold_hours', 'احتجاز أرباح الكتب/الدورات (ساعات)', 'نافذة الاسترجاع'], ['max_teacher_slots_per_day', 'أقصى حصص للمعلّم يومياً', ''],
 ];
 
-const SMS_NAMES: Record<SystemInfo['otp']['smsProvider'], string> = { twilio_verify: 'Twilio Verify', twilio: 'Twilio (رسائل)', http: 'بوابة HTTP', log: 'غير مضبوط — الرمز الثابت' };
-const EMAIL_NAMES: Record<SystemInfo['otp']['emailProvider'], string> = { smtp: 'SMTP', resend: 'Resend', log: 'غير مضبوط' };
-
-/** بطاقة قراءة فقط: مزوّدات الرسائل والبريد والدفع والغرف كما يراها الخادم — بلا أسرار */
-function SystemCard() {
+/** ملخّص سطرين لحالة الربط — التفاصيل والفحص في صفحة «الربط والخدمات» */
+function SystemSummary() {
   const q = useQuery({ queryKey: ['adm-system'], queryFn: () => api.get<SystemInfo>('/admin/system'), staleTime: 60_000 });
   const s = q.data;
-  const realProvider = !!s && (s.otp.smsProvider !== 'log' || s.otp.emailProvider !== 'log');
-  const rows: [string, ReactNode][] = s ? [
-    ['الرسائل النصية', SMS_NAMES[s.otp.smsProvider]],
-    ['واتساب', <span className={`badge ${s.otp.whatsapp ? 'success' : ''}`}>{s.otp.whatsapp ? 'متاح' : 'غير متاح'}</span>],
-    ['البريد', EMAIL_NAMES[s.otp.emailProvider]],
-    ['الرمز الثابت', s.otp.testCode ? `مفعّل${realProvider ? ' — يسري على حسابات العرض فقط' : ''}${s.otp.testTargets ? ` (${s.otp.testTargets} هدف اختبار)` : ''}` : 'معطّل'],
-    ['الدول المسموحة', s.otp.allowedCountries.includes('*') ? 'الكل' : s.otp.allowedCountries.join('، ') || '—'],
-    ['الدفع', s.payments.providers.join('، ') || '—'],
-    ['الغرف', `${s.rooms.provider} — TURN: ${s.rooms.turn ? 'مضبوط' : 'غير مضبوط'}`],
-    ['الرابط العام', <span className="num" dir="ltr">{s.publicUrl || '—'}</span>],
-    ['إصدار القاعدة', <span className="num">{s.schemaVersion}</span>],
-  ] : [];
   return (
     <div className="card">
-      <h2>الاتصال والإرسال</h2>
-      <p className="muted small">تُضبط المزوّدات من متغيّرات البيئة أو أسرار المستودع — راجع README</p>
-      {q.isLoading ? <p className="muted">جارٍ التحميل…</p> : q.isError ? <p className="error">{errMsg(q.error)}</p> : (
-        <dl className="kv">{rows.map(([k, v]) => <Fragment key={k}><dt>{k}</dt><dd>{v}</dd></Fragment>)}</dl>
-      )}
+      <div className="row between"><h2 style={{ margin: 0 }}>الربط والخدمات</h2><Link className="btn secondary sm" to="/system">التفاصيل والفحص</Link></div>
+      {q.isLoading ? <p className="muted" style={{ margin: '10px 0 0' }}>جارٍ التحميل…</p> : q.isError || !s ? <p className="error">{errMsg(q.error)}</p> : (<>
+        <div style={{ marginTop: 10 }}><SummaryChips s={s.summary} /></div>
+        <p className="muted small" style={{ margin: '8px 0 0' }}>الدفع: {s.payments.providers.join('، ') || '—'} · الغرف: {s.rooms.provider} · آخر نسخة احتياطية: {when(s.backups.last)}</p>
+      </>)}
     </div>
   );
 }
@@ -71,7 +58,7 @@ export default function Settings({ me }: { me: Me }) {
           {NUM.map(([k, label, hint]) => <Field key={k} label={hint ? `${label} — ${hint}` : label}><input value={form[k] ?? ''} disabled={!admin} inputMode="decimal" onChange={e => setForm(f => ({ ...f, [k]: e.target.value }))} /></Field>)}
           <Field label="تذكيرات الحصص (دقائق قبل الموعد، مفصولة بفاصلة)"><input value={reminders} disabled={!admin} onChange={e => setReminders(e.target.value)} /></Field>
         </div>
-        {admin ? <SystemCard /> : null}
+        {admin ? <SystemSummary /> : null}
       </div>
     </Page>
   );

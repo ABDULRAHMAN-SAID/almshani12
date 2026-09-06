@@ -59,6 +59,21 @@ export type TeacherPatch = z.infer<typeof TeacherPatch>;
 export const AdminLearnerUpsert = LearnerUpsert;
 export const AdminLearnerPatch = LearnerPatch;
 
+/** عنصر ربط واحد (خدمة خارجية/داخلية): حالته من الإعدادات، والمتغيّرات الناقصة، ووصف بلا أسرار */
+export const IntegrationStatus = z.enum(['ready', 'partial', 'off']);
+export type IntegrationStatus = z.infer<typeof IntegrationStatus>;
+export const IntegrationGroup = z.enum(['server', 'auth', 'messaging', 'payments', 'rooms', 'push', 'mail', 'monitoring', 'data']);
+export type IntegrationGroup = z.infer<typeof IntegrationGroup>;
+export const IntegrationItem = z.object({
+  id: z.string(), group: IntegrationGroup, label: z.string(), status: IntegrationStatus,
+  missing: z.array(z.string()), detail: z.string(),
+  /** معرّف العنوان في README لقسم «ربط الخدمات» */
+  docs: z.string(),
+});
+export type IntegrationItem = z.infer<typeof IntegrationItem>;
+export const IntegrationSummary = z.object({ ready: z.number().int(), partial: z.number().int(), off: z.number().int(), total: z.number().int() });
+export type IntegrationSummary = z.infer<typeof IntegrationSummary>;
+
 /** حالة النظام (GET /admin/system) — قراءة فقط، بلا أسرار */
 export const SystemInfo = z.object({
   publicUrl: z.string(), env: z.string(), schemaVersion: z.number().int(),
@@ -70,8 +85,21 @@ export const SystemInfo = z.object({
   payments: z.object({ providers: z.array(z.string()) }),
   rooms: z.object({ provider: z.string(), turn: z.boolean() }),
   bootstrap: z.object({ allowDemoSeed: z.boolean(), adminPhone: z.boolean() }),
+  /* الربط والخدمات (services/integrations.ts) */
+  integrations: z.array(z.object({ group: IntegrationGroup, label: z.string(), items: z.array(IntegrationItem) })),
+  summary: IntegrationSummary,
+  backups: z.object({ last: IsoDateTime.nullable(), count: z.number().int(), dir: z.string() }),
+  deploy: z.object({ domain: z.string().nullable(), image: z.string().nullable() }),
 });
 export type SystemInfo = z.infer<typeof SystemInfo>;
+
+/** POST /admin/system/check → نتيجة كل عنصر بمعرّفه */
+export const SystemCheckBody = z.object({ ids: z.array(z.string()).optional() });
+export type SystemCheckBody = z.infer<typeof SystemCheckBody>;
+export const SystemCheckResult = z.record(z.string(), z.object({ ok: z.boolean(), detail: z.string(), ms: z.number() }));
+export type SystemCheckResult = z.infer<typeof SystemCheckResult>;
+export const SystemBackupResult = z.object({ file: z.string(), bytes: z.number().int() });
+export type SystemBackupResult = z.infer<typeof SystemBackupResult>;
 
 export const OverviewQuery = z.object({ days: z.coerce.number().int().refine(d => [7, 14, 30, 90].includes(d), 'المدى ٧ أو ١٤ أو ٣٠ أو ٩٠ يوماً').default(14) });
 export type OverviewQuery = z.infer<typeof OverviewQuery>;

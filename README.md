@@ -4,6 +4,102 @@
 
 > الاسم والشعار والألوان تُغيَّر من مكان واحد: `packages/shared/src/brand.ts` و`packages/tokens/src/index.ts`.
 
+## ربط الخدمات (الدليل الكامل)
+
+كل خدمة أدناه **اختيارية**: بلا مفاتيح تعمل المنصّة كما هي (رمز ثابت، بطاقة تجريبية، قاعة داخلية). ضع مفاتيح خدمة واحدة فتعمل تلك الخدمة وحدها.
+**كيف تتأكد:** لوحة الإدارة ← **الربط والخدمات** (`/admin` ← `/system`) تعرض حالة كل عنصر (جاهز / ناقص / غير مفعّل) مع المتغيّرات الناقصة وزر **فحص الاتصال الآن** يجرّب الاتصال الحقيقي بكل خدمة؛ أو من الطرفية `npm run doctor -w apps/api` (نفس الفحص، سطر لكل عنصر؛ `-- --strict` يعيد رمز خروج 1 إن فشل عنصر جاهز). الخادم التجريبي الحيّ (Actions ← live-server) يشغّل الطبيب تلقائياً ويضع النتيجة في التعليق والملخّص.
+
+| الخدمة | ماذا تعطيك | أين تحصل على المفاتيح | المتغيّرات | كيف تتأكد |
+| --- | --- | --- | --- | --- |
+| [رموز التحقّق](#رموز-تحقق-حقيقية) | دخول حقيقي برمز SMS / واتساب / بريد | Twilio · Gmail/SMTP · Resend · بوابة محلية | `TWILIO_*` `SMTP_*` `RESEND_API_KEY` `SMS_HTTP_*` | الربط والخدمات ← الدخول |
+| [ثواني](#ثواني) | دفع ببطاقات عُمانية (UAT ثم live) | thawani.om ← بوابة التاجر | `THAWANI_SECRET_KEY` `THAWANI_PUBLISHABLE_KEY` `THAWANI_WEBHOOK_SECRET` `THAWANI_MODE` | الدفع ← ثواني (يظهر الوضع uat/live) |
+| [Stripe](#stripe) | بطاقات دولية | dashboard.stripe.com ← Developers ← API keys | `STRIPE_SECRET_KEY` `STRIPE_WEBHOOK_SECRET` | الدفع ← Stripe |
+| [Google Sign-In](#google-sign-in) | زر «الدخول بحساب Google» (ويب + جوال) | console.cloud.google.com ← OAuth clients | `GOOGLE_CLIENT_IDS` | الدخول ← Google |
+| [Apple Sign-In](#apple-sign-in) | زر «الدخول بحساب Apple» (ويب + iOS) | developer.apple.com ← Identifiers | `APPLE_CLIENT_IDS` `APPLE_SERVICES_ID` | الدخول ← Apple |
+| [LiveKit](#livekit) | فيديو جماعي للجوال والحصص الكبيرة | cloud.livekit.io ← Settings ← Keys | `ROOM_PROVIDER=livekit` `LIVEKIT_URL` `LIVEKIT_API_KEY` `LIVEKIT_API_SECRET` | الغرف ← LiveKit |
+| [TURN](#turn) | فيديو WebRTC يعمل عبر شبكات الجوال والجدران النارية | Twilio (نفس المفاتيح) · metered.ca · coturn خاص | `TURN_URL/USERNAME/CREDENTIAL` أو `METERED_API_KEY` `METERED_DOMAIN` أو مفاتيح Twilio | الغرف ← TURN |
+| [Sentry](#sentry) | تنبيه فوري بأخطاء الخادم | sentry.io ← Project ← Client Keys | `SENTRY_DSN` `SENTRY_TRACES` | المراقبة ← Sentry |
+| [Web Push](#web-push) | إشعارات المتصفح (تُولَّد المفاتيح تلقائياً) | لا شيء — أو ثبّت مفاتيحك | `VAPID_PUBLIC_KEY` `VAPID_PRIVATE_KEY` `VAPID_SUBJECT` | الإشعارات ← المتصفح |
+| [Expo Push](#expo-push) | إشعارات تطبيق Android/iOS | expo.dev ← EAS projectId (+ Access token اختياري) | `EXPO_ACCESS_TOKEN` + `extra.eas.projectId` في app.json | الإشعارات ← Expo |
+| [البريد](#رموز-تحقق-حقيقية) | إيصالات الدفع وتأكيد الحجز واعتماد المعلّم | نفس مزوّد بريد الرموز | `MAIL_RECEIPTS` + `SMTP_*`/`RESEND_API_KEY` | البريد |
+| [النسخ الاحتياطية](#النسخ-الاحتياطية) | نسخة تلقائية من قاعدة البيانات | لا شيء | `BACKUP_ENABLED` `BACKUP_KEEP` `BACKUP_EVERY_HOURS` | البيانات ← النسخ (زر «نسخة احتياطية الآن») |
+| [النطاق وHTTPS](#النطاق-وhttps) | عنوان عام مشفّر بأمر واحد | نطاق + خادم Docker | `DOMAIN` `PUBLIC_URL` `CORS_ORIGINS` | الخادم ← العنوان العام |
+| [صورة GHCR](#صورة-ghcr) / [Fly · Render](#fly--render-بنقرة) | نشر تلقائي من GitHub | أسرار `FLY_API_TOKEN` أو `RENDER_DEPLOY_HOOK_URL` | `GHCR_IMAGE` | Actions ← deploy |
+
+**أين تضع القيم:** `apps/api/.env` محلياً · `.env` بجانب `docker-compose.yml` أو `deploy/` · لوحة Render (Environment) · `fly secrets set` · أسرار GitHub (Settings ← Secrets ← Actions) للخادم التجريبي الحيّ. القالب الكامل بتعليقات: `apps/api/.env.production.example`.
+
+<a id="ثواني"></a>
+### ثواني (Thawani) — بطاقات عُمانية
+1. **تجربة فوراً (UAT):** مفاتيح بيئة الاختبار العامة موجودة في وثائق ثواني (docs.thawani.om) — ضعها مع `THAWANI_MODE=uat` و`PAYMENT_PROVIDERS=thawani,wallet,manual,mock`. الخادم التجريبي الحيّ يستعملها تلقائياً. بطاقة الاختبار: `4242 4242 4242 4242`، أي تاريخ مستقبلي، أي CVV.
+2. **حقيقي (live):** سجّل تاجراً في thawani.om ← بوابة التاجر ← **API Keys** ← انسخ Secret Key وPublishable Key ← `THAWANI_MODE=live` (افتراضي في الإنتاج) وأزل `mock` من `PAYMENT_PROVIDERS`.
+3. **Webhook (اختياري):** في بوابة التاجر أضف الرابط `https://<نطاقك>/api/payments/webhook/thawani` وضع السرّ في `THAWANI_WEBHOOK_SECRET`. حتى بدونه الطلب يُؤكَّد بسؤال ثواني عن الجلسة عند عودة المستخدم (`/pay/success`) — الـ webhook يسرّع الأمر فقط ولا يُوثَق بجسمه أبداً.
+4. **تأكّد:** الربط والخدمات ← الدفع ← ثواني ✅ (uat/live) ← «فحص الاتصال الآن» يقول «المفتاح مقبول». في التطبيق يظهر شعار «وضع التجربة» على البوابة في UAT.
+
+<a id="stripe"></a>
+### Stripe — بطاقات دولية
+dashboard.stripe.com ← Developers ← **API keys** ← `STRIPE_SECRET_KEY=sk_test_…` (الوضع يُستنتج من البادئة؛ `sk_live_…` للحقيقي). Webhook: Developers ← Webhooks ← Add endpoint `https://<نطاقك>/api/payments/webhook/stripe` (حدث `checkout.session.completed`) ← `STRIPE_WEBHOOK_SECRET=whsec_…`. أضف `stripe` إلى `PAYMENT_PROVIDERS`. بطاقة الاختبار نفسها `4242 4242 4242 4242`.
+
+<a id="google-sign-in"></a>
+### Google Sign-In
+1. console.cloud.google.com ← مشروع ← **APIs & Services ← OAuth consent screen** (External، اسم التطبيق والشعار) ← **Credentials ← Create credentials ← OAuth client ID**.
+2. أنشئ ثلاثة عملاء: **Web application** (Authorized JavaScript origins = `https://<نطاقك>` وعند التطوير `http://localhost:8081`)، **iOS** (Bundle ID من `apps/mobile/app.json`)، **Android** (اسم الحزمة + بصمة SHA-1 من `eas credentials`).
+3. الخادم: `GOOGLE_CLIENT_IDS=<web>.apps.googleusercontent.com,<ios>…,<android>…` (الويب أولاً). التطبيق الأصلي: `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` و`EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID` عند البناء.
+4. يظهر زر Google في شاشة الدخول تلقائياً. المستخدم الذي بريده الموثّق يطابق حساباً موجوداً يُربط به. تأكّد: الربط والخدمات ← الدخول ← Google ✅.
+5. النوافذ المنبثقة لـ Google وApple تعيد الرمز عبر `postMessage`، والخادم يرسل `Cross-Origin-Opener-Policy: same-origin-allow-popups` لهذا — أي وكيل عكسي أمامه (Caddy/Nginx/Cloudflare) يجب ألّا يفرض `same-origin` أشدّ منه.
+
+<a id="apple-sign-in"></a>
+### Apple Sign-In
+1. developer.apple.com ← **Certificates, Identifiers & Profiles ← Identifiers** ← App ID للتطبيق ← فعّل **Sign in with Apple**.
+2. للويب: **Identifiers ← Services IDs ← +** (مثل `om.example.app.web`) ← Configure ← Domains = `<نطاقك>`، Return URLs = `https://<نطاقك>/login`.
+3. الخادم: `APPLE_CLIENT_IDS=<Bundle ID>` (التطبيق) و`APPLE_SERVICES_ID=<Services ID>` (الويب) — كلاهما يُقبل جمهوراً للرمز، ويكفي أحدهما لتفعيل الزرّ على منصّته. في `app.json` مفعَّل `usesAppleSignIn` وإضافة `expo-apple-authentication`.
+4. iOS يعرض الزر الأصلي، والويب زر Apple JS. Apple يرسل الاسم مرة واحدة فقط عند أول دخول ويُحفَظ حينها.
+
+<a id="livekit"></a>
+### LiveKit Cloud — فيديو جماعي
+cloud.livekit.io ← مشروع ← **Settings ← Keys ← Create key** ← `LIVEKIT_URL=wss://<project>.livekit.cloud` `LIVEKIT_API_KEY` `LIVEKIT_API_SECRET` و`ROOM_PROVIDER=livekit`. القاعة الداخلية (WebRTC ثنائي) تبقى للويب؛ LiveKit للجوال والحصص الجماعية. تأكّد: الغرف ← LiveKit ← فحص الاتصال (يوقّع رمزاً ويصل للخادم).
+
+<a id="turn"></a>
+### TURN — فيديو عبر شبكات الجوال
+STUN العام يكفي على الشبكات المفتوحة؛ خلف 4G/الجدران النارية تحتاج مرحّل TURN. ثلاثة خيارات (الأول المتاح يُستعمل: ثابت ← Twilio ← Metered):
+- **Twilio (بلا مفاتيح إضافية):** إن كان لديك `TWILIO_ACCOUNT_SID` و`TWILIO_AUTH_TOKEN` للرموز تُجلب بيانات TURN مؤقّتة من Twilio تلقائياً (خدمة Network Traversal — مدفوعة بالاستهلاك).
+- **Metered:** metered.ca ← **TURN Server** ← أنشئ تطبيقاً ← `METERED_API_KEY` و`METERED_DOMAIN` (النطاق الفرعي بلا `.metered.live`). `TURN_SOURCE=metered` يفضّله على Twilio.
+- **ثابت / coturn خاص:** `TURN_URL=turn:turn.example.om:3478` `TURN_USERNAME` `TURN_CREDENTIAL`.
+`TURN_TTL` (٣٦٠٠) صلاحية البيانات المؤقّتة (تُخزَّن مؤقّتاً في الذاكرة). تأكّد: الغرف ← TURN ← فحص الاتصال يعرض المصدر وعدد الخوادم.
+
+<a id="sentry"></a>
+### Sentry — تتبّع الأخطاء
+sentry.io ← Create project (Node) ← **Client Keys (DSN)** ← `SENTRY_DSN=https://…@….ingest.sentry.io/…`. الأخطاء ≥ 500 والاستثناءات غير المعالَجة تُرسَل تلقائياً؛ `SENTRY_TRACES=0.1` يفعّل تتبّع الأداء لعشر الطلبات. بلا DSN لا يُحمَّل شيء.
+
+<a id="web-push"></a>
+### Web Push — إشعارات المتصفح (تلقائي)
+لا يحتاج حساباً: عند أول تشغيل يُولَّد زوج مفاتيح VAPID ويُحفَظ في `DATA_DIR/.vapid.json`. إن كان لديك أكثر من خادم أو أردت تثبيتها: `npx web-push generate-vapid-keys` ← `VAPID_PUBLIC_KEY` `VAPID_PRIVATE_KEY`، و`VAPID_SUBJECT=mailto:admin@<نطاقك>`. يحتاج HTTPS (أو localhost). المستخدم يفعّلها من الإعدادات ← **التنبيهات**. تأكّد: الإشعارات ← المتصفح ✅ والمفتاح العام من `GET /api/push/public-key`.
+
+<a id="expo-push"></a>
+### Expo Push — إشعارات التطبيق
+expo.dev ← مشروع EAS ← انسخ **Project ID** إلى `apps/mobile/app.json` ← `extra.eas.projectId` (بدونه التطبيق لا يطلب رمز إشعارات). اختيارياً **Access tokens** ← `EXPO_ACCESS_TOKEN` على الخادم (يرفع الحدود ويؤمّن الإرسال). البناء بـ `eas build` يضيف ملفات Firebase/APNs تلقائياً. تأكّد: الإشعارات ← Expo ← فحص الاتصال يصل إلى خدمة Expo.
+
+<a id="النسخ-الاحتياطية"></a>
+### النسخ الاحتياطية
+تلقائية عند التشغيل ثم كل `BACKUP_EVERY_HOURS` (٢٤) ساعة إلى `DATA_DIR/backups/manassah-YYYYMMDD-HHMMSS.db` (نسخة متّسقة عبر `VACUUM INTO`)، مع الاحتفاظ بآخر `BACKUP_KEEP` (٧). فوراً: الربط والخدمات ← **نسخة احتياطية الآن** أو `POST /api/admin/system/backup`. انسخ المجلّد إلى خارج الخادم دورياً (أمر جاهز في `deploy/README.md`). الاستعادة: أوقف الخادم واستبدل `manassah.db` بالنسخة.
+
+<a id="النطاق-وhttps"></a>
+### النطاق وHTTPS (خادم خاص بأمر واحد)
+سجّل **A** للنطاق يشير إلى خادمك ← `cp apps/api/.env.production.example .env` ← ثم:
+```bash
+DOMAIN=app.example.om docker compose -f deploy/docker-compose.prod.yml up -d
+```
+Caddy يصدر شهادة Let's Encrypt تلقائياً ويمرّر كل شيء إلى التطبيق. الخطوات كاملة (Ubuntu، Docker، الجدار الناري، أول مدير، النسخ الاحتياطية) في **`deploy/README.md`**. `PUBLIC_URL` يصبح `https://<DOMAIN>` تلقائياً؛ حدّد `CORS_ORIGINS` في الإنتاج.
+
+<a id="صورة-ghcr"></a>
+### صورة GHCR
+`.github/workflows/deploy.yml` يبني عند كل دفعة إلى `main` (أو يدوياً) صورة `ghcr.io/<owner>/<repo>:latest` و`:<sha>` بصلاحيات `GITHUB_TOKEN` وحدها. اجعل الحزمة عامة من صفحة Packages (Package settings ← Change visibility) إن أردت سحبها بلا تسجيل دخول؛ وظيفة Fly في الملف نفسه لا تحتاج ذلك — تسحب الصورة بـ `GITHUB_TOKEN` وتدفعها إلى سجلّ Fly قبل النشر. على الخادم: `docker pull ghcr.io/<owner>/<repo>:latest && docker tag … manassah:latest` ثم أمر `deploy/` أعلاه بلا بناء. `GHCR_IMAGE` يظهر اسم الصورة في لوحة الإدارة.
+
+<a id="fly--render-بنقرة"></a>
+### Fly · Render بنقرة
+- **Fly:** مرة واحدة `fly launch --copy-config --yes && fly volumes create data --size 1` ثم أضف سرّ المستودع `FLY_API_TOKEN` (`fly tokens create deploy`) — بعدها كل دفعة إلى `main` تنشر الصورة المبنية تلقائياً.
+- **Render:** أنشئ الخدمة من `render.yaml` (Blueprint) ← Settings ← **Deploy Hook** ← انسخ الرابط إلى سرّ `RENDER_DEPLOY_HOOK_URL`.
+- بلا هذين السرّين تُبنى الصورة فقط ويطبع كل نشر سبب تخطّيه.
+
 ## البنية
 
 ```
@@ -41,7 +137,7 @@ npm run typecheck               # كل الحزم
 
 ## ما الذي يعمل الآن
 
-- **الدخول** برمز تحقّق (هاتف/بريد)، جلسات بتجديد دوري وكشف إعادة الاستخدام. Apple/Google: نقاط النهاية جاهزة وتنتظر مفاتيح المتاجر.
+- **الدخول** برمز تحقّق (هاتف/بريد)، جلسات بتجديد دوري وكشف إعادة الاستخدام. Apple/Google: يعملان بمجرد ضبط معرّفات العملاء (راجع «ربط الخدمات»).
 - **الرئيسية** بالترتيب الملزم: حصّتك القادمة → احجز معلّماً → أكمل من حيث توقّفت → ملخّصات صفّك → الدورات → المعلّمون المميّزون → الأكثر طلباً → حلّ مسائل → عروض.
 - **المكتبة**: فلاتر (النوع/المادة/الصف/الفصل/السعر/التقييم/الترتيب)، صفحة كتاب كمتجر محترف، **قارئ داخل التطبيق** (pdf.js مستضاف ذاتياً، روابط موقّعة قصيرة العمر مرتبطة بالمستخدم، علامة مائية، معاينة محدودة، تقدّم وإشارات مرجعية).
 - **المعلّمون**: بحث بفلاتر، ملف بأسعار ٣٠/٤٥/٦٠ فردي/جماعي وباقات بتوفير ظاهر، **تقويم** (أيام العمل، الفترات، خانات، استراحات، إجازات)، حجز في شاشة واحدة، **منع الحجز المزدوج بقيد قاعدة البيانات**، مهلة دفع تُحرّر الموعد، **سياسة إلغاء من الإعدادات لا من الشيفرة**، إعادة جدولة.
@@ -55,7 +151,7 @@ npm run typecheck               # كل الحزم
 
 - مزوّد رموز التحقّق (SMS/واتساب/بريد — راجع «رموز تحقّق حقيقية» أدناه) ومفاتيح Thawani، ومفاتيح Apple/Google للدخول الاجتماعي.
 - LiveKit (أو بديله) لفيديو الجوال — المزوّد الداخلي يقدّم الدردشة والحضور والإشارات فقط على الجوال.
-- إشعارات الدفع (push) عبر `device_tokens` — الإشعارات داخل التطبيق تعمل فورياً عبر Socket.IO.
+- الإشعارات الفورية تعمل: المتصفح (VAPID تلقائي) والتطبيق (Expo مع `projectId`) — الإشعارات داخل التطبيق فورية عبر Socket.IO.
 - واجهة إنشاء الدورات للمعلّم (الـ API جاهز: أقسام، دروس، رفع فيديو، اختبارات، إرسال للمراجعة) — رفع الكتب يعمل من التطبيق.
 - الإنتاج يبدأ بـ `seedCatalog` فقط (منهج بلا مستخدمين ولا محتوى). لا أرقام مزيّفة.
 
@@ -91,7 +187,7 @@ fly deploy
 ```bash
 PUBLIC_URL=https://manassah.example.om docker compose up -d --build
 ```
-ثم ضع Nginx/Caddy أمامه لشهادة HTTPS (Caddy: `reverse_proxy localhost:4000`).
+ثم ضع Nginx/Caddy أمامه لشهادة HTTPS — أو بأمر واحد مع Caddy مضمَّن: `DOMAIN=app.example.om docker compose -f deploy/docker-compose.prod.yml up -d` (راجع `deploy/README.md`).
 
 ### أول تشغيل على خادم فارغ
 | المتغيّر | القيمة | الأثر |
@@ -102,6 +198,7 @@ PUBLIC_URL=https://manassah.example.om docker compose up -d --build
 
 القيم كلها في `apps/api/.env.production.example`.
 
+<a id="رموز-تحقق-حقيقية"></a>
 ### رموز تحقّق حقيقية (SMS / واتساب / بريد)
 بلا أي مزوّد يعمل الخادم في الوضع التجريبي: الرمز `000000` ويُعاد في الاستجابة. بمجرد وضع مفاتيح مزوّد واحد (في المتغيّرات أو الأسرار) يصبح الدخول حقيقياً لتلك القناة:
 الشخص يكتب رقمه أو بريده ويصله رمز حقيقي. المزوّد يُكتشف تلقائياً من المفاتيح الموجودة (`SMS_PROVIDER`/`EMAIL_PROVIDER` اختياريان لتثبيته). كل المتغيّرات موثّقة في `apps/api/.env.example`.

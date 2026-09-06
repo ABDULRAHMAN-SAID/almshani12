@@ -1,9 +1,9 @@
-import nodemailer, { type Transporter } from 'nodemailer';
 import { config } from '../config.ts';
 import { AppError } from '../lib/errors.ts';
+import * as mail from './mail.ts';
 
 /**
- * وسائط الإرسال الحقيقية لرموز التحقّق — Twilio (Verify / Messages) وبوابة HTTP عامة وSMTP وResend.
+ * وسائط الإرسال الحقيقية لرموز التحقّق — Twilio (Verify / Messages) وبوابة HTTP عامة، والبريد (SMTP / Resend) عبر services/mail.ts.
  * كلها تستعمل fetch العالمي (Node 22) بمهلة ١٥ ثانية، وترمي AppError برسائل عربية بلا أي سرّ.
  * services/otp.ts يغلّفها في كائن `transports` قابل للاستبدال في الاختبارات.
  */
@@ -98,18 +98,11 @@ export async function httpSend(to: string, text: string, code: string): Promise<
 }
 
 /* ---------- البريد ---------- */
-let mailer: Transporter | null = null;
+/** المرسِلان الفعليان في services/mail.ts (عبر mail.mailer القابل للاستبدال)؛ هنا غلافان رقيقان يحوّلان خطأ البريد إلى otp_send_failed */
+const asOtpError = (err: unknown) => (err instanceof AppError && err.code === 'mail_send_failed' ? sendFailed(err.message === 'تعذّر إرسال البريد الآن' ? GENERIC : err.message) : err);
 export async function smtpSend(to: string, subject: string, html: string, text: string): Promise<void> {
-  const s = config.otp.email.smtp;
-  mailer ??= nodemailer.createTransport({ host: s.host, port: s.port, secure: s.secure, ...(s.user ? { auth: { user: s.user, pass: s.pass } } : {}), connectionTimeout: TIMEOUT_MS, greetingTimeout: TIMEOUT_MS, socketTimeout: TIMEOUT_MS });
-  try { await mailer.sendMail({ from: config.otp.email.from, to, subject, text, html }); }
-  catch (err) { console.error('[otp] smtp', (err as Error)?.message); throw sendFailed(); }
+  try { await mail.mailer.smtpSend(to, subject, html, text); } catch (err) { throw asOtpError(err); }
 }
-
 export async function resendSend(to: string, subject: string, html: string, text: string): Promise<void> {
-  const r = await call('https://api.resend.com/emails', {
-    method: 'POST', headers: { Authorization: `Bearer ${config.otp.email.resend.apiKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from: config.otp.email.from, to: [to], subject, html, text }),
-  });
-  if (!r.ok) { console.error('[otp] resend', r.status, String(r.json?.message ?? r.text.slice(0, 120))); throw sendFailed(r.status === 401 || r.status === 403 ? 'إعدادات Resend غير صحيحة (المفتاح)' : GENERIC); }
+  try { await mail.mailer.resendSend(to, subject, html, text); } catch (err) { throw asOtpError(err); }
 }

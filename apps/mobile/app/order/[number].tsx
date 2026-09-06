@@ -1,25 +1,49 @@
 import { useEffect, useMemo, useState } from 'react';
-import { View, Platform, StyleSheet } from 'react-native';
+import { View, Platform, AppState, StyleSheet } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import * as Clipboard from 'expo-clipboard';
 import { colors, spacing, radius, themed } from '@manassah/tokens';
 import { Screen, Text, Icon, Button, Card, Badge } from '@/ui';
-import { useOrder, useAfterPurchase } from '@/features/queries';
+import { useOrder, useConfirmOrder, useAfterPurchase } from '@/features/queries';
 import { money } from '@/lib/format';
 import { useLearners } from '@/state/auth';
 
-/** حالة الطلب: نجاح / بانتظار البوابة (تحديث تلقائي) / تحويل بنكي / فشل — والفعل التالي واضح */
+/** بوابات خارجية يُسأل المزوّد عنها (POST /orders/:number/confirm)؛ الباقي (محاكاة/محفظة/تحويل) يُحدَّث من الخادم مباشرة */
+const GATEWAYS = ['thawani', 'stripe'];
+
+/** حالة الطلب: نجاح / بانتظار البوابة (تحديث تلقائي) / إلغاء من البوابة / تحويل بنكي / فشل — والفعل التالي واضح */
 export default function OrderStatus() {
   const { t } = useTranslation();
   const router = useRouter();
   const { number, state, instructions, url } = useLocalSearchParams<{ number: string; state?: string; instructions?: string; url?: string }>();
-  const order = useOrder(number, state === 'poll');
+  const confirm = useConfirmOrder(number);
+  const [askProvider, setAskProvider] = useState(false);
   const afterPurchase = useAfterPurchase();
   const [copied, setCopied] = useState(false);
   const learners = useLearners();
-  const o = order.data;
   const bank = useMemo(() => { try { return instructions ? JSON.parse(instructions) as Record<string, string> : null; } catch { return null; } }, [instructions]);
+
+  // بانتظار بوابة خارجية: نسأل المزوّد كل ٤ ثوانٍ وعند العودة للتطبيق/التبويب؛ غير ذلك يكفي جلب الطلب كل ٢٫٥ ثانية
+  const order = useOrder(number, state === 'poll' && !askProvider);
+  const o = order.data;
+  const gateway = !!o?.provider && GATEWAYS.includes(o.provider);
+  const waitingGateway = state === 'poll' && o?.status === 'pending' && gateway;
+  useEffect(() => { setAskProvider(waitingGateway); }, [waitingGateway]);
+  useEffect(() => {
+    if (!waitingGateway) return;
+    let busy = false;
+    const run = () => { if (busy) return; busy = true; confirm.mutate(undefined, { onSettled: () => { busy = false; } }); };
+    run();
+    const id = setInterval(run, 4000);
+    const onVisible = () => { if (typeof document === 'undefined' || document.visibilityState === 'visible') run(); };
+    const sub = AppState.addEventListener('change', s => { if (s === 'active') run(); });
+    if (Platform.OS === 'web' && typeof document !== 'undefined') { document.addEventListener('visibilitychange', onVisible); window.addEventListener('focus', onVisible); }
+    return () => {
+      clearInterval(id); sub.remove();
+      if (Platform.OS === 'web' && typeof document !== 'undefined') { document.removeEventListener('visibilitychange', onVisible); window.removeEventListener('focus', onVisible); }
+    };
+  }, [waitingGateway, number]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (o?.status === 'paid') afterPurchase(); }, [o?.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const first = o?.items[0];
@@ -37,6 +61,12 @@ export default function OrderStatus() {
   const forLearner = o?.learner && learners.length > 1 ? ` · ${t('learners.forLearner', { name: o.learner.displayName })}` : '';
   const failed = o?.status === 'failed' || o?.status === 'expired' || o?.status === 'cancelled';
   const awaiting = !paid && !failed && (state === 'awaiting' || o?.provider === 'manual');
+  // ألغى المستخدم في البوابة والطلب ما زال معلّقاً — لم يُخصم شيء، يمكنه المحاولة مجدداً
+  const cancelled = !paid && !failed && !awaiting && state === 'cancelled';
+  const retry = () => router.replace(lessonOrder && first ? { pathname: '/checkout', params: { bookingId: String(first.itemId) } } : '/cart');
+
+  const title = paid ? t(lessonOrder ? 'cart.successLesson' : 'cart.success') : failed ? t('cart.failed') : awaiting ? t('cart.awaiting') : cancelled ? t('checkout.cancelled') : t('checkout.waiting');
+  const body = paid ? t(lessonOrder ? 'cart.successLessonBody' : 'cart.successBody') : failed ? t('cart.failedBody') : awaiting ? t('cart.awaitingBody') : cancelled ? t('checkout.cancelledBody') : gateway ? t('checkout.confirming') : t('checkout.redirecting');
 
   return (
     <Screen onBack={() => router.replace('/(tabs)')} title={t('checkout.orderNumber')} loading={order.isLoading} error={order.error} onRetry={() => order.refetch()}>
@@ -44,9 +74,9 @@ export default function OrderStatus() {
         <View style={styles.wrap}>
           <Card accent>
             <View style={styles.head}>
-              <View style={[styles.icon, paid ? styles.ok : failed ? styles.bad : styles.wait]}><Icon name={paid ? 'checkCircle' : failed ? 'warning' : 'clock'} size={34} color={colors.text.inverse} /></View>
-              <Text role="h2" center>{paid ? t(lessonOrder ? 'cart.successLesson' : 'cart.success') : failed ? t('cart.failed') : awaiting ? t('cart.awaiting') : t('checkout.waiting')}</Text>
-              <Text role="small" tone="secondary" center>{paid ? t(lessonOrder ? 'cart.successLessonBody' : 'cart.successBody') : failed ? t('cart.failedBody') : awaiting ? t('cart.awaitingBody') : t('checkout.redirecting')}</Text>
+              <View style={[styles.icon, paid ? styles.ok : failed || cancelled ? styles.bad : styles.wait]}><Icon name={paid ? 'checkCircle' : failed || cancelled ? 'warning' : 'clock'} size={34} color={colors.text.inverse} /></View>
+              <Text role="h2" center>{title}</Text>
+              <Text role="small" tone="secondary" center>{body}</Text>
               <Badge label={`${o.number} · ${t(`purchasesUi.status.${o.status}`)}`} tone={paid ? 'success' : failed ? 'danger' : 'warning'} />
             </View>
           </Card>
@@ -61,10 +91,11 @@ export default function OrderStatus() {
               <Button label={copied ? t('ui.copied') : t('ui.copy')} variant="secondary" size="sm" icon="copy" onPress={async () => { await Clipboard.setStringAsync(Object.values(bank).join('\n')); setCopied(true); }} />
             </Card>
           ) : null}
-          {!paid && !failed && !awaiting ? (
+          {cancelled ? <Button label={t('common.retry')} icon="card" full onPress={retry} /> : null}
+          {!paid && !failed && !awaiting && !cancelled ? (
             <View style={styles.actions}>
               {url ? <Button label={t('checkout.openGateway')} variant="secondary" icon="card" full onPress={() => Platform.OS === 'web' ? window.open(url, '_blank', 'noopener') : router.push(url as never)} /> : null}
-              <Button label={t('checkout.checkStatus')} icon="refresh" full loading={order.isFetching} onPress={() => order.refetch()} />
+              <Button label={t('checkout.checkStatus')} icon="refresh" full loading={order.isFetching || confirm.isPending} onPress={() => gateway ? confirm.mutate(undefined) : order.refetch()} />
               <Text role="caption" tone="tertiary" center>{t('checkout.paidElsewhere')}</Text>
             </View>
           ) : null}

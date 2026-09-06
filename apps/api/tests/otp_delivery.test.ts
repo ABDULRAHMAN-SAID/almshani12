@@ -50,7 +50,7 @@ const verify = (target: string, code: string, channel = 'phone') => c.api('/api/
 const lastRow = (target: string) => c.q.get<any>('SELECT * FROM otp_codes WHERE target = ? ORDER BY id DESC LIMIT 1', target);
 
 test('طرق الدخول: هاتف وواتساب وبريد حقيقية مع بقاء الرمز الثابت لأهداف الاختبار', async () => {
-  assert.deepEqual((await c.api('/api/auth/methods')).json, { phone: true, whatsapp: true, email: true, testCode: true });
+  assert.deepEqual((await c.api('/api/auth/methods')).json, { phone: true, whatsapp: true, email: true, testCode: true, google: false, apple: false });
 });
 
 test('حساب العرض وهدف الاختبار الصريح يأخذان الرمز الثابت دون أي اتصال بالمزوّد', async () => {

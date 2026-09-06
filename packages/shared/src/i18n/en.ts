@@ -4,7 +4,7 @@ import type { Dictionary } from './ar';
 export const en: Dictionary = {
   common: {
     appName: 'Manassah',
-    ok: 'OK', cancel: 'Cancel', save: 'Save', back: 'Back', next: 'Next', done: 'Done',
+    ok: 'OK', cancel: 'Cancel', save: 'Save', back: 'Back', next: 'Next', done: 'Done', or: 'or',
     retry: 'Try again', seeAll: 'See all', details: 'Details', close: 'Close',
     loading: 'Loading…', search: 'Search', filters: 'Filters', apply: 'Apply', reset: 'Reset',
     free: 'Free', from: 'From', minutes: 'min', hours: 'h', today: 'Today', tomorrow: 'Tomorrow',
@@ -199,7 +199,7 @@ export const en: Dictionary = {
     otpTitle: 'Enter your phone or email', otpBody: 'We will send a 6-digit code — no passwords',
     usePhone: 'Phone', useEmail: 'Email', phonePlaceholder: '9XXXXXXX', emailPlaceholder: 'name@example.com', omanCode: '+968',
     devCode: 'Dev mode — code: {{code}}', changeTarget: 'Change', apple: 'Continue with Apple', google: 'Continue with Google',
-    socialUnavailable: 'Requires store credentials — enabled at release', invalidTarget: 'Enter an Omani number (8 digits) or a valid email',
+    socialUnavailable: 'Sign-in with this account is not enabled on this server', socialFailed: 'Could not sign in with this account — try again or use a verification code', invalidTarget: 'Enter an Omani number (8 digits) or a valid email',
     welcomeBack: 'Welcome back', setupLater: 'You can change your grade later from Account',
     sendVia: 'Send the code via', viaSms: 'SMS', viaWhatsapp: 'WhatsApp',
     sentSms: 'We sent an SMS to', sentWhatsapp: 'We sent a WhatsApp message to', sentEmail: 'We sent an email to', sentTest: 'Demo account — fixed code for',
@@ -227,6 +227,7 @@ export const en: Dictionary = {
     waiting: 'Waiting for payment confirmation…', checkStatus: 'Check status', orderNumber: 'Order number', bank: 'Bank transfer details', backHome: 'Back to home',
     viewLesson: 'View lesson', lessonPay: 'Pay for lesson', packageBuy: 'Buy package', walletBalance: 'Wallet balance', openGateway: 'Open payment gateway',
     paidElsewhere: 'Finished paying in the browser?', secure: 'Your card details are never stored in the app', expired: 'Order expired', gotoLibrary: 'My library',
+    testMode: 'Test mode', confirming: 'Verifying the payment with the gateway…', cancelled: 'Payment cancelled', cancelledBody: 'Nothing was charged — you can try again any time',
   },
   messagesUi: { title: 'Messages', placeholder: 'Write a message…', send: 'Send', empty: 'No conversations yet', emptyHint: 'Message a teacher from their profile', withTeacher: 'Message teacher', blocked: 'Conversation blocked', today: 'Today' },
   walletUi: { title: 'Wallet', balance: 'Available balance', history: 'Transactions', empty: 'No transactions yet', note: 'Balance comes from refunds and gifts and can be used to pay instantly', types: { topup: 'Top-up', purchase: 'Purchase', refund: 'Refund', adjustment: 'Adjustment', bonus: 'Gift' } },
@@ -239,6 +240,8 @@ export const en: Dictionary = {
     testConnection: 'Test connection', connected: 'Connected', connectionFailed: 'Connection failed', serverInvalid: 'Address must start with http:// or https://', serverTimeout: 'Connection timed out',
     demoMode: 'Demo', liveMode: 'Live server', demoHint: 'Local data, no server — set your server address to go live', useDemo: 'Back to demo',
     learners: 'Learners & grades',
+    notifications: 'Notifications', pushToggle: 'Browser/device notifications', pushHint: 'Lesson reminders and messages reach you even when the app is closed',
+    pushOn: 'Enabled', pushOff: 'Disabled', pushUnsupported: 'Not supported on this device', pushUnconfigured: 'Not configured in this build', pushDenied: 'Blocked — allow notifications in your browser or device settings', pushChecking: 'Checking…',
   },
   purchases: { sharedNote: 'Purchases are available to every learner in your account' },
   teacherUi: {

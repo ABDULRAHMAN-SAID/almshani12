@@ -18,9 +18,10 @@ import Reports from './pages/Reports';
 import Audit from './pages/Audit';
 import Person from './pages/Person';
 import TeacherPage from './pages/Teacher';
+import System from './pages/System';
 
 /** ما يُفترض قبل معرفة طرق الخادم (أثناء التحميل أو عند تعذّر الجلب) */
-const METHODS_FALLBACK: AuthMethods = { phone: true, whatsapp: false, email: true, testCode: true };
+const METHODS_FALLBACK: AuthMethods = { phone: true, whatsapp: false, email: true, testCode: true, google: false, apple: false };
 const SENT: Record<OtpDelivery, string> = { sms: 'أرسلنا رسالة نصية إلى', whatsapp: 'أرسلنا رسالة واتساب إلى', email: 'أرسلنا بريداً إلى', test: 'حساب تجريبي — رمز ثابت لـ' };
 
 /** الدخول برمز تحقّق — الحساب يجب أن يحمل دور طاقم */
@@ -111,6 +112,7 @@ export default function App() {
         {item('/users', 'المستخدمون', can(u, 'support'))}
         {item('/reports', 'البلاغات', can(u, 'support'), q.reports)}
         {item('/settings', 'الإعدادات والسياسات', can(u, 'finance', 'support'))}
+        {item('/system', 'الربط والخدمات', can(u, 'admin'))}
         {item('/audit', 'سجلّ العمليات', can(u, 'admin'))}
         <div className="user">{u.displayName}<br /><span>{u.roles.map(r => r).join(' · ')}</span><br /><button className="btn ghost sm" style={{ marginTop: 6 }} onClick={() => { api.post('/auth/logout', { refreshToken: session.refresh }).catch(() => {}); session.set(null, null); qc.clear(); nav('/'); }}>تسجيل الخروج</button></div>
       </aside>
@@ -131,6 +133,7 @@ export default function App() {
           <Route path="/users/:id/:tab" element={<Person me={u} />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/settings" element={<Settings me={u} />} />
+          {can(u, 'admin') ? <Route path="/system" element={<System />} /> : null}
           <Route path="/audit" element={<Audit />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

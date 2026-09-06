@@ -1,19 +1,21 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { OtpRequest, OtpVerify, RefreshRequest } from '@manassah/shared';
+import { OtpRequest, OtpVerify, RefreshRequest, GoogleLogin, AppleLogin } from '@manassah/shared';
 import { config } from '../config.ts';
-import { db, q, nowIso } from '../db/index.ts';
+import { q, nowIso } from '../db/index.ts';
 import { AppError, asyncHandler, badRequest, unauthorized } from '../lib/errors.ts';
 import { validate, body } from '../lib/validate.ts';
 import { signAccessToken, requireAuth } from '../lib/auth.ts';
 import { sha256, randomToken } from '../lib/helpers.ts';
 import { userView } from '../lib/views.ts';
 import { otpMethods, startOtp, checkOtp } from '../services/otp.ts';
+import { findOrCreateUser, findOrLinkSocialUser } from '../services/accounts.ts';
+import { verifyGoogle, verifyApple, socialConfigured } from '../lib/social.ts';
 import { audit } from '../lib/audit.ts';
 
 /**
  * الدخول برمز تحقّق (هاتف/بريد) — لا كلمات مرور يدوية.
- * Apple/Google: نقطتا نهاية جاهزتان لكنهما تتطلّبان مفاتيح المتاجر (تُرفضان بوضوح حتى ضبطها).
+ * Apple/Google: تحقّق من رمز المزوّد (lib/social.ts) ثم ربط/إنشاء الحساب (services/accounts.ts) — 501 حتى تُضبط معرّفات العملاء.
  */
 const router = Router();
 
@@ -57,26 +59,9 @@ export function issueSession(userId: number, req: { ip?: string; headers: Record
   return { user: userView(userId)!, accessToken, refreshToken, isNew };
 }
 
-function findOrCreateUser(channel: 'phone' | 'email', target: string): { id: number; isNew: boolean } {
-  const col = channel === 'phone' ? 'phone' : 'email';
-  const existing = q.get<{ id: number; status: string }>(`SELECT id, status FROM users WHERE ${col} = ?`, target);
-  if (existing) {
-    if (existing.status !== 'active') throw new AppError('forbidden', 'هذا الحساب موقوف', 403);
-    return { id: existing.id, isNew: false };
-  }
-  return db.transaction(() => {
-    const info = q.run(`INSERT INTO users (${col}) VALUES (?)`, target);
-    const id = Number(info.lastInsertRowid);
-    q.run('INSERT INTO profiles (user_id, display_name) VALUES (?, ?)', id, '');
-    q.run('INSERT INTO user_roles (user_id, role) VALUES (?, ?)', id, 'student');
-    q.run('INSERT INTO auth_identities (user_id, provider, provider_uid) VALUES (?,?,?)', id, channel === 'phone' ? 'phone_otp' : 'email_otp', target);
-    return { id, isNew: true };
-  })();
-}
-
 /* ---------- OTP ---------- */
 /** طرق الدخول المتاحة على هذا الخادم (عام، بلا محدّد) — العميل يخفي ما هو غير متاح */
-router.get('/methods', (_req, res) => { res.json(otpMethods()); });
+router.get('/methods', (_req, res) => { res.json({ ...otpMethods(), google: socialConfigured('google'), apple: socialConfigured('apple') }); });
 
 router.post('/otp/request', otpLimiter, validate(OtpRequest), asyncHandler(async (req, res) => {
   const { channel, target: raw, via, locale } = body<typeof OtpRequest>(req);
@@ -94,11 +79,29 @@ router.post('/otp/verify', otpLimiter, validate(OtpVerify), asyncHandler(async (
 }));
 
 /* ---------- Apple / Google ---------- */
-router.post('/apple', asyncHandler(async () => {
-  throw new AppError('content_unavailable', 'تسجيل الدخول بحساب Apple يتطلّب ضبط مفاتيح المطوّر (APPLE_CLIENT_ID)', 501);
+/** بلا معرّفات عملاء مضبوطة يُرفض الطلب 501 قبل التحقّق من الجسم — كي يبقى الرد كما كان للعملاء القدامى */
+const requireSocial = (provider: 'google' | 'apple') => asyncHandler(async (_req, _res, next) => {
+  if (!socialConfigured(provider)) throw new AppError('content_unavailable', provider === 'google'
+    ? 'تسجيل الدخول بحساب Google يتطلّب ضبط GOOGLE_CLIENT_ID'
+    : 'تسجيل الدخول بحساب Apple يتطلّب ضبط مفاتيح المطوّر (APPLE_CLIENT_ID)', 501);
+  next();
+});
+
+router.post('/google', requireSocial('google'), validate(GoogleLogin), asyncHandler(async (req, res) => {
+  const { idToken, role, locale } = body<typeof GoogleLogin>(req);
+  const identity = await verifyGoogle(idToken);
+  const { id, isNew } = findOrLinkSocialUser(identity, { role, locale });
+  if (isNew) audit(req, 'auth.social_signup', 'user', id, { provider: 'google' });
+  res.json(issueSession(id, req, isNew));
 }));
-router.post('/google', asyncHandler(async () => {
-  throw new AppError('content_unavailable', 'تسجيل الدخول بحساب Google يتطلّب ضبط GOOGLE_CLIENT_ID', 501);
+
+router.post('/apple', requireSocial('apple'), validate(AppleLogin), asyncHandler(async (req, res) => {
+  const { identityToken, fullName, role, locale } = body<typeof AppleLogin>(req);
+  const identity = await verifyApple(identityToken);
+  const displayName = [fullName?.givenName, fullName?.familyName].filter(Boolean).join(' ').trim() || null;
+  const { id, isNew } = findOrLinkSocialUser(identity, { role, locale, displayName });
+  if (isNew) audit(req, 'auth.social_signup', 'user', id, { provider: 'apple' });
+  res.json(issueSession(id, req, isNew));
 }));
 
 /* ---------- تجديد الجلسة (تدوير + كشف إعادة الاستخدام) ---------- */

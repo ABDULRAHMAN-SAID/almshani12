@@ -3,9 +3,20 @@ import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
 import { boot, type Ctx } from './helpers.ts';
 
+/** الـ webhooks صارت مُحفِّزات: التنفيذ لا يتمّ إلا بعد سؤال المزوّد عن الجلسة — هنا مزوّد مزيّف يقول «مدفوعة» لكل جلسة */
+Object.assign(process.env, { STRIPE_SECRET_KEY: 'sk_test_x', THAWANI_SECRET_KEY: 'sk' });
+const realFetch = globalThis.fetch;
+const fakeFetch = (input: string | URL | Request, init: RequestInit = {}) => {
+  const url = String(input instanceof Request ? input.url : input);
+  if (!/thawani\.om|stripe\.com/.test(url)) return realFetch(input, init);
+  const id = url.split('/').pop()!;
+  const body = url.includes('thawani') ? { success: true, data: { session_id: id, payment_status: 'paid' } } : { id, payment_status: 'paid' };
+  return Promise.resolve(new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+};
+
 let c: Ctx;
-before(async () => { c = await boot(); });
-after(() => c.close());
+before(async () => { c = await boot(); globalThis.fetch = fakeFetch as typeof fetch; });
+after(() => { globalThis.fetch = realFetch; c.close(); });
 
 const stripeSig = (raw: string) => { const t = Math.floor(Date.now() / 1000); return `t=${t},v1=${crypto.createHmac('sha256', 'whsec_test').update(`${t}.${raw}`).digest('hex')}`; };
 

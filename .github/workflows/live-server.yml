@@ -21,6 +21,72 @@ jobs:
   serve:
     runs-on: ubuntu-latest
     timeout-minutes: 350
+    env:
+      NODE_ENV: development
+      PORT: "4000"
+      HOST: 0.0.0.0
+      TRUST_PROXY: "true"
+      ALLOW_DEMO_SEED: "1"
+      # سرّ اختياري في المستودع: رقمك يصبح مدير المنصّة تلقائياً عند كل تشغيل
+      ADMIN_PHONE: ${{ secrets.ADMIN_PHONE }}
+      PAYMENT_PROVIDERS: thawani,wallet,manual,mock
+      ROOM_PROVIDER: internal
+      # خادم تجربة: حدود أوسع لرموز التحقّق حتى لا تُحجب المحاولات المتكرّرة
+      RATE_LIMIT_OTP: "100"
+      RATE_LIMIT_API: "1000"
+      TURN_URL: ${{ secrets.TURN_URL }}
+      TURN_USERNAME: ${{ secrets.TURN_USERNAME }}
+      TURN_CREDENTIAL: ${{ secrets.TURN_CREDENTIAL }}
+      # رموز تحقّق حقيقية (اختيارية — أسرار المستودع؛ بدونها يبقى الرمز الثابت 000000). راجع README: «رموز تحقّق حقيقية»
+      # البريد: SMTP (مثل Gmail بكلمة مرور تطبيق) أو Resend
+      SMTP_HOST: ${{ secrets.SMTP_HOST }}
+      SMTP_PORT: ${{ secrets.SMTP_PORT }}
+      SMTP_SECURE: ${{ secrets.SMTP_SECURE }}
+      SMTP_USER: ${{ secrets.SMTP_USER }}
+      SMTP_PASS: ${{ secrets.SMTP_PASS }}
+      EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      # الرسائل النصية/واتساب: Twilio Verify (الأسهل) أو Twilio Messages أو بوابة HTTP محلية
+      TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+      TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+      TWILIO_VERIFY_SERVICE_SID: ${{ secrets.TWILIO_VERIFY_SERVICE_SID }}
+      TWILIO_FROM: ${{ secrets.TWILIO_FROM }}
+      TWILIO_MESSAGING_SERVICE_SID: ${{ secrets.TWILIO_MESSAGING_SERVICE_SID }}
+      TWILIO_WHATSAPP_FROM: ${{ secrets.TWILIO_WHATSAPP_FROM }}
+      SMS_HTTP_URL: ${{ secrets.SMS_HTTP_URL }}
+      SMS_HTTP_METHOD: ${{ secrets.SMS_HTTP_METHOD }}
+      SMS_HTTP_HEADERS: ${{ secrets.SMS_HTTP_HEADERS }}
+      SMS_HTTP_BODY: ${{ secrets.SMS_HTTP_BODY }}
+      SMS_HTTP_OK: ${{ secrets.SMS_HTTP_OK }}
+      OTP_WHATSAPP: ${{ secrets.OTP_WHATSAPP }}
+      # اختياري: تثبيت المزوّد صراحة بدل الاكتشاف التلقائي
+      SMS_PROVIDER: ${{ secrets.SMS_PROVIDER }}
+      EMAIL_PROVIDER: ${{ secrets.EMAIL_PROVIDER }}
+      # الحماية: الدول المسموحة (افتراضياً +968) وأهداف اختبار تقبل الرمز الثابت دائماً
+      SMS_ALLOWED_COUNTRIES: ${{ secrets.SMS_ALLOWED_COUNTRIES }}
+      OTP_TEST_TARGETS: ${{ secrets.OTP_TEST_TARGETS }}
+      # ---- الدفع: ثواني (UAT افتراضياً بمفاتيح الاختبار العامة من وثائق ثواني — بطاقة 4242 4242 4242 4242) + Stripe اختياري ----
+      THAWANI_SECRET_KEY: ${{ secrets.THAWANI_SECRET_KEY || 'rRQ26GcsZzoEhbrP2HZvLYDbn9C9et' }}
+      THAWANI_PUBLISHABLE_KEY: ${{ secrets.THAWANI_PUBLISHABLE_KEY || 'HGvTMLDssJghr9tlN9gr4DVYt0qyBy' }}
+      THAWANI_WEBHOOK_SECRET: ${{ secrets.THAWANI_WEBHOOK_SECRET || '' }}
+      THAWANI_MODE: uat
+      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+      STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+      # ---- الدخول الاجتماعي (معرّفات العملاء فقط — لا أسرار) ----
+      GOOGLE_CLIENT_IDS: ${{ secrets.GOOGLE_CLIENT_IDS }}
+      APPLE_CLIENT_IDS: ${{ secrets.APPLE_CLIENT_IDS }}
+      APPLE_SERVICES_ID: ${{ secrets.APPLE_SERVICES_ID }}
+      # ---- الغرف: LiveKit للفيديو الجماعي، وTURN ديناميكي من Metered (أو Twilio بنفس مفاتيحه أعلاه) ----
+      LIVEKIT_URL: ${{ secrets.LIVEKIT_URL }}
+      LIVEKIT_API_KEY: ${{ secrets.LIVEKIT_API_KEY }}
+      LIVEKIT_API_SECRET: ${{ secrets.LIVEKIT_API_SECRET }}
+      METERED_API_KEY: ${{ secrets.METERED_API_KEY }}
+      METERED_DOMAIN: ${{ secrets.METERED_DOMAIN }}
+      # ---- المراقبة والإشعارات الفورية (VAPID يُولَّد تلقائياً إن تُرك فارغاً) ----
+      SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+      VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+      VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+      EXPO_ACCESS_TOKEN: ${{ secrets.EXPO_ACCESS_TOKEN }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -51,50 +117,6 @@ jobs:
           echo "النفق: $URL"
       - name: تشغيل الخادم
         working-directory: apps/api
-        env:
-          NODE_ENV: development
-          PORT: "4000"
-          HOST: 0.0.0.0
-          TRUST_PROXY: "true"
-          ALLOW_DEMO_SEED: "1"
-          # سرّ اختياري في المستودع: رقمك يصبح مدير المنصّة تلقائياً عند كل تشغيل
-          ADMIN_PHONE: ${{ secrets.ADMIN_PHONE }}
-          PAYMENT_PROVIDERS: mock,wallet,manual
-          ROOM_PROVIDER: internal
-          # خادم تجربة: حدود أوسع لرموز التحقّق حتى لا تُحجب المحاولات المتكرّرة
-          RATE_LIMIT_OTP: "100"
-          RATE_LIMIT_API: "1000"
-          TURN_URL: ${{ secrets.TURN_URL }}
-          TURN_USERNAME: ${{ secrets.TURN_USERNAME }}
-          TURN_CREDENTIAL: ${{ secrets.TURN_CREDENTIAL }}
-          # رموز تحقّق حقيقية (اختيارية — أسرار المستودع؛ بدونها يبقى الرمز الثابت 000000). راجع README: «رموز تحقّق حقيقية»
-          # البريد: SMTP (مثل Gmail بكلمة مرور تطبيق) أو Resend
-          SMTP_HOST: ${{ secrets.SMTP_HOST }}
-          SMTP_PORT: ${{ secrets.SMTP_PORT }}
-          SMTP_SECURE: ${{ secrets.SMTP_SECURE }}
-          SMTP_USER: ${{ secrets.SMTP_USER }}
-          SMTP_PASS: ${{ secrets.SMTP_PASS }}
-          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
-          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-          # الرسائل النصية/واتساب: Twilio Verify (الأسهل) أو Twilio Messages أو بوابة HTTP محلية
-          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
-          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
-          TWILIO_VERIFY_SERVICE_SID: ${{ secrets.TWILIO_VERIFY_SERVICE_SID }}
-          TWILIO_FROM: ${{ secrets.TWILIO_FROM }}
-          TWILIO_MESSAGING_SERVICE_SID: ${{ secrets.TWILIO_MESSAGING_SERVICE_SID }}
-          TWILIO_WHATSAPP_FROM: ${{ secrets.TWILIO_WHATSAPP_FROM }}
-          SMS_HTTP_URL: ${{ secrets.SMS_HTTP_URL }}
-          SMS_HTTP_METHOD: ${{ secrets.SMS_HTTP_METHOD }}
-          SMS_HTTP_HEADERS: ${{ secrets.SMS_HTTP_HEADERS }}
-          SMS_HTTP_BODY: ${{ secrets.SMS_HTTP_BODY }}
-          SMS_HTTP_OK: ${{ secrets.SMS_HTTP_OK }}
-          OTP_WHATSAPP: ${{ secrets.OTP_WHATSAPP }}
-          # اختياري: تثبيت المزوّد صراحة بدل الاكتشاف التلقائي
-          SMS_PROVIDER: ${{ secrets.SMS_PROVIDER }}
-          EMAIL_PROVIDER: ${{ secrets.EMAIL_PROVIDER }}
-          # الحماية: الدول المسموحة (افتراضياً +968) وأهداف اختبار تقبل الرمز الثابت دائماً
-          SMS_ALLOWED_COUNTRIES: ${{ secrets.SMS_ALLOWED_COUNTRIES }}
-          OTP_TEST_TARGETS: ${{ secrets.OTP_TEST_TARGETS }}
         run: |
           nohup npx tsx src/index.ts > ../../api.log 2>&1 &
           for i in $(seq 1 60); do curl -sf http://localhost:4000/api/health > /dev/null && break; sleep 2; done
@@ -121,6 +143,35 @@ jobs:
           echo "فحص من الإنترنت عبر النفق:"
           for i in $(seq 1 20); do curl -sf "$PUBLIC_URL/api/health" && break; sleep 3; done
           echo
+      - name: طبيب الربط (فحص كل خدمة فعلياً)
+        env:
+          DOCTOR_OUT: ${{ github.workspace }}/doctor.json
+          OTP_LINE: ${{ env.OTP_LINE }}
+        run: |
+          # يفحص الاتصال الحقيقي بكل خدمة مضبوطة (ثواني UAT، Stripe، Google/Apple JWKS، TURN، LiveKit، Expo …) ويكتب doctor.json
+          npm run doctor -w apps/api || echo "تعذّر تشغيل الطبيب — تُعرض حالة الرموز فقط"
+          # كتلة Markdown: سطر لكل مجموعة، ✅ جاهز · 🟡 ناقص · ⚪ غير مفعّل · ❌ فشل الفحص — وسطر الرموز داخلها.
+          # التعليق عام: يُكتب الاسم والحالة وزمن الفحص فقط — «detail» (بريد المُرسِل، مضيفو SMTP/TURN، مسارات التخزين) يبقى في doctor.json ولوحة الإدارة
+          node -e '
+            const fs = require("node:fs");
+            let d = {};
+            try { d = JSON.parse(fs.readFileSync(process.env.DOCTOR_OUT, "utf8")) || {}; } catch { d = {}; }
+            const ICON = { ready: "✅", partial: "🟡", off: "⚪" };
+            const icon = i => (i && i.check && i.check.ok === false) ? "❌" : (ICON[i && i.status] || "⚪");
+            const s = d.summary || {};
+            const n = v => (typeof v === "number" ? v : "؟");
+            const lines = [`**حالة الربط:** جاهز ${n(s.ready)} · ناقص ${n(s.partial)} · غير مفعّل ${n(s.off)} (من ${n(s.total)})`];
+            for (const g of (Array.isArray(d.groups) ? d.groups : [])) {
+              const items = Array.isArray(g && g.items) ? g.items : [];
+              if (!items.length) continue;
+              const ms = i => (i && i.check && typeof i.check.ms === "number") ? ` ${i.check.ms}ms` : "";
+              lines.push(`- **${g.label || g.group || "؟"}:** ` + items.map(i => `${(i && (i.label || i.id)) || "؟"} ${icon(i)}${ms(i)}`).join(" · "));
+            }
+            lines.push(`- **${process.env.OTP_LINE || "رموز حقيقية — هاتف: ❌ | واتساب: ❌ | بريد: ❌"}**`);
+            fs.writeFileSync("doctor.md", lines.join("\n") + "\n");
+          '
+          cat doctor.md
+          { echo "DOCTOR_BLOCK<<__DOCTOR__"; cat doctor.md; echo "__DOCTOR__"; } >> "$GITHUB_ENV"
       - name: نشر الرابط
         env:
           URL: ${{ steps.tunnel.outputs.url }}
@@ -128,11 +179,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           OTP_LINE: ${{ env.OTP_LINE }}
+          DOCTOR_BLOCK: ${{ env.DOCTOR_BLOCK }}
         run: |
-          # سطر حالة الرموز (يُحسب في خطوة التشغيل) — احتياط إن لم يُضبط
+          # كتلة حالة الربط (تُبنى في خطوة الطبيب) — احتياط: سطر الرموز وحده إن لم تُضبط
           OTP_LINE="${OTP_LINE:-رموز حقيقية — هاتف: ❌ | واتساب: ❌ | بريد: ❌}"
+          DOCTOR_BLOCK="${DOCTOR_BLOCK:-**$OTP_LINE**}"
           # تعليق على طلب الدمج رقم 1 بالرابط — يظهر فوراً دون فتح صفحة التشغيل
-          BODY="$(printf '🟢 **الخادم التجريبي يعمل الآن** (لمدة %s دقيقة)\n\n## %s\n\n| ماذا | الرابط |\n| --- | --- |\n| التطبيق | %s |\n| لوحة الإدارة | %s/admin |\n| فحص الصحة | %s/api/health |\n\n**الدخول:** طالب `90000010` · معلّم `91000001` · فريق الإدارة `90000001` · الرمز `000000`\n\n**%s**\nالحسابات التجريبية (9000000x, 9100000x) تبقى على الرمز 000000.\n\n**تجربة الكاميرا والمايك:** افتح الرابط على جهازين (أو متصفحين)، ادخل كمعلّم في الأول وكطالب في الثاني ← الحصص ← الحصة القادمة ← **دخول الحصة** ← اسمح للكاميرا والمايك.\n\nيتوقف تلقائياً بعد المدة. لإعادة التشغيل: [Re-run all jobs](%s).\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_' "$MINUTES" "$URL" "$URL" "$URL" "$URL" "$OTP_LINE" "$RUN_URL")"
+          BODY="$(printf '🟢 **الخادم التجريبي يعمل الآن** (لمدة %s دقيقة)\n\n## %s\n\n| ماذا | الرابط |\n| --- | --- |\n| التطبيق | %s |\n| لوحة الإدارة | %s/admin |\n| فحص الصحة | %s/api/health |\n\n**الدخول:** طالب `90000010` · معلّم `91000001` · فريق الإدارة `90000001` · الرمز `000000`\n\n%s\nالحسابات التجريبية (9000000x, 9100000x) تبقى على الرمز 000000. الدفع بثواني في وضع التجربة (UAT): بطاقة `4242 4242 4242 4242`.\n\n**تجربة الكاميرا والمايك:** افتح الرابط على جهازين (أو متصفحين)، ادخل كمعلّم في الأول وكطالب في الثاني ← الحصص ← الحصة القادمة ← **دخول الحصة** ← اسمح للكاميرا والمايك.\n\nيتوقف تلقائياً بعد المدة. لإعادة التشغيل: [Re-run all jobs](%s).\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_' "$MINUTES" "$URL" "$URL" "$URL" "$URL" "$DOCTOR_BLOCK" "$RUN_URL")"
           gh api "repos/${GITHUB_REPOSITORY}/issues/1/comments" -f body="$BODY" > /dev/null && echo "نُشر التعليق على PR #1" || echo "تعذّر نشر التعليق"
 
           {
@@ -148,8 +201,8 @@ jobs:
             echo
             echo "**الدخول:** طالب \`90000010\` · معلّم \`91000001\` · فريق الإدارة \`90000001\` · الرمز \`000000\`"
             echo
-            echo "**$OTP_LINE**"
-            echo "الحسابات التجريبية (9000000x, 9100000x) تبقى على الرمز 000000."
+            echo "$DOCTOR_BLOCK"
+            echo "الحسابات التجريبية (9000000x, 9100000x) تبقى على الرمز 000000. الدفع بثواني في وضع التجربة (UAT): بطاقة \`4242 4242 4242 4242\`."
             echo
             echo "**تجربة الكاميرا:** افتح الرابط على جهازين (أو متصفحين): ادخل كمعلّم في الأول وكطالب في الثاني → الحصص → الحصة القادمة → **دخول الحصة** → اسمح للكاميرا والمايك."
             echo

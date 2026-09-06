@@ -89,3 +89,7 @@ details.meta summary { cursor: pointer; color: var(--link); font-size: 12px; } d
 .chips { display: flex; gap: 6px; flex-wrap: wrap; }
 .mono { direction: ltr; unicode-bidi: embed; font-family: ui-monospace, SFMono-Regular, monospace; font-size: 12px; }
 @media (max-width: 800px) { .doc { grid-template-columns: 1fr; } .kv { grid-template-columns: 1fr; } }
+/* الربط والخدمات: صفوف التكاملات وشرائح أسماء المتغيّرات */
+.irows { display: flex; flex-direction: column; margin-top: 8px; } .irow { display: flex; gap: 12px; align-items: flex-start; padding: 10px 0; border-top: 1px solid var(--border); } .irow:first-child { border-top: 0; }
+.irow-main { flex: 1; display: grid; gap: 4px; min-width: 0; } .irow > a { white-space: nowrap; padding-top: 3px; }
+code.env { direction: ltr; unicode-bidi: embed; font-family: ui-monospace, SFMono-Regular, monospace; font-size: 11px; background: var(--bg-2); border: 1px solid var(--border); border-radius: 6px; padding: 1px 6px; color: var(--text); word-break: break-all; }

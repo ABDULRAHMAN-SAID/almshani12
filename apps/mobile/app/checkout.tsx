@@ -87,7 +87,10 @@ export default function Checkout() {
           return (
             <Pressable key={m.id} onPress={() => setProvider(m.id)} style={[styles.method, on && styles.methodOn]} accessibilityRole="radio" accessibilityState={{ checked: on }}>
               <View style={[styles.mIcon, on && styles.mIconOn]}><Icon name={ICON[m.id] ?? 'card'} size={20} color={on ? colors.brand.primary : colors.text.secondary} /></View>
-              <View style={styles.flex}><Text role="bodyMedium">{m.label}</Text>{m.description ? <Text role="caption" tone="secondary">{m.description}</Text> : null}</View>
+              <View style={styles.flex}>
+                <View style={styles.mTitle}><Text role="bodyMedium">{m.label}</Text>{m.mode === 'uat' || m.mode === 'test' ? <Badge label={t('checkout.testMode')} tone="warning" icon="sparkles" /> : null}</View>
+                {m.description ? <Text role="caption" tone="secondary">{m.description}</Text> : null}
+              </View>
               {m.id === 'wallet' && walletShort && on ? <Badge label={t('errors.insufficientFunds')} tone="danger" /> : null}
               <View style={[styles.radio, on && styles.radioOn]}>{on ? <Icon name="check" size={14} color={colors.text.inverse} /> : null}</View>
             </Pressable>
@@ -110,6 +113,7 @@ const styles = themed((c) => StyleSheet.create({
   flex: { flex: 1, minWidth: 0 },
   method: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], padding: spacing[3], borderRadius: radius.md, borderWidth: 1.5, borderColor: c.border.default, backgroundColor: c.bg.card, minHeight: 64 },
   methodOn: { borderColor: c.brand.primary },
+  mTitle: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], flexWrap: 'wrap' },
   mIcon: { width: 40, height: 40, borderRadius: radius.md, backgroundColor: c.bg.subtle, alignItems: 'center', justifyContent: 'center' },
   mIconOn: { backgroundColor: c.brand.primarySoft },
   radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: c.border.strong, alignItems: 'center', justifyContent: 'center' },

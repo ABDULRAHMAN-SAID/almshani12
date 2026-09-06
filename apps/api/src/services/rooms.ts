@@ -4,6 +4,7 @@ import { db, q, settings, nowIso } from '../db/index.ts';
 import { AppError, notFound, forbidden } from '../lib/errors.ts';
 import { sha256, randomToken, addMinutes } from '../lib/helpers.ts';
 import type { BookingRow } from './bookings.ts';
+import { getIceServers } from './turn.ts';
 
 /**
  * الغرفة المباشرة تنشأ من حجز رسمي فقط، لمعلّم معتمد وطالب مصادَق،
@@ -89,7 +90,7 @@ export async function issueRoomAccess(bookingId: number, user: { id: number; rol
     q.run('INSERT INTO room_participants (room_id, user_id, token_hash, token_expires_at) VALUES (?,?,?,?)', room.id, user.id, sha256(token), Math.floor(now / 1000) + ttl);
   })();
 
-  return { provider: provider.id, roomId: providerRoomId, token, expiresAt: new Date(now + ttl * 1000).toISOString(), joinUrl, isHost: isTeacher || isAdmin, booking, roomRowId: room.id as number, iceServers: config.rooms.iceServers };
+  return { provider: provider.id, roomId: providerRoomId, token, expiresAt: new Date(now + ttl * 1000).toISOString(), joinUrl, isHost: isTeacher || isAdmin, booking, roomRowId: room.id as number, iceServers: await getIceServers() };
 }
 
 /** يتحقّق من رمز غرفة داخلية عند اتصال Socket.IO */

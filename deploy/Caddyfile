@@ -1,0 +1,5 @@
+# Caddy يصدر شهادة HTTPS تلقائياً (Let's Encrypt) للنطاق في DOMAIN ويمرّر كل شيء إلى التطبيق (API + الويب + /admin + Socket.IO).
+{$DOMAIN} {
+	encode gzip
+	reverse_proxy manassah:4000
+}

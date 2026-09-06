@@ -25,7 +25,7 @@ before(async () => { c = await boot(); globalThis.fetch = fakeFetch as typeof fe
 after(() => { globalThis.fetch = realFetch; c.close(); });
 
 test('طرق الدخول: هاتف فقط — لا بريد ولا رمز ثابت', async () => {
-  assert.deepEqual((await c.api('/api/auth/methods')).json, { phone: true, whatsapp: false, email: false, testCode: false });
+  assert.deepEqual((await c.api('/api/auth/methods')).json, { phone: true, whatsapp: false, email: false, testCode: false, google: false, apple: false });
 });
 
 test('البوابة تستقبل JSON بالرقم بلا + والرمز داخل النص؛ التحقّق بالرمز المرسل ينجح', async () => {

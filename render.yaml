@@ -64,8 +64,76 @@ services:
       - key: OTP_TEST_TARGETS
         sync: false
       - key: PAYMENT_PROVIDERS
-        value: mock,wallet,manual
+        value: mock,wallet,manual   # للإنتاج: thawani,wallet,manual
+      # الدفع: ثواني (UAT للتجربة أو live من بوابة التاجر) وStripe — README «ثواني»
+      - key: THAWANI_SECRET_KEY
+        sync: false
+      - key: THAWANI_PUBLISHABLE_KEY
+        sync: false
+      - key: THAWANI_WEBHOOK_SECRET
+        sync: false
+      - key: THAWANI_MODE
+        sync: false   # فارغ = live في الإنتاج | uat للتجربة
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      # الدخول الاجتماعي (معرّفات العملاء؛ فارغ = مخفي)
+      - key: GOOGLE_CLIENT_IDS
+        sync: false
+      - key: APPLE_CLIENT_IDS
+        sync: false
+      - key: APPLE_SERVICES_ID
+        sync: false
+      # الغرف: LiveKit للجوال، وTURN ثابت أو ديناميكي (Twilio/Metered)
       - key: ROOM_PROVIDER
         value: internal
+      - key: LIVEKIT_URL
+        sync: false
+      - key: LIVEKIT_API_KEY
+        sync: false
+      - key: LIVEKIT_API_SECRET
+        sync: false
+      - key: TURN_URL
+        sync: false
+      - key: TURN_USERNAME
+        sync: false
+      - key: TURN_CREDENTIAL
+        sync: false
+      - key: TURN_SOURCE
+        sync: false   # فارغ = تلقائي | static | metered
+      - key: METERED_API_KEY
+        sync: false
+      - key: METERED_DOMAIN
+        sync: false
+      - key: TURN_TTL
+        value: "3600"   # صلاحية بيانات TURN المؤقّتة بالثواني
+      # الإشعارات الفورية: VAPID يُولَّد تلقائياً ويُحفَظ في /data إن تُرك فارغاً
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        sync: false
+      - key: EXPO_ACCESS_TOKEN
+        sync: false
+      # المراقبة والنسخ الاحتياطية والبريد
+      - key: SENTRY_DSN
+        sync: false   # فارغ = لا تتبّع
+      - key: SENTRY_TRACES
+        value: "0"   # نسبة تتبّع الأداء 0–1
+      - key: BACKUP_ENABLED
+        value: "true"   # نسخ تلقائية في /data/backups
+      - key: BACKUP_KEEP
+        value: "7"   # عدد النسخ المحتفَظ بها
+      - key: BACKUP_EVERY_HOURS
+        value: "24"   # الفاصل بالساعات
+      - key: MAIL_RECEIPTS
+        value: "true"   # إيصال بالبريد بعد الدفع
+      # النشر (للعرض في لوحة الإدارة ← الربط والخدمات)
+      - key: DOMAIN
+        sync: false   # النطاق العام إن ربطت نطاقاً خاصاً
+      - key: GHCR_IMAGE
+        sync: false   # مثال: ghcr.io/owner/repo
       - key: CORS_ORIGINS
         value: ""

@@ -1,6 +1,7 @@
 import { Router, raw, json as jsonBody } from 'express';
+import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
-import { AddToCart, ApplyCoupon, CheckoutRequest } from '@manassah/shared';
+import { AddToCart, ApplyCoupon, CheckoutRequest, OrderConfirmRequest } from '@manassah/shared';
 import { config } from '../config.ts';
 import { db, q, settings, nowIso } from '../db/index.ts';
 import { AppError, asyncHandler, notFound, forbidden, badRequest } from '../lib/errors.ts';
@@ -9,7 +10,7 @@ import { requireAuth, attachUser } from '../lib/auth.ts';
 import { money } from '../lib/helpers.ts';
 import { orderView } from '../lib/views.ts';
 import { resolveItem, quote, createOrder, fulfillOrder, expirePendingOrders } from '../services/checkout.ts';
-import { getProvider, providerCatalog, verifyStripeSignature, verifyThawaniSignature } from '../services/payments.ts';
+import { getProvider, providerCatalog, verifyStripeSignature, verifyThawaniSignature, confirmOrderWithProvider, expectedMinor } from '../services/payments.ts';
 import * as wallet from '../services/wallet.ts';
 import { publicUrl } from '../services/storage.ts';
 import { notifyStaff } from '../services/notifications.ts';
@@ -137,41 +138,55 @@ ordersRouter.get('/:number', (req, res) => {
   if (o.user_id !== req.user!.id && !req.user!.roles.some(r => ['admin', 'super_admin', 'finance', 'support'].includes(r))) throw forbidden();
   res.json(orderView(o));
 });
+/** كل تأكيد قد يسأل البوابة فعلاً — حدّ لكل مستخدم (التطبيق يستطلع كل ٤ ثوانٍ) كي لا يُخنق مفتاح التاجر عند المزوّد */
+const confirmLimiter = rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: 'draft-7', legacyHeaders: false, keyGenerator: req => `u:${req.user?.id ?? 0}`, skip: () => !config.rateLimit.enabled,
+  message: { error: { code: 'rate_limited', message: 'محاولات كثيرة — انتظر قليلاً' } } });
+/** تأكيد الدفع من المزوّد (صفحات العودة والاستطلاع من التطبيق) — المالك فقط؛ sessionId تلميح اختياري من صفحة عودة Stripe */
+ordersRouter.post('/:number/confirm', confirmLimiter, asyncHandler(async (req, res) => {
+  const { sessionId } = OrderConfirmRequest.parse(req.body ?? {}); // الجسم اختياري (صفحات العودة قد لا ترسل شيئاً)
+  const r = await confirmOrderWithProvider(req.params.number, { userId: req.user!.id, sessionId: sessionId ?? null });
+  res.json({ ...r, order: orderView(q.get<any>('SELECT * FROM orders WHERE number = ?', req.params.number)) });
+}));
 
 /* ============ ردود بوابات الدفع (webhooks) ============ */
 export const paymentsRouter = Router();
+/**
+ * الـ webhook مجرّد مُحفِّز: نتحقّق من التوقيع (حين يوجد سرّ)، ثم نسأل المزوّد عن الجلسة قبل أي تنفيذ —
+ * جسم الطلب لا يُوثَق به وحده. نردّ 200 دائماً بعد التحقّق، وأي فشل يُسجَّل فقط (المزوّد يعيد المحاولة).
+ */
+const confirmFromWebhook = async (orderNumber: string, sessionId: string | null, provider: 'thawani' | 'stripe') => {
+  try { const r = await confirmOrderWithProvider(orderNumber, { sessionId, provider }); return r.paid; }
+  catch (err) { console.error(`[payments] webhook ${provider}`, orderNumber, (err as Error)?.message); return false; }
+};
 
 /** Stripe: التوقيع إلزامي؛ نقبل checkout.session.completed فقط */
-paymentsRouter.post('/webhook/stripe', raw({ type: '*/*' }), (req, res) => {
+paymentsRouter.post('/webhook/stripe', raw({ type: '*/*' }), asyncHandler(async (req, res) => {
   const rawBody = Buffer.isBuffer(req.body) ? req.body.toString('utf8') : String(req.body ?? '');
   if (!verifyStripeSignature(rawBody, req.headers['stripe-signature'] as string | undefined)) return res.status(400).json({ error: { code: 'forbidden', message: 'توقيع غير صالح' } });
   const event = JSON.parse(rawBody);
   if (event.type === 'checkout.session.completed') {
     const s = event.data?.object ?? {};
     const orderId = Number(s.metadata?.order_id);
-    const order = q.get<any>('SELECT id, total, currency FROM orders WHERE id = ?', orderId);
+    const order = q.get<any>('SELECT id, number, total, currency FROM orders WHERE id = ? OR number = ?', orderId || 0, String(s.client_reference_id ?? ''));
     if (!order) return res.status(404).json({ received: true });
-    const factor = ['OMR', 'KWD', 'BHD'].includes(order.currency) ? 1000 : 100;
-    if (s.amount_total != null && Math.round(order.total * factor) !== Number(s.amount_total)) return res.status(400).json({ error: { code: 'payment_failed', message: 'المبلغ لا يطابق الطلب' } });
-    fulfillOrder(orderId, { provider: 'stripe', providerRef: s.id });
-    audit(null, 'order.paid_webhook', 'orders', orderId, { provider: 'stripe' });
+    if (s.amount_total != null && expectedMinor(order, 'stripe') !== Number(s.amount_total)) return res.status(400).json({ error: { code: 'payment_failed', message: 'المبلغ لا يطابق الطلب' } });
+    const paid = await confirmFromWebhook(order.number, typeof s.id === 'string' ? s.id : null, 'stripe');
+    return res.json({ received: true, paid });
   }
   res.json({ received: true });
-});
+}));
 
-/** Thawani (عُمان) */
-paymentsRouter.post('/webhook/thawani', raw({ type: '*/*' }), (req, res) => {
+/** Thawani (عُمان): التوقيع يُتحقّق حين يوجد THAWANI_WEBHOOK_SECRET؛ وبدونه الجسم مُحفِّز فقط والحقيقة من استعلام المزوّد */
+paymentsRouter.post('/webhook/thawani', raw({ type: '*/*' }), asyncHandler(async (req, res) => {
   const rawBody = Buffer.isBuffer(req.body) ? req.body.toString('utf8') : String(req.body ?? '');
   if (!verifyThawaniSignature(rawBody, req.headers['thawani-signature'] as string | undefined)) return res.status(400).json({ error: { code: 'forbidden', message: 'توقيع غير صالح' } });
   const data = JSON.parse(rawBody);
   const ref = data?.client_reference_id ?? data?.data?.client_reference_id;
-  const status = data?.payment_status ?? data?.data?.payment_status;
-  if (ref && status === 'paid') {
-    const order = q.get<any>('SELECT id FROM orders WHERE number = ?', ref);
-    if (order) { fulfillOrder(order.id, { provider: 'thawani', providerRef: data?.session_id ?? data?.data?.session_id ?? null }); audit(null, 'order.paid_webhook', 'orders', order.id, { provider: 'thawani' }); }
-  }
-  res.json({ received: true });
-});
+  const sessionId = data?.session_id ?? data?.data?.session_id ?? null;
+  let paid = false;
+  if (ref && q.get('SELECT 1 FROM orders WHERE number = ?', String(ref))) paid = await confirmFromWebhook(String(ref), typeof sessionId === 'string' ? sessionId : null, 'thawani');
+  res.json({ received: true, paid });
+}));
 
 /** بوابة تجريبية (غير الإنتاج): تأكيد بالمرجع فقط */
 const MockConfirm = z.object({ reference: z.string().min(4), outcome: z.enum(['success', 'fail']).default('success') });

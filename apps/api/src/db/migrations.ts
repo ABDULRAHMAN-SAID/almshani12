@@ -102,6 +102,23 @@ export const MIGRATIONS: Migration[] = [
     db.exec("UPDATE otp_codes SET via = 'test' WHERE via IS NULL");
     db.exec('CREATE INDEX IF NOT EXISTS idx_otp_created ON otp_codes(created_at)');
   } },
+  { version: 4, name: '004_push_devices', up: (db) => {
+    // أجهزة الإشعارات الفورية (Web Push / Expo) — DDL مطابق لـ schema.sql؛ device_tokens القديم يبقى كما هو
+    db.exec(`CREATE TABLE IF NOT EXISTS push_devices (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  kind         TEXT NOT NULL CHECK (kind IN ('expo','web')),
+  token        TEXT NOT NULL,
+  auth         TEXT,
+  p256dh       TEXT,
+  platform     TEXT,
+  user_agent   TEXT,
+  last_used_at TEXT,
+  created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (kind, token)
+)`);
+    db.exec('CREATE INDEX IF NOT EXISTS idx_push_devices_user ON push_devices(user_id)');
+  } },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

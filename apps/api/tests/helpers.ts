@@ -14,7 +14,7 @@ process.env.SIGNING_SECRET = 'test-signing-secret';
 process.env.RATE_LIMIT_ENABLED = 'false';
 process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test';
 process.env.THAWANI_WEBHOOK_SECRET = 'thawani_test';
-process.env.PAYMENT_PROVIDERS = 'mock,wallet,manual';
+process.env.PAYMENT_PROVIDERS ??= 'mock,wallet,manual'; // ملفات اختبار المزوّدات تضبطها قبل الاستيراد
 
 export type Ctx = Awaited<ReturnType<typeof boot>>;
 

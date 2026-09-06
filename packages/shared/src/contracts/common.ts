@@ -47,3 +47,19 @@ export const Ok = z.object({ ok: z.literal(true) });
 
 export type PageMeta = z.infer<typeof PageMeta>;
 export type ApiErrorBody = z.infer<typeof ApiErrorBody>;
+
+/** GET /config — ما يحتاجه التطبيق قبل الدخول: معرّفات عامة فقط (لا أسرار) */
+export const PublicConfig = z.object({
+  brand: z.unknown().optional(),
+  paymentProviders: z.array(z.string()),
+  roomProvider: z.string(),
+  devOtp: z.boolean(),
+  mockPayments: z.boolean(),
+  /** معرّف عميل Google للويب، وApple: Services ID للويب + هل الدخول الأصلي مضبوط */
+  auth: z.object({ google: z.string().nullable(), apple: z.object({ servicesId: z.string().nullable(), native: z.boolean() }) }),
+  /** مفتاح VAPID العام لإشعارات المتصفح */
+  push: z.object({ web: z.string().nullable() }),
+  /** وسائل الدفع المتاحة فعلاً ووضع ثواني (uat = تجربة) */
+  payments: z.object({ providers: z.array(z.string()), thawaniMode: z.enum(['uat', 'live']).nullable() }),
+});
+export type PublicConfig = z.infer<typeof PublicConfig>;

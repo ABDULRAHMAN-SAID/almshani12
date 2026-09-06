@@ -33,13 +33,17 @@ export type Cart = z.infer<typeof Cart>;
 export const AddToCart = z.object({ itemType: CartItemType, itemId: Id });
 export const ApplyCoupon = z.object({ code: z.string().trim().max(40).nullable() });
 
+/** وضع البوابة: uat (ثواني) / test (Stripe) = بيئة تجربة، live = حقيقي، null = بلا بوابة خارجية */
+export const PaymentProviderMode = z.enum(['uat', 'test', 'live']);
 export const PaymentMethod = z.object({
   id: PaymentProviderId,
   label: z.string(),
   description: z.string().nullable(),
   /** للتحويل اليدوي */
   instructions: z.record(z.string(), z.string()).nullable(),
+  mode: PaymentProviderMode.nullable().default(null),
 });
+export type PaymentMethod = z.infer<typeof PaymentMethod>;
 
 export const CheckoutRequest = z.object({
   provider: PaymentProviderId,
@@ -78,6 +82,16 @@ export const CheckoutResult = z.object({
   awaitingReview: z.boolean(),
 });
 export type CheckoutResult = z.infer<typeof CheckoutResult>;
+
+/** POST /orders/:number/confirm — sessionId تلميح اختياري من صفحة عودة Stripe (?session_id=) */
+export const OrderConfirmRequest = z.object({ sessionId: z.string().trim().max(200).optional() });
+export const OrderConfirmResult = z.object({
+  status: OrderStatus,
+  paid: z.boolean(),
+  provider: z.string().nullable(),
+  order: Order,
+});
+export type OrderConfirmResult = z.infer<typeof OrderConfirmResult>;
 
 export const RefundRequest = z.object({
   orderId: Id.optional(),

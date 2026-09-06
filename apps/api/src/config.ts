@@ -70,6 +70,24 @@ const emailProvider: EmailProvider = (() => {
   return 'log';
 })();
 
+/** مفاتيح VAPID للإشعارات عبر المتصفح: من البيئة، وإلا تُولَّد مرة واحدة وتُحفَظ في DATA_DIR/.vapid.json */
+function vapidKeys(): { publicKey: string; privateKey: string } {
+  if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) return { publicKey: process.env.VAPID_PUBLIC_KEY, privateKey: process.env.VAPID_PRIVATE_KEY };
+  const file = path.join(DATA_DIR, '.vapid.json');
+  try { const k = JSON.parse(fs.readFileSync(file, 'utf8')); if (k.publicKey && k.privateKey) return k; } catch { /* يُولَّد أدناه */ }
+  // ECDSA P-256 كما تتطلّبه RFC 8292 — بلا مكتبة خارجية حتى لا يتأخّر الإقلاع
+  const { publicKey, privateKey } = crypto.generateKeyPairSync('ec', { namedCurve: 'prime256v1' });
+  const jwk = privateKey.export({ format: 'jwk' }) as { x: string; y: string; d: string };
+  // المفتاح العام بصيغة النقطة غير المضغوطة (0x04 ‖ x ‖ y) والخاص هو d — كلاهما base64url كما يتوقّعهما المتصفح وweb-push
+  const keys = {
+    publicKey: Buffer.concat([Buffer.from([4]), Buffer.from(jwk.x, 'base64url'), Buffer.from(jwk.y, 'base64url')]).toString('base64url'),
+    privateKey: Buffer.from(jwk.d, 'base64url').toString('base64url'),
+  };
+  void publicKey;
+  try { fs.writeFileSync(file, JSON.stringify(keys), { mode: 0o600 }); } catch { /* قرص للقراءة فقط — تُستعمل لهذه الجلسة فقط */ }
+  return keys;
+}
+
 export const config = {
   env: process.env.NODE_ENV || 'development',
   /** الإقلاع الأول على خادم فارغ: بذر تجريبي كامل (خادم عرض) أو المنهج فقط + مدير أوّل */
@@ -139,8 +157,13 @@ export const config = {
 
   payments: {
     providers: list(process.env.PAYMENT_PROVIDERS, ['mock', 'wallet', 'manual']),
-    stripe: { secretKey: process.env.STRIPE_SECRET_KEY || '', webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '' },
-    thawani: { secretKey: process.env.THAWANI_SECRET_KEY || '', publishableKey: process.env.THAWANI_PUBLISHABLE_KEY || '', webhookSecret: process.env.THAWANI_WEBHOOK_SECRET || '' },
+    stripe: { secretKey: process.env.STRIPE_SECRET_KEY || '', webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '', mode: (process.env.STRIPE_SECRET_KEY || '').startsWith('sk_live_') ? 'live' : 'test' as 'live' | 'test' },
+    /** ثواني: UAT (بيئة الاختبار) افتراضياً خارج الإنتاج، وlive في الإنتاج — THAWANI_MODE يثبّتها */
+    thawani: (() => {
+      const mode = (process.env.THAWANI_MODE || (process.env.NODE_ENV === 'production' ? 'live' : 'uat')) === 'live' ? 'live' : 'uat';
+      return { secretKey: process.env.THAWANI_SECRET_KEY || '', publishableKey: process.env.THAWANI_PUBLISHABLE_KEY || '', webhookSecret: process.env.THAWANI_WEBHOOK_SECRET || '',
+        mode, baseUrl: (process.env.THAWANI_BASE_URL || (mode === 'uat' ? 'https://uatcheckout.thawani.om' : 'https://checkout.thawani.om')).replace(/\/$/, '') } as const;
+    })(),
     manual: {
       bankName: process.env.BANK_NAME || 'بنك مسقط',
       accountName: process.env.BANK_ACCOUNT_NAME || brand.name.ar,
@@ -157,7 +180,39 @@ export const config = {
     iceServers: iceServers(),
     livekit: { url: process.env.LIVEKIT_URL || '', apiKey: process.env.LIVEKIT_API_KEY || '', apiSecret: process.env.LIVEKIT_API_SECRET || '' },
     tokenTtlSeconds: num(process.env.ROOM_TOKEN_TTL, 3 * 3600),
+    /** TURN ديناميكي: static من TURN_URL، أو Twilio (خدمة عبور الشبكة) بنفس مفاتيح Twilio، أو Metered — وإلا none */
+    turn: {
+      source: (process.env.TURN_URL ? 'static'
+        : process.env.TURN_SOURCE === 'static' ? 'static'
+        : process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TURN_SOURCE !== 'metered' ? 'twilio'
+        : process.env.METERED_API_KEY && process.env.METERED_DOMAIN ? 'metered' : 'none') as 'static' | 'twilio' | 'metered' | 'none',
+      metered: { apiKey: process.env.METERED_API_KEY || '', domain: process.env.METERED_DOMAIN || '' },
+      ttlSeconds: num(process.env.TURN_TTL, 3600),
+    },
   },
+
+  /** الدخول الاجتماعي: معرّفات العملاء المسموح بها (الويب أولاً) — فارغة = غير مفعّل */
+  auth: {
+    google: { clientIds: list(process.env.GOOGLE_CLIENT_IDS || process.env.GOOGLE_CLIENT_ID, []) },
+    apple: { clientIds: list(process.env.APPLE_CLIENT_IDS || process.env.APPLE_CLIENT_ID, []), servicesId: process.env.APPLE_SERVICES_ID || '' },
+  },
+
+  /** الإشعارات الفورية: مفاتيح VAPID للويب (تُولَّد وتُحفَظ في DATA_DIR إن لم تُضبط) ورمز Expo اختياري */
+  push: {
+    vapid: vapidKeys(),
+    subject: process.env.VAPID_SUBJECT || `mailto:${process.env.EMAIL_FROM || process.env.SMTP_USER || 'admin@localhost'}`.replace(/^mailto:.*<(.+)>$/, 'mailto:$1'),
+    expoAccessToken: process.env.EXPO_ACCESS_TOKEN || '',
+    /** عنوان خدمة Expo Push — يُبدَّل في الاختبارات المحلية فقط */
+    expoUrl: process.env.EXPO_PUSH_URL || 'https://exp.host/--/api/v2/push/send',
+  },
+
+  monitoring: { sentryDsn: process.env.SENTRY_DSN || '', tracesSampleRate: num(process.env.SENTRY_TRACES, 0) },
+
+  backups: { enabled: bool(process.env.BACKUP_ENABLED, true), keep: num(process.env.BACKUP_KEEP, 7), everyHours: num(process.env.BACKUP_EVERY_HOURS, 24) },
+
+  mail: { receipts: bool(process.env.MAIL_RECEIPTS, true) },
+
+  deploy: { domain: process.env.DOMAIN || '', image: process.env.GHCR_IMAGE || '' },
 
   rateLimit: {
     enabled: bool(process.env.RATE_LIMIT_ENABLED, !isTest),

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { View, StyleSheet, I18nManager, Platform } from 'react-native';
+import { useEffect, useState } from 'react';
+import { View, StyleSheet, I18nManager, Platform, Switch } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { colors, spacing, themed } from '@manassah/tokens';
@@ -10,8 +10,9 @@ import { useUi, type ThemePref, type TextScale } from '@/state/ui';
 import { signOut } from '@/lib/session';
 import i18n from '@/i18n';
 import { errorMessageKey, resolveBase, DEMO, isDemo } from '@/api/client';
+import { getPushState, enablePush, disablePush, type PushState } from '@/lib/push';
 
-/** الإعدادات: الملف، المظهر (فاتح/داكن/تلقائي + حجم الخط)، اللغة، الخادم والاتصال، الصف، حذف الحساب */
+/** الإعدادات: الملف، المظهر (فاتح/داكن/تلقائي + حجم الخط)، اللغة، التنبيهات، الخادم والاتصال، الصف، حذف الحساب */
 export default function Settings() {
   const { t } = useTranslation();
   const router = useRouter();
@@ -24,6 +25,11 @@ export default function Settings() {
   const [confirm, setConfirm] = useState(false);
   const [url, setUrl] = useState(serverUrl);
   const [probe, setProbe] = useState<{ state: 'idle' | 'testing' | 'ok' | 'fail'; info?: string }>({ state: 'idle' });
+  // التنبيهات الفورية على هذا الجهاز: الحالة تُقرأ بلا طلب إذن، والمفتاح يطلبه/يلغيه
+  const [push, setPush] = useState<PushState | 'checking' | 'busy'>('checking');
+  useEffect(() => { let live = true; getPushState().then(s => { if (live) setPush(s); }); return () => { live = false; }; }, []);
+  const togglePush = async (on: boolean) => { setPush('busy'); setPush(on ? await enablePush() : await disablePush()); };
+  const pushLabel = push === 'checking' || push === 'busy' ? t('settings.pushChecking') : t(`settings.push${push === 'on' ? 'On' : push === 'off' ? 'Off' : push === 'denied' ? 'Denied' : push === 'unconfigured' ? 'Unconfigured' : 'Unsupported'}`);
 
   const setLang = (lng: 'ar' | 'en') => {
     i18n.changeLanguage(lng);
@@ -73,6 +79,20 @@ export default function Settings() {
           <View style={styles.chips}><Chip label={t('settings.arabic')} selected={i18n.language !== 'en'} onPress={() => setLang('ar')} /><Chip label={t('settings.english')} selected={i18n.language === 'en'} onPress={() => setLang('en')} /></View>
         </Card>
 
+        {/* التنبيهات */}
+        <Card>
+          <View style={styles.head}><Icon name="bell" size={22} color={colors.brand.primary} /><Text role="h3">{t('settings.notifications')}</Text></View>
+          <View style={styles.pushRow}>
+            <View style={styles.flex}>
+              <Text role="bodyMedium">{t('settings.pushToggle')}</Text>
+              <Text role="caption" tone={push === 'on' ? 'success' : push === 'denied' ? 'danger' : 'secondary'}>{pushLabel}</Text>
+            </View>
+            <Switch value={push === 'on'} disabled={push === 'checking' || push === 'busy' || push === 'unsupported' || push === 'unconfigured' || push === 'denied'} onValueChange={togglePush}
+              trackColor={{ true: colors.brand.primary, false: colors.border.strong }} thumbColor={colors.bg.card} accessibilityLabel={t('settings.pushToggle')} />
+          </View>
+          <Text role="caption" tone="tertiary" style={styles.mt}>{t('settings.pushHint')}</Text>
+        </Card>
+
         {/* الخادم والاتصال */}
         <Card>
           <View style={styles.head}><Icon name="server" size={22} color={colors.brand.green} /><Text role="h3">{t('settings.server')}</Text></View>
@@ -115,6 +135,7 @@ const styles = themed((c) => StyleSheet.create({
   chips: { flexDirection: 'row', gap: spacing[2], flexWrap: 'wrap' },
   menu: { paddingHorizontal: spacing[4] },
   modeRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], marginBottom: spacing[3] },
+  pushRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
   flex: { flex: 1, minWidth: 0 },
   probe: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], marginTop: spacing[3], padding: spacing[3], borderRadius: 14, backgroundColor: c.bg.subtle },
 }));

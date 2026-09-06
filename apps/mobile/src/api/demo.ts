@@ -236,13 +236,13 @@ export async function handle(method: string, fullPath: string, body: any, ctx?: 
 
   /* الصحة والإعداد */
   if (path === '/health') return ok({ ok: true });
-  if (path === '/config') return ok({ paymentProviders: ['mock', 'wallet', 'manual'], devOtp: true, mockPayments: true });
+  if (path === '/config') return ok({ paymentProviders: ['mock', 'wallet', 'manual'], roomProvider: 'webrtc', devOtp: true, mockPayments: true, auth: { google: null, apple: { servicesId: null, native: false } }, push: { web: null }, payments: { providers: ['mock', 'wallet', 'manual'], thawaniMode: null } });
+  if (path === '/push/public-key') return ok({ key: null });
   /* المصادقة */
-  if (path === '/auth/methods') return ok({ phone: true, whatsapp: true, email: true, testCode: true });
-  if (path === '/auth/otp/request') return ok({ ok: true, target: String(body?.target ?? ''), ttlSeconds: 300, delivery: 'test', devCode: '000000' });
-  if (path === '/auth/otp/verify') {
-    if (String(body?.code) !== '000000') return err(400, 'otp_invalid', 'رمز التحقّق غير صحيح');
-    const t = String(body?.target ?? ''); const prev = S.who;
+  if (path === '/auth/methods') return ok({ phone: true, whatsapp: true, email: true, testCode: true, google: false, apple: false });
+  /** دخول حساب العرض حسب الهدف: أرقام ثابتة للطالب/المعلّم/وليّ الأمر، وغيرها حساب جديد */
+  const enter = (t: string) => {
+    const prev = S.who;
     if (t.endsWith('90000010')) S.who = 'student'; else if (t.endsWith('91000001')) S.who = 'teacher'; else if (t.endsWith('90000020')) S.who = 'parent';
     else { S.who = 'new'; S.newUser = { id: 999, phone: t.includes('@') ? null : t, email: t.includes('@') ? t : null, displayName: '', avatarUrl: null, roles: [], locale: 'ar', timezone: 'Asia/Muscat', onboardingCompleted: false, student: null, teacher: null, createdAt: iso(Date.now()) }; }
     if (prev !== S.who || !S.learners.length) {   // حساب آخر: متعلّموه من اللقطة (الطالب: صفّان، وليّ الأمر: أبناؤه، المعلّم والجديد: بلا)
@@ -250,10 +250,16 @@ export async function handle(method: string, fullPath: string, body: any, ctx?: 
       S.activeLearnerId = S.who === 'student' ? D.student.user.activeLearnerId : S.who === 'parent' ? D.parent.user.activeLearnerId : null;
     }
     return done(ok({ user: user(), accessToken: 'demo-access', refreshToken: 'demo-refresh', isNew: S.who === 'new' }));
+  };
+  if (path === '/auth/otp/request') return ok({ ok: true, target: String(body?.target ?? ''), ttlSeconds: 300, delivery: 'test', devCode: '000000' });
+  if (path === '/auth/otp/verify') {
+    if (String(body?.code) !== '000000') return err(400, 'otp_invalid', 'رمز التحقّق غير صحيح');
+    return enter(String(body?.target ?? ''));
   }
   if (path === '/auth/refresh') return ok({ accessToken: 'demo-access', refreshToken: 'demo-refresh', user: user() });
   if (path === '/auth/logout') return ok();
-  if (path === '/auth/apple' || path === '/auth/google') return err(501, 'content_unavailable', 'يتطلّب ضبط مفاتيح المتاجر');
+  // الدخول الاجتماعي في نسخة العرض يفتح حساب الطالب التجريبي مباشرة
+  if (path === '/auth/apple' || path === '/auth/google') return enter('+96890000010');
   if (!S.who) return err(401, 'unauthorized', 'يجب تسجيل الدخول');
   if (path === '/auth/me') return ok(user());
   if (path === '/me' && method === 'PATCH') { const u = baseUser(); if (body?.displayName) { u.displayName = body.displayName; const self = activeLearners().find((l: any) => l.isSelf && l.position === 0); if (self) self.displayName = body.displayName; } if (body?.locale) u.locale = body.locale; return done(ok(user())); }
@@ -335,7 +341,7 @@ export async function handle(method: string, fullPath: string, body: any, ctx?: 
   if (path === '/cart/items' && method === 'POST') { if (!S.cart.some(c => c.itemType === body.itemType && c.itemId === body.itemId)) S.cart.push({ id: nextId(), itemType: body.itemType, itemId: body.itemId }); return done(ok(cartView(), 201)); }
   if ((r = m(/^\/cart\/items\/(\d+)$/))) { S.cart = S.cart.filter(c => c.id !== Number(r[1])); return done(ok(cartView())); }
   if (path === '/cart/coupon') { if (body.code) quote(S.cart, body.code); S.coupon = body.code ? String(body.code).toUpperCase() : null; return done(ok(cartView())); }
-  if (path === '/checkout/methods') return ok([{ id: 'mock', label: 'بطاقة تجريبية', description: 'نسخة العرض — لا تُخصم أموال', instructions: null }, { id: 'wallet', label: 'الرصيد', description: `الرصيد المتاح: ${S.wallet} OMR`, instructions: null }, { id: 'manual', label: 'تحويل بنكي', description: 'يُفعَّل المحتوى بعد مراجعة التحويل', instructions: { bankName: 'بنك مسقط', iban: 'OM00 0000 0000 0000 0000 0000' } }]);
+  if (path === '/checkout/methods') return ok([{ id: 'mock', label: 'بطاقة تجريبية', description: 'نسخة العرض — لا تُخصم أموال', instructions: null, mode: null }, { id: 'wallet', label: 'الرصيد', description: `الرصيد المتاح: ${S.wallet} OMR`, instructions: null, mode: null }, { id: 'manual', label: 'تحويل بنكي', description: 'يُفعَّل المحتوى بعد مراجعة التحويل', instructions: { bankName: 'بنك مسقط', iban: 'OM00 0000 0000 0000 0000 0000' }, mode: null }]);
   if (path === '/checkout/quote') return ok({ ...quote(body.items, body.couponCode), items: quote(body.items, body.couponCode).items.map(i => ({ itemType: i.itemType, itemId: i.itemId, title: i.title, price: i.price, listPrice: i.listPrice })) });
   if (path === '/checkout') { let order: any; if (lidErr) return lidErr; const learner = body.learnerId ? ownLearner(Number(body.learnerId)) : activeLearner(ctx); if (body.learnerId && !learner) return err(403, 'learner_forbidden', 'هذا المتعلّم ليس في حسابك');
     if (body.bookingId) { order = S.orders.find(o => o.bookingId === body.bookingId && o.status === 'pending'); if (!order) return err(409, 'slot_expired', 'انتهت مهلة إتمام الحجز'); }
@@ -344,12 +350,15 @@ export async function handle(method: string, fullPath: string, body: any, ctx?: 
     if (body.provider === 'manual') { order.provider = 'manual'; return done(ok({ order, paid: false, requiresRedirect: false, checkoutUrl: null, awaitingReview: true, instructions: { bankName: 'بنك مسقط', accountName: 'منصّة', iban: 'OM00 0000 0000 0000 0000 0000', amount: String(order.total), reference: order.number } })); }
     fulfill(order, body.provider); return done(ok({ order, paid: true, requiresRedirect: false, checkoutUrl: null, awaitingReview: false })); }
   if (path === '/orders' && method === 'GET') return ok(S.orders.map(orderView));
+  // تأكيد الدفع من المزوّد: نسخة العرض تعتبره مدفوعاً فوراً
+  if ((r = m(/^\/orders\/([^/]+)\/confirm$/))) { const o = S.orders.find(x => x.number === r[1] || String(x.id) === r[1]); if (!o) return err(404, 'not_found', 'الطلب غير موجود'); if (o.status === 'pending') fulfill(o, o.provider ?? 'mock'); return done(ok({ status: o.status, paid: o.status === 'paid', provider: o.provider, order: orderView(o) })); }
   if ((r = m(/^\/orders\/([^/]+)$/))) { const o = S.orders.find(x => x.number === r[1] || String(x.id) === r[1]); return o ? ok(orderView(o)) : err(404, 'not_found', 'الطلب غير موجود'); }
   /* حسابي */
   if (path === '/me/purchases') { const p = D.student.purchases; return ok({ books: S.owned.book.map(id => { const b = D.student.books.find((x: any) => x.id === id); return b && { id, title: b.title, coverUrl: null, purchasedAt: p.books.find((x: any) => x.id === id)?.purchasedAt ?? iso(Date.now()) }; }).filter(Boolean), courses: S.owned.course.map(id => { const c = D.student.courses.find((x: any) => x.id === id); return c && { id, title: c.title, coverUrl: null, purchasedAt: iso(Date.now()), progressPercent: courseProgress(id) }; }).filter(Boolean), lessons: S.bookings.map(b => ({ bookingId: b.id, teacherName: b.teacher.name, subjectName: b.subject.name, startsAt: b.startsAt, price: b.price, status: b.status })), subscriptions: [], orders: S.orders }); }
   if (path === '/me/wallet') return ok({ balance: S.wallet, currency: 'OMR', transactions: S.walletTx });
   if (path === '/me/notifications' && method === 'GET') return ok({ data: S.notifications.slice(0, 60), unread: S.notifications.filter(n => !n.readAt).length });
   if (path === '/me/notifications/read') { for (const n of S.notifications) if (!body?.ids || body.ids.includes(n.id)) n.readAt = n.readAt ?? iso(Date.now()); return done(ok({ ok: true, unread: 0 })); }
+  if (path === '/me/push') return ok(method === 'DELETE' ? { ok: true, removed: 0 } : { ok: true, kind: body?.kind ?? 'web' });
   if (path === '/me/device-tokens' || path === '/events' || path === '/reports' || m(/^\/blocks\/\d+$/)) return ok(path === '/events' ? null : { ok: true }, path === '/events' ? 204 : 200);
   if (path === '/me/favorites' && method === 'GET') return ok({ books: D.student.books.filter((b: any) => S.fav.book.includes(b.id)).map(bookCard), courses: D.student.courses.filter((c: any) => S.fav.course.includes(c.id)).map(courseCard), teachers: D.student.teachers.filter((t: any) => S.fav.teacher.includes(t.id)).map(teacherCard) });
   if (path === '/me/favorites' && method === 'POST') { const list = S.fav[body.targetType as 'book']; const i = list.indexOf(body.targetId); i >= 0 ? list.splice(i, 1) : list.push(body.targetId); return done(ok({ favorited: i < 0 })); }

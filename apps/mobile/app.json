@@ -24,7 +24,8 @@
         ],
         "NSCameraUsageDescription": "تُستخدم الكاميرا في الحصص المباشرة",
         "NSMicrophoneUsageDescription": "يُستخدم الميكروفون في الحصص المباشرة"
-      }
+      },
+      "usesAppleSignIn": true
     },
     "android": {
       "package": "om.manassah.app",
@@ -64,7 +65,9 @@
       ],
       "expo-video",
       "expo-web-browser",
-      "expo-document-picker"
+      "expo-document-picker",
+      "expo-apple-authentication",
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true
