@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "منصّة",
+    "slug": "manassah",
+    "version": "2.0.0",
+    "scheme": "manassah",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "icon": "./assets/icon.png",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F8F6F1"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "om.manassah.app",
+      "infoPlist": {
+        "CFBundleDevelopmentRegion": "ar",
+        "CFBundleLocalizations": ["ar", "en"],
+        "NSCameraUsageDescription": "تُستخدم الكاميرا في الحصص المباشرة",
+        "NSMicrophoneUsageDescription": "يُستخدم الميكروفون في الحصص المباشرة"
+      }
+    },
+    "android": {
+      "package": "om.manassah.app",
+      "adaptiveIcon": { "foregroundImage": "./assets/adaptive-icon.png", "backgroundColor": "#F8F6F1" },
+      "permissions": ["CAMERA", "RECORD_AUDIO"]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-localization",
+      "expo-secure-store",
+      ["expo-splash-screen", { "backgroundColor": "#F8F6F1", "image": "./assets/splash-icon.png", "imageWidth": 160 }]
+    ],
+    "experiments": { "typedRoutes": true },
+    "extra": { "supportsRTL": true, "router": {} }
+  }
+}
