@@ -73,7 +73,9 @@ export const TeachersQuery = PageQuery.extend({
 
 /* ---------- التوفّر والمواعيد ---------- */
 export const TimeSlot = z.object({ startsAt: IsoDateTime, endsAt: IsoDateTime, available: z.boolean() });
+export type TimeSlot = z.infer<typeof TimeSlot>;
 export const DayAvailability = z.object({ date: z.string(), slots: z.array(TimeSlot) });
+export type DayAvailability = z.infer<typeof DayAvailability>;
 export const AvailabilityQuery = z.object({
   from: z.string().min(10),
   days: z.coerce.number().int().min(1).max(30).default(14),
