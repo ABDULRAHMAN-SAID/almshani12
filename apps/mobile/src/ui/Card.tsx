@@ -16,16 +16,13 @@ export interface CardProps {
 
 /** السطح الأساسي: أبيض، حدّ خفيف، زوايا ١٦، ظلّ خفيف جداً */
 export function Card({ children, onPress, padded = true, accent, rail, style, accessibilityLabel }: CardProps) {
-  const body = (
-    <View style={[styles.card, padded && styles.padded, accent && styles.accent, rail ? { borderStartWidth: 3, borderStartColor: rail } : null, style]}>
-      {children}
-    </View>
-  );
-  if (!onPress) return body;
+  const base = [styles.card, padded && styles.padded, accent && styles.accent, rail ? { borderStartWidth: 3, borderStartColor: rail } : null, style];
+  if (!onPress) return <View style={base}>{children}</View>;
+  // Pressable هو الحاوية نفسها حتى تعمل أنماط التخطيط (العرض/flex) من الأب على البطاقة مباشرة
   return (
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={accessibilityLabel}
-      style={({ pressed }) => (pressed ? styles.pressed : undefined)}>
-      {body}
+      style={({ pressed }) => [base, pressed && styles.pressed]}>
+      {children}
     </Pressable>
   );
 }

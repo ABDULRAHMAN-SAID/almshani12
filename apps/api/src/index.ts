@@ -2,6 +2,7 @@ import http from 'node:http';
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
@@ -68,6 +69,10 @@ export function createApp() {
       res.type(f.mime).sendFile(absolutePath(f)); // يدعم Range للفيديو والصفحات
     } catch (err) { next(err); }
   });
+
+  // عارض PDF مستضاف ذاتياً — لا اعتماد على CDN خارجي ولا تسريب لروابط الملفات
+  const pdfjsDir = path.dirname(createRequire(import.meta.url).resolve('pdfjs-dist/package.json'));
+  app.use('/static/pdfjs', express.static(path.join(pdfjsDir, 'build'), { maxAge: '7d', immutable: true }));
 
   app.use('/api/auth', auth);
   app.use('/api', users);

@@ -57,7 +57,7 @@ export default function Library() {
               {bookFilters.subjectId ? <Chip small label={subjects.find(s => s.id === bookFilters.subjectId)?.name ?? ''} icon="close" onPress={() => setBookFilters({ ...bookFilters, subjectId: undefined })} /> : null}
             </View>
           ) : null}
-          {books.data ? <Text role="caption" tone="tertiary" tabular>{books.data.pages[0].meta.total} {t('common.pages') === '' ? '' : ''}{t('search.books')}</Text> : null}
+          {books.data ? <Text role="caption" tone="tertiary" tabular>{books.data.pages[0].meta.total} {t('search.books')}</Text> : null}
         </View>
       }
       ListEmptyComponent={

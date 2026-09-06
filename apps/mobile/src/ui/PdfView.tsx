@@ -1,4 +1,4 @@
-import { forwardRef, useImperativeHandle, useRef } from 'react';
+import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import { StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { colors } from '@manassah/tokens';
@@ -11,13 +11,15 @@ export interface PdfViewHandle { goto: (page: number) => void }
 /** الجوال: WebView بلا شريط أدوات ولا مشاركة — المحتوى يبقى داخل التطبيق */
 export const PdfView = forwardRef<PdfViewHandle, PdfViewProps>(function PdfView({ url, startPage, maxPages, onMessage }, ref) {
   const web = useRef<WebView>(null);
+  const [fallback, setFallback] = useState(false);
   useImperativeHandle(ref, () => ({ goto: (page) => web.current?.injectJavaScript(`window.__goto && window.__goto(${page}); true;`) }), []);
   return (
     <WebView
       ref={web}
-      source={{ html: viewerHtml({ url, startPage, maxPages }), baseUrl: api.base }}
+      // إن تعذّر تحميل pdf.js يعرض النظام الملف مباشرة (iOS) — بلا شريط مشاركة
+      source={fallback ? { uri: url } : { html: viewerHtml({ url, startPage, maxPages, assetBase: api.base }), baseUrl: api.base }}
       originWhitelist={['*']}
-      onMessage={e => { const m = parseViewerMessage(e.nativeEvent.data); if (m) onMessage?.(m); }}
+      onMessage={e => { const m = parseViewerMessage(e.nativeEvent.data); if (!m) return; if (m.type === 'error' && m.message === 'pdfjs' && !fallback) { setFallback(true); return; } onMessage?.(m); }}
       javaScriptEnabled domStorageEnabled={false} allowsLinkPreview={false} setSupportMultipleWindows={false}
       allowsBackForwardNavigationGestures={false} dataDetectorTypes="none" style={styles.web}
     />

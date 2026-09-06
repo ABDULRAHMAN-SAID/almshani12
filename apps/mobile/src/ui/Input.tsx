@@ -89,7 +89,7 @@ const styles = StyleSheet.create({
   focused: { borderColor: colors.border.focus },
   errored: { borderColor: colors.state.danger },
   input: {
-    flex: 1, paddingVertical: spacing[2],
+    flex: 1, minWidth: 0, paddingVertical: spacing[2],
     fontFamily: typography.body.family, fontSize: typography.body.size, color: colors.text.primary,
     textAlign: 'auto', writingDirection: 'auto',
   },

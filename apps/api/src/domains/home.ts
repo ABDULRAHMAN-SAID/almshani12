@@ -64,7 +64,7 @@ router.get('/', (req, res) => {
     nextLesson: next ? bookingView(next, uid) : null,
     continueItems, gradeSummaries, courses,
     recommendedTeachers: teachers.map(t => teacherCard(t, { userId: uid, fav: favT })),
-    solvedProblems, trending, offers,
+    solvedProblems, trending: trending.map(b => bookCard(b, bctx)), offers,
   });
 });
 
