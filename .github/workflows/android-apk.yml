@@ -103,6 +103,8 @@ jobs:
           fi
           if [ -n "$KS_B64" ]; then
             echo "$KS_B64" | base64 -d > app/release.keystore
+            # سطر فارغ أولاً: ملف gradle.properties المولَّد لا ينتهي بسطر جديد فتلتصق الخاصية بالسطر الأخير
+            echo >> gradle.properties
             cat >> gradle.properties <<PROPS
           MANASSAH_UPLOAD_STORE_FILE=release.keystore
           MANASSAH_UPLOAD_STORE_PASSWORD=$KS_PASS
@@ -114,7 +116,10 @@ jobs:
             grep -n "signingConfigs.release" app/build.gradle > /dev/null && echo "توقيع بالمفتاح الخاص بالمشروع" || { echo "::error::تعذّر إدراج إعداد التوقيع"; exit 1; }
           fi
           # معماريات الهواتف فقط (arm) — x86 للمحاكيات يضاعف الحجم بلا فائدة
+          echo >> gradle.properties
           echo "reactNativeArchitectures=armeabi-v7a,arm64-v8a" >> gradle.properties
+          echo "--- gradle.properties (آخر ٨ أسطر)"; tail -n 8 gradle.properties | sed 's/PASSWORD=.*/PASSWORD=***/'
+
       - name: بناء APK
         working-directory: apps/mobile/android
         env:
