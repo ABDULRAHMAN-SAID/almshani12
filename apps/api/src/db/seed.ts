@@ -346,16 +346,20 @@ export function seedDemo() {
 export function bootstrapIfEmpty(): { seeded: 'demo' | 'catalog' | 'none'; admin: string | null } {
   if ((q.val<number>('SELECT COUNT(*) FROM users') ?? 0) > 0) return { seeded: 'none', admin: null };
   return db.transaction(() => {
-    if (config.bootstrap.allowDemoSeed) { seedDemo(); return { seeded: 'demo' as const, admin: null }; }
-    seedCatalog();
-    let admin: string | null = null;
-    if (config.bootstrap.adminPhone) {
-      const phone = config.bootstrap.adminPhone.startsWith('+') ? config.bootstrap.adminPhone : `+968${config.bootstrap.adminPhone.replace(/\D/g, '').slice(-8)}`;
-      user(phone, 'مدير المنصّة', ['super_admin', 'admin']);
-      admin = phone;
-    }
-    return { seeded: 'catalog' as const, admin };
+    const seeded = config.bootstrap.allowDemoSeed ? 'demo' as const : 'catalog' as const;
+    if (seeded === 'demo') seedDemo(); else seedCatalog();
+    // ADMIN_PHONE يصبح مديراً في الحالتين — مع بيانات العرض يُضاف إلى فريق العرض
+    const admin = config.bootstrap.adminPhone ? grantStaff(config.bootstrap.adminPhone) : null;
+    return { seeded, admin };
   })();
+}
+
+/** يمنح رقماً دور مدير المنصّة (يُنشئ الحساب إن لم يوجد) — للإقلاع الأول ولخادم العرض */
+export function grantStaff(rawPhone: string): string {
+  const phone = rawPhone.startsWith('+') ? rawPhone : `+968${rawPhone.replace(/\D/g, '').slice(-8)}`;
+  const id = user(phone, 'مدير المنصّة', []);
+  for (const r of ['super_admin', 'admin']) q.run('INSERT OR IGNORE INTO user_roles (user_id, role) VALUES (?,?)', id, r);
+  return phone;
 }
 
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);

@@ -106,6 +106,7 @@ PUBLIC_URL=https://manassah.example.om docker compose up -d --build
 لا يحتاج أي حساب استضافة: `.github/workflows/live-server.yml` يبني المشروع على GitHub Actions ويشغّل الخادم ببيانات العرض
 ويفتح نفقاً عاماً HTTPS عبر Cloudflare. الرابط يظهر في **Summary** صفحة التشغيل، ويعمل حتى ٥ ساعات.
 - التشغيل: Actions ← **live-server** ← **Run workflow** (أو **Re-run all jobs** على آخر تشغيل).
+- لتدخل لوحة الإدارة برقمك أنت: Settings ← Secrets and variables ← Actions ← New repository secret باسم `ADMIN_PHONE` وقيمته رقمك (مثل `98XXXXXX`). عند كل تشغيل يصبح رقمك مديراً تلقائياً.
 - تجربة الحصة المباشرة: افتح الرابط على جهازين، ادخل كمعلّم `91000001` وكطالب `90000010`، ثم الحصص ← الحصة القادمة ← **دخول الحصة** ← اسمح للكاميرا والمايك.
 - الفيديو يمرّ مباشرة بين الجهازين (WebRTC) عبر STUN عام ومرحّل TURN مجاني في وضع التجربة. للإنتاج اضبط `TURN_URL` و`TURN_USERNAME` و`TURN_CREDENTIAL` (coturn أو Twilio/Metered).
 
