@@ -1,0 +1,24 @@
+import { q, settings, nowIso } from '../db/index.ts';
+import { notify } from './notifications.ts';
+
+/** تذكيرات الحصص (قبل ٦٠ و١٥ دقيقة افتراضياً — من الإعدادات) بلا تكرار */
+export function sendLessonReminders(): number {
+  const minutes = settings.get<number[]>('reminder_minutes');
+  let sent = 0;
+  for (const m of minutes) {
+    const type = m >= 60 ? 'lesson_in_1h' : 'lesson_in_15m';
+    const from = nowIso();
+    const to = new Date(Date.now() + m * 60_000).toISOString();
+    const rows = q.all<any>(`SELECT b.id, b.student_id, b.teacher_id, b.starts_at, s.name AS subject FROM bookings b JOIN subjects s ON s.id = b.subject_id
+      WHERE b.status = 'confirmed' AND b.starts_at > ? AND b.starts_at <= ?`, from, to);
+    for (const b of rows) {
+      for (const uid of [b.student_id, b.teacher_id]) {
+        const dup = q.get('SELECT 1 FROM notifications WHERE user_id = ? AND type = ? AND data LIKE ?', uid, type, `%"bookingId":${b.id}%`);
+        if (dup) continue;
+        notify(uid, { type, title: m >= 60 ? `حصة ${b.subject} بعد ساعة` : `حصة ${b.subject} بعد ${m} دقيقة`, body: 'جهّز الكاميرا والمايك', data: { bookingId: b.id } });
+        sent++;
+      }
+    }
+  }
+  return sent;
+}

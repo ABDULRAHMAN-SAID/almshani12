@@ -1,0 +1,42 @@
+import type { Request, Response, NextFunction, RequestHandler } from 'express';
+import type { ErrorCode } from '@manassah/shared';
+
+export class AppError extends Error {
+  constructor(
+    public code: ErrorCode | string,
+    message: string,
+    public status = 400,
+    public details?: { field: string; message: string }[],
+  ) { super(message); }
+}
+
+export const badRequest = (m = 'طلب غير صالح', code = 'validation_error') => new AppError(code, m, 400);
+export const unauthorized = (m = 'يجب تسجيل الدخول') => new AppError('unauthorized', m, 401);
+export const authExpired = () => new AppError('auth_expired', 'انتهت الجلسة', 401);
+export const forbidden = (m = 'لا تملك صلاحية لهذا الإجراء') => new AppError('forbidden', m, 403);
+export const notFound = (m = 'العنصر غير موجود') => new AppError('not_found', m, 404);
+export const conflict = (m = 'تعارض في البيانات', code = 'conflict') => new AppError(code, m, 409);
+export const paymentRequired = (m = 'يجب الشراء أولاً') => new AppError('payment_required', m, 402);
+
+export const asyncHandler = (fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown> | unknown): RequestHandler =>
+  (req, res, next) => { Promise.resolve(fn(req, res, next)).catch(next); };
+
+export function notFoundHandler(req: Request, res: Response, next: NextFunction) {
+  if (req.path.startsWith('/api/')) return res.status(404).json({ error: { code: 'not_found', message: 'المسار غير موجود' } });
+  next();
+}
+
+export function errorHandler(err: unknown, _req: Request, res: Response, _next: NextFunction) {
+  const e = err as AppError & { statusCode?: number; type?: string };
+  // أخطاء تحليل الجسم من express
+  if (e.type === 'entity.parse.failed') return res.status(400).json({ error: { code: 'validation_error', message: 'صيغة الطلب غير صحيحة' } });
+  const status = e.status || e.statusCode || 500;
+  if (status >= 500) console.error('[error]', err);
+  res.status(status).json({
+    error: {
+      code: e.code || 'server_error',
+      message: status >= 500 ? 'تعذّر إكمال العملية. حاول مرة أخرى.' : e.message,
+      ...(e.details ? { details: e.details } : {}),
+    },
+  });
+}

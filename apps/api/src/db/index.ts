@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config, DEFAULT_SETTINGS } from '../config.ts';
+import { normalizeArabic } from '../lib/helpers.ts';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -10,6 +11,8 @@ export const db = new Database(config.db.file);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 db.pragma('busy_timeout = 5000');
+/** دالّة SQL للبحث العربي المطبَّع: norm(title) LIKE '%' || norm(?) || '%' */
+db.function('norm', { deterministic: true }, (v: unknown) => normalizeArabic(v == null ? '' : String(v)));
 
 /** ينشئ الجداول ويثبّت الإعدادات الافتراضية غير الموجودة. */
 export function migrate(): void {
