@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { Id, Money, Currency, IsoDateTime } from './common';
+import { LearnerRef } from './auth';
 
 export const CartItemType = z.enum(['book', 'course']);
 export const OrderItemType = z.enum(['book', 'course', 'lesson', 'package', 'subscription']);
@@ -46,6 +47,8 @@ export const CheckoutRequest = z.object({
   /** إن أُرسلت تُشترى مباشرة دون السلة (حصة/باقة) */
   items: z.array(z.object({ itemType: OrderItemType, itemId: Id })).optional(),
   bookingId: Id.optional(),
+  /** نسبة الطلب لمتعلّم (للعرض والتقارير فقط — الوصول على مستوى الحساب) */
+  learnerId: Id.optional(),
 });
 
 export const OrderItem = z.object({
@@ -62,6 +65,8 @@ export const Order = z.object({
   createdAt: IsoDateTime,
   paidAt: IsoDateTime.nullable(),
   invoiceUrl: z.string().nullable(),
+  /** المتعلّم المنسوب إليه الطلب (null لطلب بلا متعلّم) — يحمله orderView في كل مكان */
+  learner: LearnerRef.nullable(),
 });
 export type Order = z.infer<typeof Order>;
 

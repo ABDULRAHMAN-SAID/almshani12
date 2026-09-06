@@ -5,6 +5,7 @@ import { colors, radius, spacing, shadow, themed } from '@manassah/tokens';
 export interface CardProps {
   children: ReactNode;
   onPress?: () => void;
+  onLongPress?: () => void;
   padded?: boolean;
   /** إطار ذهبي — لمسة الهوية، تُصرف بحذر (الحصة القادمة، شارة معتمد) */
   accent?: boolean;
@@ -17,7 +18,7 @@ export interface CardProps {
 }
 
 /** السطح الأساسي: أبيض، زوايا ٢٢، حدّ ناعم وظلّ خفيف — كبير ومريح */
-export function Card({ children, onPress, padded = true, accent, rail, tint, style, accessibilityLabel }: CardProps) {
+export function Card({ children, onPress, onLongPress, padded = true, accent, rail, tint, style, accessibilityLabel }: CardProps) {
   const base = [
     styles.card, padded && styles.padded, accent && styles.accent,
     rail ? { borderStartWidth: 6, borderStartColor: rail } : null,
@@ -27,7 +28,7 @@ export function Card({ children, onPress, padded = true, accent, rail, tint, sty
   if (!onPress) return <View style={base}>{children}</View>;
   // Pressable هو الحاوية نفسها حتى تعمل أنماط التخطيط (العرض/flex) من الأب على البطاقة مباشرة
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={accessibilityLabel}
+    <Pressable onPress={onPress} onLongPress={onLongPress} accessibilityRole="button" accessibilityLabel={accessibilityLabel}
       style={({ pressed }) => [base, pressed && styles.pressed]}>
       {children}
     </Pressable>

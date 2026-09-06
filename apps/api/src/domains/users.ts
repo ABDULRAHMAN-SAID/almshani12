@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import multer from 'multer';
 import { z } from 'zod';
-import { StudentSetup, CreateReview, FavoriteToggle, CreateReport, AnalyticsEvent } from '@manassah/shared';
+import { StudentSetup, CreateReview, FavoriteToggle, CreateReport, AnalyticsEvent, LearnerUpsert, LearnerPatch, Id } from '@manassah/shared';
 import { config } from '../config.ts';
 import { db, q, json, nowIso } from '../db/index.ts';
 import { AppError, asyncHandler, notFound, badRequest, conflict } from '../lib/errors.ts';
@@ -15,6 +15,7 @@ import * as wallet from '../services/wallet.ts';
 import { unreadCount } from '../services/notifications.ts';
 import { bookCard, courseCard, teacherCard } from '../services/mappers.ts';
 import { weakTopics } from '../services/quiz.ts';
+import { listLearners, createLearner, updateLearner, archiveLearner, activateLearner, reorderLearners, projectSelfLearner } from '../services/learners.ts';
 import { audit } from '../lib/audit.ts';
 
 /** يُركَّب على /api مباشرة، لذا تُفرَض المصادقة على كل مسار على حدة (لا router.use) */
@@ -30,7 +31,11 @@ const ProfilePatch = z.object({
 router.patch('/me', requireAuth, validate(ProfilePatch), asyncHandler(async (req, res) => {
   const p = body<typeof ProfilePatch>(req);
   const uid = req.user!.id;
-  if (p.displayName !== undefined) q.run('UPDATE profiles SET display_name = ?, updated_at = ? WHERE user_id = ?', p.displayName, nowIso(), uid);
+  if (p.displayName !== undefined) {
+    q.run('UPDATE profiles SET display_name = ?, updated_at = ? WHERE user_id = ?', p.displayName, nowIso(), uid);
+    // الاسم ينعكس على المتعلّم الذاتي الأول (position = 0) — فهو الحساب نفسه
+    q.run('UPDATE learners SET display_name = ?, updated_at = ? WHERE account_id = ? AND is_self = 1 AND position = 0 AND archived_at IS NULL', p.displayName, nowIso(), uid);
+  }
   if (p.gender !== undefined) q.run('UPDATE profiles SET gender = ? WHERE user_id = ?', p.gender, uid);
   if (p.locale) q.run('UPDATE users SET locale = ? WHERE id = ?', p.locale, uid);
   if (p.avatarFileId !== undefined) {
@@ -44,35 +49,61 @@ router.patch('/me', requireAuth, validate(ProfilePatch), asyncHandler(async (req
   res.json(userView(uid));
 }));
 
-/** إعداد الطالب الأوّلي: الصف والفصل والمواد — تُخصَّص الرئيسية بناءً عليها */
+/**
+ * إعداد الطالب الأوّلي (مهمل — يبقى إصداراً واحداً للتطبيقات القديمة؛ الجديد: POST /me/learners):
+ * يحدّث اسم الحساب ثم يحدّث المتعلّم الذاتي الأول أو ينشئه. الجدولان القديمان يُكتبان انعكاساً من الخدمة.
+ */
 router.post('/me/student-setup', requireAuth, validate(StudentSetup), asyncHandler(async (req, res) => {
   const s = body<typeof StudentSetup>(req);
   const uid = req.user!.id;
-  const grade = q.get<any>('SELECT id FROM grades WHERE id = ? AND curriculum_id = ?', s.gradeId, s.curriculumId);
-  const sem = q.get<any>('SELECT id FROM semesters WHERE id = ? AND curriculum_id = ?', s.semesterId, s.curriculumId);
-  if (!grade || !sem) throw badRequest('الصف أو الفصل لا يتبع هذا المنهج');
-  const validSubjects = new Set(q.all<{ id: number }>('SELECT id FROM subjects WHERE curriculum_id = ?', s.curriculumId).map(r => r.id));
-  const subjectIds = s.subjectIds.filter(id => validSubjects.has(id));
-  if (!subjectIds.length) throw badRequest('اختر مادة واحدة على الأقل');
+  const input = { displayName: s.displayName, curriculumId: s.curriculumId, gradeId: s.gradeId, semesterId: s.semesterId, subjectIds: s.subjectIds, school: s.school ?? null };
   db.transaction(() => {
+    const self = q.get<{ id: number }>('SELECT id FROM learners WHERE account_id = ? AND is_self = 1 AND archived_at IS NULL ORDER BY position, id LIMIT 1', uid);
+    if (self) updateLearner(uid, self.id, input, req);
+    else createLearner(uid, { ...input, isSelf: true }, { req });
     q.run('UPDATE profiles SET display_name = ?, updated_at = ? WHERE user_id = ?', s.displayName, nowIso(), uid);
-    q.run(`INSERT INTO student_profiles (user_id, curriculum_id, grade_id, semester_id, school, updated_at) VALUES (?,?,?,?,?,?)
-           ON CONFLICT(user_id) DO UPDATE SET curriculum_id = excluded.curriculum_id, grade_id = excluded.grade_id, semester_id = excluded.semester_id, school = excluded.school, updated_at = excluded.updated_at`,
-      uid, s.curriculumId, s.gradeId, s.semesterId, s.school ?? null, nowIso());
-    q.run('DELETE FROM student_subjects WHERE user_id = ?', uid);
-    for (const id of subjectIds) q.run('INSERT INTO student_subjects (user_id, subject_id) VALUES (?,?)', uid, id);
     q.run('INSERT OR IGNORE INTO user_roles (user_id, role) VALUES (?, ?)', uid, 'student');
     q.run('UPDATE users SET onboarding_completed = 1 WHERE id = ?', uid);
   })();
   res.json(userView(uid));
 }));
 
+/* ---------- المتعلّمون (§3.3) ---------- */
+router.get('/me/learners', requireAuth, (req, res) => {
+  const uid = req.user!.id;
+  res.json({ data: listLearners(uid), activeLearnerId: q.val<number | null>('SELECT active_learner_id FROM users WHERE id = ?', uid) ?? null });
+});
+router.post('/me/learners', requireAuth, validate(LearnerUpsert), asyncHandler(async (req, res) => {
+  createLearner(req.user!.id, body<typeof LearnerUpsert>(req), { req });
+  res.status(201).json(userView(req.user!.id));
+}));
+const ReorderBody = z.object({ ids: z.array(Id).min(1).max(12) });
+router.post('/me/learners/reorder', requireAuth, validate(ReorderBody), asyncHandler(async (req, res) => {
+  reorderLearners(req.user!.id, body<typeof ReorderBody>(req).ids);
+  res.json({ data: listLearners(req.user!.id) });
+}));
+router.patch('/me/learners/:id', requireAuth, validate(LearnerPatch), asyncHandler(async (req, res) => {
+  updateLearner(req.user!.id, idParam(req), body<typeof LearnerPatch>(req), req);
+  res.json(userView(req.user!.id));
+}));
+router.delete('/me/learners/:id', requireAuth, asyncHandler(async (req, res) => {
+  archiveLearner(req.user!.id, idParam(req), req);
+  res.json(userView(req.user!.id));
+}));
+router.post('/me/learners/:id/activate', requireAuth, asyncHandler(async (req, res) => {
+  activateLearner(req.user!.id, idParam(req));
+  res.json(userView(req.user!.id));
+}));
+
 /** حذف الحساب (متطلّب المتاجر): يُعطَّل فوراً وتُمسح بياناته الشخصية */
 router.delete('/me', requireAuth, asyncHandler(async (req, res) => {
   const uid = req.user!.id;
   db.transaction(() => {
-    q.run("UPDATE users SET status = 'deleted', phone = NULL, email = ? WHERE id = ?", `deleted-${uid}@removed.local`, uid);
+    q.run("UPDATE users SET status = 'deleted', phone = NULL, email = ?, active_learner_id = NULL WHERE id = ?", `deleted-${uid}@removed.local`, uid);
     q.run('UPDATE profiles SET display_name = ?, avatar_path = NULL, bio = NULL WHERE user_id = ?', 'مستخدم محذوف', uid);
+    // المتعلّمون: تُمسح بياناتهم الشخصية ويُؤرشفون (الحجوزات تبقى في السجل)
+    q.run("UPDATE learners SET display_name = 'محذوف', school = NULL, avatar_path = NULL, archived_at = COALESCE(archived_at, ?), updated_at = ? WHERE account_id = ?", nowIso(), nowIso(), uid);
+    projectSelfLearner(uid); // لا متعلّم ذاتي فعّال → تُمسح صفوف الجدولين القديمين
     q.run('UPDATE refresh_tokens SET revoked = 1 WHERE user_id = ?', uid);
     q.run('DELETE FROM device_tokens WHERE user_id = ?', uid);
     q.run('DELETE FROM auth_identities WHERE user_id = ?', uid);

@@ -4,6 +4,7 @@ import { BookCard } from './books';
 import { CourseCard } from './courses';
 import { TeacherCard } from './teachers';
 import { Booking } from './bookings';
+import { LearnerRef } from './auth';
 
 export const QuickAction = z.enum(['book_teacher', 'buy_summary', 'solve_problems', 'courses', 'quick_quiz']);
 
@@ -18,7 +19,11 @@ export const ContinueItem = z.object({
 
 /** الصفحة الرئيسية — الترتيب ملزم: الحصة القادمة أولاً */
 export const HomeFeed = z.object({
-  greeting: z.object({ name: z.string(), gradeName: z.string().nullable(), unreadNotifications: z.number().int() }),
+  greeting: z.object({
+    name: z.string(), gradeName: z.string().nullable(), unreadNotifications: z.number().int(),
+    /** المتعلّم النشط الذي بُنيت الرئيسية له (null لحساب بلا متعلّم: معلّم/طاقم) وعدد متعلّمي الحساب */
+    learner: LearnerRef.nullable(), learnersCount: z.number().int(),
+  }),
   nextLesson: Booking.nullable(),
   continueItems: z.array(ContinueItem),
   gradeSummaries: z.array(BookCard),

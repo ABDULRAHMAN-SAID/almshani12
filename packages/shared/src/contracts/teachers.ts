@@ -54,6 +54,12 @@ export const TeacherProfile = TeacherCard.extend({
   canReview: z.boolean(),
   /** أول ٧ أيام من التوفّر كملخّص للعرض */
   availabilityPreview: z.array(z.object({ date: z.string(), slotsCount: z.number().int() })),
+  /** شريط الأرقام: الطلاب = متعلّمون متمايزون في حصص مكتملة */
+  stats: z.object({ studentsCount: z.number().int(), lessonsCount: z.number().int(), ratingCount: z.number().int(), yearsExp: z.number().int() }),
+  /** قواعد التوفّر الأسبوعية (بلا مدد الخانات) */
+  availabilityRules: z.array(z.object({ weekday: z.number().int().min(0).max(6), startTime: HHmm, endTime: HHmm })),
+  /** الإجازات المتقاطعة مع الـ٣٠ يوماً القادمة — بلا أسباب */
+  timeOff: z.array(z.object({ from: IsoDateTime, to: IsoDateTime })),
 });
 export type TeacherProfile = z.infer<typeof TeacherProfile>;
 

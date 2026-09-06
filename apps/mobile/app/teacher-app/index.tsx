@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { colors, spacing, radius, themed } from '@manassah/tokens';
-import { Screen, Text, Icon, Button, Card, Badge, Avatar, BottomSheet, EmptyState, type IconName } from '@/ui';
+import { Screen, Text, Icon, Button, Card, Badge, BottomSheet, EmptyState, LearnerAvatar, type IconName } from '@/ui';
 import { useTeacherMe, useTeacherStudents } from '@/features/queries';
 import { ApiError } from '@/api/client';
 import { money, formatDayShort } from '@/lib/format';
@@ -54,7 +54,7 @@ export default function TeacherDashboard() {
         </View>
       ) : null}
       <BottomSheet visible={showStudents} onClose={() => setShowStudents(false)} title={t('teacherUi.students')}>
-        {students.data?.length ? students.data.map(s => <View key={s.id} style={styles.student}><Avatar name={s.name} size="sm" /><View style={styles.flex}><Text role="bodyMedium">{s.name}</Text><Text role="caption" tone="secondary">{s.gradeName ?? ''} · {s.lessons} {t('common.lessons')} · {formatDayShort(s.lastAt)}</Text></View></View>)
+        {students.data?.length ? students.data.map(s => <View key={s.learner.id} style={styles.student}><LearnerAvatar learner={s.learner} size={40} badge={false} /><View style={styles.flex}><Text role="bodyMedium">{s.learner.displayName}</Text><Text role="caption" tone="secondary">{[s.learner.gradeName, `${s.lessons} ${t('common.lessons')}`, s.lastAt ? formatDayShort(s.lastAt) : null].filter(Boolean).join(' · ')}</Text></View></View>)
           : <EmptyState icon="people" title={t('teacherUi.noStudents')} />}
       </BottomSheet>
     </Screen>

@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, ScrollView, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { colors, spacing, radius, themed } from '@manassah/tokens';
 import type { Booking } from '@manassah/shared';
 import { Screen, Text, Tabs, Chip, Button, Card, Avatar, LessonCard, EmptyState, HeaderActions } from '@/ui';
 import { useLessons } from '@/features/queries';
-import { useAuth } from '@/state/auth';
+import { useAuth, useLearners } from '@/state/auth';
 
 type Tab = 'upcoming' | 'past' | 'packages';
 
@@ -18,12 +18,16 @@ export default function Lessons() {
   const canTeach = !!user?.roles.includes('teacher') && user.teacher?.verificationStatus === 'verified';
   const [asTeacher, setAsTeacher] = useState(false);
   const [tab, setTab] = useState<Tab>('upcoming');
-  const feed = useLessons(asTeacher);
+  const learners = useLearners();
+  const multi = !asTeacher && learners.length > 1;
+  const [learnerId, setLearnerId] = useState<number | null>(null);
+  const feed = useLessons(asTeacher, learnerId);
+  const chips = feed.data?.learners.length ? feed.data.learners : learners;
   const d = feed.data;
   const upcomingCount = d ? Object.values(d.upcoming).reduce((s, l) => s + l.length, 0) : 0;
 
   const card = (b: Booking) => (
-    <LessonCard key={b.id} booking={b} asTeacher={asTeacher} onPress={() => router.push(`/lesson/${b.id}`)} onJoin={() => router.push(`/lesson/${b.id}/precall`)} />
+    <LessonCard key={b.id} booking={b} asTeacher={asTeacher} showLearner={multi} onPress={() => router.push(`/lesson/${b.id}`)} onJoin={() => router.push(`/lesson/${b.id}/precall`)} />
   );
   const group = (key: string, list: Booking[]) => list.length ? (
     <View key={key} style={styles.group}>
@@ -40,6 +44,12 @@ export default function Lessons() {
           <Chip label={t('onboarding.student')} selected={!asTeacher} onPress={() => setAsTeacher(false)} />
           <Chip label={t('onboarding.teacher')} selected={asTeacher} onPress={() => setAsTeacher(true)} icon="teacher" />
         </View>
+      ) : null}
+      {multi ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.learnerRow}>
+          <Chip small label={t('learners.all')} selected={learnerId === null} onPress={() => setLearnerId(null)} />
+          {chips.map(l => <Chip key={l.id} small label={l.displayName} icon="account" selected={learnerId === l.id} onPress={() => setLearnerId(l.id)} />)}
+        </ScrollView>
       ) : null}
       <View style={styles.px}>
         <Tabs value={tab} onChange={setTab} items={[
@@ -98,6 +108,7 @@ const styles = themed((c) => StyleSheet.create({
   px: { paddingHorizontal: spacing[4] },
   pt: { paddingTop: spacing[4] },
   roleRow: { flexDirection: 'row', gap: spacing[2], paddingHorizontal: spacing[4], paddingBottom: spacing[2] },
+  learnerRow: { flexDirection: 'row', gap: spacing[2], paddingHorizontal: spacing[4], paddingBottom: spacing[3] },
   group: { paddingTop: spacing[4] },
   groupTitle: { marginBottom: spacing[2] },
   list: { gap: spacing[3] },

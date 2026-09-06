@@ -7,6 +7,7 @@ import { nextAvailableSlot } from './slots.ts';
 import { roomOpensAt, roomIsOpen } from './rooms.ts';
 import { refundPercentFor } from './checkout.ts';
 import { attendanceSummary, type BookingRow } from './bookings.ts';
+import { learnerRefById } from './learners.ts';
 
 /** صفوف قاعدة البيانات → أشكال العقود المشتركة. المكان الوحيد الذي يعرف الشكلين معاً. */
 
@@ -95,6 +96,8 @@ export function bookingView(b: BookingRow, viewerId?: number) {
   return {
     id: b.id, status: b.status, mode: b.mode, durationMinutes: b.duration_minutes, startsAt: b.starts_at, endsAt: b.ends_at,
     price: money(b.price), subject: subjectRef(b.subject_id), teacher: personRef(b.teacher_id), student: personRef(b.student_id),
+    // المتعلّم صاحب الحصة: LearnerRef فقط (الحساب يبقى student) — null للحجوزات القديمة
+    learner: learnerRefById(b.learner_id),
     roomOpensAt: roomOpensAt(b), canJoin, canCancel, canReschedule: canCancel && b.status === 'confirmed',
     cancelRefundPercent: canCancel ? (b.status === 'pending_payment' ? 100 : refundPercentFor(b.starts_at)) : 0,
     needsReview,

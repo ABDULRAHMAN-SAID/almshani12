@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { Id, Money, IsoDateTime } from './common';
 import { SubjectRef } from './catalog';
 import { LessonMode, LessonDuration } from './teachers';
+import { LearnerRef } from './auth';
 
 export const BookingStatus = z.enum([
   'pending_payment', 'confirmed', 'in_progress', 'completed',
@@ -19,8 +20,17 @@ export const CreateBooking = z.object({
   packagePurchaseId: Id.nullable().optional(),
   couponCode: z.string().trim().max(40).nullable().optional(),
   note: z.string().trim().max(300).nullable().optional(),
+  /** لمن الحصة؟ وإلا المتعلّم النشط (ترويسة X-Learner-Id ثم users.active_learner_id ثم الافتراضي) */
+  learnerId: Id.optional(),
 });
 export type CreateBooking = z.infer<typeof CreateBooking>;
+
+/** استعلام تبويب الحصص: as=teacher لحصص المعلّم؛ learnerId يرشّح حصص متعلّم واحد (بلاه: كل المتعلّمين) */
+export const LessonsQuery = z.object({
+  as: z.enum(['student', 'teacher']).optional(),
+  learnerId: z.coerce.number().int().positive().optional(),
+});
+export type LessonsQuery = z.infer<typeof LessonsQuery>;
 
 export const PersonRef = z.object({ id: Id, name: z.string(), avatarUrl: z.string().nullable(), verified: z.boolean().optional() });
 
@@ -35,6 +45,8 @@ export const Booking = z.object({
   subject: SubjectRef,
   teacher: PersonRef,
   student: PersonRef,
+  /** المتعلّم صاحب الحصة — LearnerRef فقط (null للحجوزات القديمة التي سبقت المتعلّمين) */
+  learner: LearnerRef.nullable(),
   /** متى يُسمَح بالدخول (قبل الموعد بمدّة من الإعدادات) */
   roomOpensAt: IsoDateTime,
   canJoin: z.boolean(),
@@ -86,7 +98,11 @@ export const LessonsFeed = z.object({
   packages: z.array(z.object({
     id: Id, teacher: PersonRef, lessonsCount: z.number().int(), remaining: z.number().int(),
     durationMinutes: z.number().int(), mode: LessonMode, expiresAt: IsoDateTime.nullable(),
+    /** null = لأي متعلّم في الحساب */
+    learnerId: Id.nullable(),
   })),
+  /** متعلّمو الحساب — لشرائح الترشيح (فارغة في عرض المعلّم as=teacher) */
+  learners: z.array(LearnerRef),
 });
 export type LessonsFeed = z.infer<typeof LessonsFeed>;
 

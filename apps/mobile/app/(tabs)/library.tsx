@@ -6,7 +6,7 @@ import { colors, spacing, radius, subjectColors, subjectIcons, type SubjectColor
 import { BookType, type BookCard as BookCardData } from '@manassah/shared';
 import { Screen, Text, Chip, Button, Tabs, SearchInput, BookCard, BottomSheet, CardSkeleton, EmptyState, ErrorState, HeaderActions, Icon, type IconName } from '@/ui';
 import { useBooks, useCatalog, usePurchases } from '@/features/queries';
-import { useAuth } from '@/state/auth';
+import { useAuth, useActiveLearner } from '@/state/auth';
 import { useUi } from '@/state/ui';
 import { useDebounced } from '@/lib/hooks';
 
@@ -19,7 +19,8 @@ export default function Library() {
   const { t } = useTranslation();
   const router = useRouter();
   const params = useLocalSearchParams<{ type?: string; subjectId?: string }>();
-  const user = useAuth(s => s.user);
+  const learner = useActiveLearner();
+  const activeLearnerId = useAuth(s => s.activeLearnerId);
   const { bookFilters, setBookFilters } = useUi();
   const [tab, setTab] = useState<'explore' | 'mine'>('explore');
   const [q, setQ] = useState('');
@@ -27,10 +28,10 @@ export default function Library() {
   const dq = useDebounced(q, 300);
   const catalog = useCatalog();
 
-  // فلتر أوّلي: صف الطالب + ما جاء من الرابط
+  // فلتر أوّلي: صف المتعلّم النشط (يُعاد ضبطه عند تبديل المتعلّم) + ما جاء من الرابط
   useEffect(() => {
-    setBookFilters({ ...bookFilters, gradeId: bookFilters.gradeId ?? user?.student?.gradeId ?? undefined, ...(params.type ? { type: params.type as never } : {}), ...(params.subjectId ? { subjectId: Number(params.subjectId) } : {}) });
-  }, [params.type, params.subjectId]); // eslint-disable-line react-hooks/exhaustive-deps
+    setBookFilters({ ...useUi.getState().bookFilters, gradeId: learner?.gradeId ?? undefined, ...(params.type ? { type: params.type as never } : {}), ...(params.subjectId ? { subjectId: Number(params.subjectId) } : {}) });
+  }, [params.type, params.subjectId, activeLearnerId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const filters = useMemo(() => ({ ...bookFilters, q: dq || undefined }), [bookFilters, dq]);
   const books = useBooks(filters);
@@ -38,7 +39,7 @@ export default function Library() {
   const items = useMemo(() => books.data?.pages.flatMap(p => p.data) ?? [], [books.data]);
   const activeCount = ['semesterId', 'free', 'minRating'].filter(k => (bookFilters as Record<string, unknown>)[k] != null).length + (bookFilters.sort && bookFilters.sort !== 'bestselling' ? 1 : 0);
   const grades = catalog.data?.grades ?? [], subjects = catalog.data?.subjects ?? [];
-  const reset = () => setBookFilters({ gradeId: user?.student?.gradeId ?? undefined });
+  const reset = () => setBookFilters({ gradeId: learner?.gradeId ?? undefined });
   const gradeName = grades.find(g => g.id === bookFilters.gradeId)?.name;
 
   const explore = (

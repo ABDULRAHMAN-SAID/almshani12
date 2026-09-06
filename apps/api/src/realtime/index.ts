@@ -15,8 +15,15 @@ import { bindIo } from '../services/notifications.ts';
  */
 interface RoomData { userId: number; name: string; isHost: boolean; bookingId: number; roomRowId: number; role: 'student' | 'teacher'; hand: boolean; joinedAt: string }
 
+let ioRef: Server | null = null;
+/** بثّ حدث لكل أجهزة مستخدم (غرفة user:<id>) — مثل session_revoked عند الإيقاف أو إنهاء الجلسات من الإدارة */
+export const emitToUser = (userId: number, event: string, payload?: unknown) => { ioRef?.to(`user:${userId}`).emit(event, payload); };
+/** عدد المقابس المتصلة الآن (للنظرة الحيّة في الإدارة) */
+export const connectedSockets = (): number => ioRef?.engine?.clientsCount ?? 0;
+
 export function attachRealtime(server: HttpServer) {
   const io = new Server(server, { cors: { origin: config.security.corsOrigins.length ? config.security.corsOrigins : true, credentials: true }, path: '/socket.io' });
+  ioRef = io;
   bindIo(io);
 
   io.use((socket, next) => {

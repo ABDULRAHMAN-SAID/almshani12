@@ -6,7 +6,7 @@ import { spacing, subjectColors, type SubjectColorKey } from '@manassah/tokens';
 import { Screen, Text, Chip, Button, SearchInput, TeacherCard, BottomSheet, CardSkeleton, EmptyState, ErrorState } from '@/ui';
 import { useTeachers, useCatalog } from '@/features/queries';
 import { useUi } from '@/state/ui';
-import { useAuth } from '@/state/auth';
+import { useAuth, useActiveLearner } from '@/state/auth';
 import { useDebounced } from '@/lib/hooks';
 
 const SORTS = ['recommended', 'rating', 'price_asc', 'soonest'] as const;
@@ -17,18 +17,20 @@ export default function Teachers() {
   const { t } = useTranslation();
   const router = useRouter();
   const params = useLocalSearchParams<{ q?: string; subjectId?: string }>();
-  const user = useAuth(s => s.user);
+  const learner = useActiveLearner();
+  const activeLearnerId = useAuth(s => s.activeLearnerId);
   const { teacherFilters: f, setTeacherFilters: setF } = useUi();
   const [q, setQ] = useState(params.q ?? '');
   const [sheet, setSheet] = useState(false);
   const dq = useDebounced(q, 300);
   const catalog = useCatalog();
-  useEffect(() => { if (params.subjectId) setF({ ...f, subjectId: Number(params.subjectId) }); if (!f.gradeId && user?.student?.gradeId) setF({ ...f, gradeId: user.student.gradeId }); }, [params.subjectId]); // eslint-disable-line react-hooks/exhaustive-deps
+  // صف المتعلّم النشط فلتراً أوّلياً — ويُعاد ضبطه عند تبديل المتعلّم
+  useEffect(() => { setF({ ...useUi.getState().teacherFilters, gradeId: learner?.gradeId ?? undefined, ...(params.subjectId ? { subjectId: Number(params.subjectId) } : {}) }); }, [params.subjectId, activeLearnerId]); // eslint-disable-line react-hooks/exhaustive-deps
   const teachers = useTeachers({ ...f, q: dq || undefined });
   const items = useMemo(() => teachers.data?.pages.flatMap(p => p.data) ?? [], [teachers.data]);
   const subjects = catalog.data?.subjects ?? [], grades = catalog.data?.grades ?? [];
   const active = ['subjectId', 'gradeId', 'maxPrice', 'minRating', 'availableNow', 'mode', 'gender', 'language', 'minYearsExp'].filter(k => (f as Record<string, unknown>)[k] != null).length;
-  const reset = () => setF({ gradeId: user?.student?.gradeId ?? undefined });
+  const reset = () => setF({ gradeId: learner?.gradeId ?? undefined });
   const toggle = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF({ ...f, [k]: f[k] === v ? undefined : v });
 
   return (

@@ -30,6 +30,7 @@ export const ar = {
     notFound: 'لم نجد ما تبحث عنه.',
     rateLimited: 'محاولات كثيرة. انتظر قليلاً ثم حاول.',
     insufficientFunds: 'الرصيد غير كافٍ.',
+    learnerForbidden: 'هذا المتعلّم ليس في حسابك', learnerRequired: 'اختر متعلّماً أولاً',
   },
   nav: { home: 'الرئيسية', library: 'المكتبة', lessons: 'الحصص', courses: 'الدورات', account: 'حسابي' },
   onboarding: {
@@ -45,6 +46,7 @@ export const ar = {
     chooseSubjects: 'المواد التي تهمّك', country: 'الدولة', system: 'النظام التعليمي',
     finish: 'ابدأ التعلّم', skipForNow: 'لاحقاً',
     terms: 'بالمتابعة توافق على الشروط وسياسة الخصوصية',
+    whoUses: 'من سيستخدم الحساب؟', meStudent: 'أنا طالب', meParent: 'أنا وليّ أمر',
   },
   home: {
     greetingMorning: 'صباح الخير، {{name}}', greetingEvening: 'مساء الخير، {{name}}',
@@ -56,6 +58,16 @@ export const ar = {
     gradeSummaries: 'ملخّصات {{grade}}', diplomaSummaries: 'ملخّصات الدبلوم العام', featuredCourses: 'دورات مميّزة',
     solvedProblems: 'حلّ مسائل خطوة بخطوة', offers: 'عروض',
     searchPlaceholder: 'ابحث عن كتاب، ملخّص، معلّم…',
+    followingLearner: 'تتابع: {{name}}',
+  },
+  learners: {
+    title: 'المتعلّمون', add: 'إضافة متعلّم', manage: 'إدارة المتعلّمين', switch: 'تبديل المتعلّم', active: 'النشط', setActive: 'تعيين كنشط',
+    self: 'أنا', child: 'ابن/ابنة', childName: 'اسم الابن/الابنة', forLearner: 'لـ\u00A0{{name}}', bookFor: 'الحصة لـ', all: 'كل المتعلّمين',
+    emptyTitle: 'أضف أول متعلّم', emptyBody: 'أضف نفسك أو أحد أبنائك لنخصّص لك المحتوى حسب الصف', limit: 'الحد الأقصى ٦ متعلّمين',
+    sameGradeHint: 'لديك متعلّم في هذا الصف', delete: 'حذف المتعلّم', deleteConfirm: 'سيُخفى هذا المتعلّم وتبقى حصصه في السجل',
+    hasUpcoming: 'لا يمكن الحذف: لديه حصص قادمة', lastLearner: 'يجب أن يبقى متعلّم واحد على الأقل',
+    addAnother: 'أضف ابناً آخر؟', later: 'لاحقاً', makeActive: 'اجعله المتعلّم النشط؟', gradeOf: 'صف {{name}}',
+    gender: 'الجنس', male: 'ذكر', female: 'أنثى', school: 'المدرسة (اختياري)', isSelfToggle: 'هذا المتعلّم هو أنا', moveUp: 'تحريك لأعلى', moveDown: 'تحريك لأسفل', edit: 'تعديل المتعلّم', saved: 'تم حفظ المتعلّم',
   },
   library: {
     title: 'المكتبة', searchPlaceholder: 'ابحث عن كتاب، ملخّص، مادة، وحدة…',
@@ -92,6 +104,7 @@ export const ar = {
     empty: 'لا يوجد معلّمون مطابقون', emptyHint: 'جرّب مادة أخرى أو وسّع الفلاتر',
     gender: 'الجنس', male: 'معلّم', female: 'معلّمة', language: 'اللغة',
     pending: 'طلبك قيد المراجعة', pendingBody: 'سيراجع الفريق مستنداتك ويصلك إشعار خلال ٤٨ ساعة.',
+    studentsCount: '{{n}} طالب', lessonsCount: '{{n}} حصة', ratingCount: '{{n}} تقييم', yearsExp: '{{n}} سنة خبرة', timeOff: 'إجازة', weeklyAvailability: 'التوفّر الأسبوعي', noAvailability: 'لم يحدّد المعلّم مواعيده بعد',
   },
   booking: {
     title: 'حجز حصة', chooseType: 'نوع الحصة', chooseDate: 'التاريخ', chooseTime: 'الوقت', review: 'مراجعة',
@@ -146,6 +159,7 @@ export const ar = {
     discount: 'الخصم', tax: 'الضريبة', total: 'الإجمالي', coupon: 'رمز الخصم', applyCoupon: 'تطبيق',
     checkout: 'إتمام الشراء', pay: 'ادفع {{p}}', paymentMethod: 'وسيلة الدفع', remove: 'إزالة',
     success: 'تم الشراء', successBody: 'أصبح المحتوى في مكتبتك', goLibrary: 'اذهب لمكتبتي',
+    successLesson: 'تم تأكيد الحصة', successLessonBody: 'حصتك محجوزة وستجدها في «الحصص»',
     failed: 'لم تكتمل عملية الدفع', failedBody: 'لم يُخصم أي مبلغ. سلتك محفوظة.',
     awaiting: 'بانتظار تأكيد التحويل', awaitingBody: 'سيُفعَّل المحتوى بعد مراجعة التحويل.',
   },
@@ -215,7 +229,9 @@ export const ar = {
     server: 'الخادم والاتصال', serverUrl: 'عنوان الخادم', serverHint: 'اكتب عنوان خادمك بعد نشره (مثال: https://manassah.onrender.com) ثم اختبر الاتصال واحفظ',
     testConnection: 'اختبار الاتصال', connected: 'الاتصال ناجح', connectionFailed: 'تعذّر الاتصال', serverInvalid: 'العنوان يجب أن يبدأ بـ http:// أو https://', serverTimeout: 'انتهت مهلة الاتصال',
     demoMode: 'نسخة تجريبية', liveMode: 'متصل بخادم', demoHint: 'بيانات محلية بلا خادم — اضبط عنوان خادمك للاتصال الحقيقي', useDemo: 'العودة للنسخة التجريبية',
+    learners: 'المتعلّمون والصفوف',
   },
+  purchases: { sharedNote: 'المشتريات متاحة لكل المتعلّمين في حسابك' },
   teacherUi: {
     availabilityHint: 'حدّد أيام وأوقات عملك — تُولَّد المواعيد تلقائياً بخانات ٦٠ دقيقة', addRule: 'إضافة فترة', from: 'من', to: 'إلى', slot: 'الخانة',
     breakM: 'استراحة', removeRule: 'حذف', saveRules: 'حفظ التوفّر', timeOffAdd: 'إضافة إجازة', reason: 'السبب', noTimeOff: 'لا إجازات قادمة',

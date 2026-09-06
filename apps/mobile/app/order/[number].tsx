@@ -7,6 +7,7 @@ import { colors, spacing, radius, themed } from '@manassah/tokens';
 import { Screen, Text, Icon, Button, Card, Badge } from '@/ui';
 import { useOrder, useAfterPurchase } from '@/features/queries';
 import { money } from '@/lib/format';
+import { useLearners } from '@/state/auth';
 
 /** حالة الطلب: نجاح / بانتظار البوابة (تحديث تلقائي) / تحويل بنكي / فشل — والفعل التالي واضح */
 export default function OrderStatus() {
@@ -16,6 +17,7 @@ export default function OrderStatus() {
   const order = useOrder(number, state === 'poll');
   const afterPurchase = useAfterPurchase();
   const [copied, setCopied] = useState(false);
+  const learners = useLearners();
   const o = order.data;
   const bank = useMemo(() => { try { return instructions ? JSON.parse(instructions) as Record<string, string> : null; } catch { return null; } }, [instructions]);
   useEffect(() => { if (o?.status === 'paid') afterPurchase(); }, [o?.status]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -30,6 +32,9 @@ export default function OrderStatus() {
   };
   const nextLabel = first?.itemType === 'lesson' ? t('checkout.viewLesson') : first?.itemType === 'book' ? t('library.read') : first?.itemType === 'course' ? t('courses.start') : t('lessons.packages');
   const paid = o?.status === 'paid' || o?.status === 'partially_refunded';
+  // طلب حصة: نصّ التأكيد يخصّ الحصة لا المكتبة، ويُذكر المتعلّم عند تعدّد متعلّمي الحساب
+  const lessonOrder = first?.itemType === 'lesson';
+  const forLearner = o?.learner && learners.length > 1 ? ` · ${t('learners.forLearner', { name: o.learner.displayName })}` : '';
   const failed = o?.status === 'failed' || o?.status === 'expired' || o?.status === 'cancelled';
   const awaiting = !paid && !failed && (state === 'awaiting' || o?.provider === 'manual');
 
@@ -40,13 +45,13 @@ export default function OrderStatus() {
           <Card accent>
             <View style={styles.head}>
               <View style={[styles.icon, paid ? styles.ok : failed ? styles.bad : styles.wait]}><Icon name={paid ? 'checkCircle' : failed ? 'warning' : 'clock'} size={34} color={colors.text.inverse} /></View>
-              <Text role="h2" center>{paid ? t('cart.success') : failed ? t('cart.failed') : awaiting ? t('cart.awaiting') : t('checkout.waiting')}</Text>
-              <Text role="small" tone="secondary" center>{paid ? t('cart.successBody') : failed ? t('cart.failedBody') : awaiting ? t('cart.awaitingBody') : t('checkout.redirecting')}</Text>
+              <Text role="h2" center>{paid ? t(lessonOrder ? 'cart.successLesson' : 'cart.success') : failed ? t('cart.failed') : awaiting ? t('cart.awaiting') : t('checkout.waiting')}</Text>
+              <Text role="small" tone="secondary" center>{paid ? t(lessonOrder ? 'cart.successLessonBody' : 'cart.successBody') : failed ? t('cart.failedBody') : awaiting ? t('cart.awaitingBody') : t('checkout.redirecting')}</Text>
               <Badge label={`${o.number} · ${t(`purchasesUi.status.${o.status}`)}`} tone={paid ? 'success' : failed ? 'danger' : 'warning'} />
             </View>
           </Card>
           <Card>
-            {o.items.map((it, i) => <View key={i} style={styles.line}><Text role="body" style={styles.flex} numberOfLines={2}>{it.title}</Text><Text role="body" tabular>{money(it.unitPrice)}</Text></View>)}
+            {o.items.map((it, i) => <View key={i} style={styles.line}><Text role="body" style={styles.flex} numberOfLines={2}>{it.title}{it.itemType === 'lesson' ? forLearner : ''}</Text><Text role="body" tabular>{money(it.unitPrice)}</Text></View>)}
             <View style={[styles.line, styles.total]}><Text role="h3">{t('cart.total')}</Text><Text role="price" tabular>{money(o.total)}</Text></View>
           </Card>
           {awaiting && bank ? (

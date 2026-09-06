@@ -13,7 +13,8 @@ const require = createRequire(path.join(root, '..', 'api', 'package.json'));
 
 if (process.env.SKIP_EXPORT !== '1' || !fs.existsSync(path.join(exportDir, 'index.html'))) {
 fs.rmSync(exportDir, { recursive: true, force: true });
-execSync(`npx expo export --platform web --output-dir ${JSON.stringify(exportDir)}`, {
+// --clear: متغيّرات EXPO_PUBLIC_* تُضمَّن وقت التحويل، وذاكرة Metro قد تُعيد حزمة بُنيت بقيم مختلفة (نسخة الخادم بدل العرض أو العكس)
+execSync(`npx expo export --platform web --output-dir ${JSON.stringify(exportDir)} --clear`, {
   cwd: root, stdio: 'inherit',
   env: { ...process.env, EXPO_PUBLIC_DEMO: '1', EXPO_PUBLIC_API_URL: '', EXPO_PUBLIC_BASE_URL: '', EXPO_WEB_OUTPUT: 'single', CI: '1' },
 });

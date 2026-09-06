@@ -46,6 +46,7 @@ export default function LessonDetail() {
         <View style={styles.wrap}>
           <Card rail={sc.main}>
             <View style={styles.head}><Text role="h2" color={sc.main}>{b.subject.name}</Text><Badge label={t(`lessons.status.${b.status}`)} tone={TONE[b.status]} /></View>
+            {b.learner ? <View style={styles.row}><Badge label={[b.learner.displayName, b.learner.gradeName].filter(Boolean).join(' · ')} tone="brand" icon="account" /></View> : null}
             <View style={styles.row}><Icon name="calendar" size={18} color={colors.text.secondary} /><Text role="body" tabular>{relativeDay(b.startsAt)} · {formatTime(b.startsAt)}–{formatTime(b.endsAt)}</Text></View>
             <View style={styles.row}><Icon name="clock" size={18} color={colors.text.secondary} /><Text role="body">{durationLabel(b.durationMinutes * 60)} · {t(`teachers.${b.mode}`)}</Text></View>
             <View style={styles.row}><Icon name="wallet" size={18} color={colors.text.secondary} /><Text role="body" tabular>{b.price > 0 ? money(b.price) : t('bookingUi.paidWithPackage')}</Text></View>

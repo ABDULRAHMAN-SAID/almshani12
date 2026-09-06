@@ -55,3 +55,37 @@ textarea { min-height: 90px; resize: vertical; }
 .pre { background: var(--bg-2); border-radius: 10px; padding: 10px; font-size: 12px; white-space: pre-wrap; direction: ltr; text-align: left; max-height: 240px; overflow: auto; }
 .tree ul { list-style: none; margin: 0; padding-inline-start: 18px; } .tree li { padding: 3px 0; } .tree .node { display: flex; align-items: center; gap: 8px; }
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 16px; } .tabs button { background: none; border: 0; padding: 10px 14px; border-bottom: 2px solid transparent; cursor: pointer; color: var(--text-2); font-weight: 500; } .tabs button.on { color: var(--text); border-color: var(--primary); }
+
+/* ---------- إضافات صفحة الشخص/المعلّم والنظرة الحيّة ---------- */
+:root { --chart-1: #9E1B32; --chart-2: #1F6FA8; }
+.tabs { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: thin; } .tabs button { white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+.tabs button .count { background: var(--bg-2); color: var(--text-2); border-radius: 999px; font-size: 11px; padding: 0 6px; min-width: 18px; text-align: center; } .tabs button.on .count { background: var(--primary-soft); color: var(--primary-dark); }
+.pager { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 4px 0; color: var(--text-2); font-size: 12px; }
+.drawer-bg { position: fixed; inset: 0; background: rgba(23,23,23,.35); z-index: 50; }
+.drawer { position: fixed; top: 0; bottom: 0; inset-inline-end: 0; width: min(520px, 100%); background: var(--card); box-shadow: -8px 0 40px rgba(0,0,0,.18); z-index: 51; display: flex; flex-direction: column; }
+.drawer .dh { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px; border-bottom: 1px solid var(--border); } .drawer .dh h2 { margin: 0; }
+.drawer .db { padding: 18px 22px; overflow: auto; flex: 1; } .drawer .df { padding: 14px 22px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; }
+.avatar { display: inline-grid; place-items: center; border-radius: 50%; background: var(--primary-soft); color: var(--primary-dark); font-weight: 700; overflow: hidden; flex-shrink: 0; } .avatar img { width: 100%; height: 100%; object-fit: cover; }
+.lchip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px 2px 3px; border-radius: 999px; background: var(--bg-2); font-size: 12px; white-space: nowrap; } .lchip .g { color: var(--text-3); }
+.phead { display: flex; gap: 18px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 18px; } .phead .info { flex: 1; min-width: 260px; } .phead .meta { display: flex; gap: 14px; flex-wrap: wrap; color: var(--text-2); font-size: 12px; margin-top: 6px; }
+.phead .acts { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-start; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.kpi { background: var(--card); border: 1px solid var(--border); border-radius: var(--r); padding: 12px 14px; color: inherit; display: block; }
+a.kpi:hover { border-color: var(--primary); } .kpi .v { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.2; } .kpi .l { color: var(--text-2); font-size: 12px; margin-top: 2px; } .kpi .d { font-size: 11px; color: var(--text-3); }
+.kpi .v { white-space: nowrap; } .kpi .v.long { font-size: 17px; }
+td.num, th.num { white-space: nowrap; }
+.kpi.warn .v { color: var(--warning); } .kpi.danger .v { color: var(--danger); } .kpi.ok .v { color: var(--success); }
+.chart { width: 100%; } .chart svg { width: 100%; height: auto; display: block; overflow: visible; } .chart .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--text-2); margin-bottom: 6px; } .chart .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-inline-end: 6px; vertical-align: -1px; }
+.chart .hint { font-size: 12px; color: var(--text-2); min-height: 18px; margin-top: 4px; font-variant-numeric: tabular-nums; }
+.hbars { display: grid; gap: 8px; } .hbars .r { display: grid; grid-template-columns: 110px 1fr 90px; gap: 10px; align-items: center; font-size: 13px; } .hbars .bar { height: 10px; background: var(--bg-2); border-radius: 5px; overflow: hidden; } .hbars .bar i { display: block; height: 100%; background: var(--chart-1); border-radius: 5px; }
+.range { display: flex; gap: 4px; }
+.week { display: grid; grid-template-columns: 44px repeat(7, 1fr); gap: 2px; font-size: 11px; } .week .h { text-align: center; color: var(--text-2); padding: 4px 0; } .week .c { height: 18px; background: var(--bg-2); border-radius: 3px; } .week .c.on { background: var(--success-soft); border: 1px solid var(--success); } .week .t { color: var(--text-3); text-align: end; padding-inline-end: 4px; line-height: 18px; }
+.doc { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; } .doc .preview { background: var(--bg-2); border-radius: 10px; min-height: 200px; display: grid; place-items: center; overflow: hidden; } .doc .preview img { max-width: 100%; max-height: 360px; } .doc .preview iframe { width: 100%; height: 360px; border: 0; }
+.timeline { list-style: none; margin: 0; padding: 0; } .timeline li { display: grid; grid-template-columns: 140px 1fr; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.dim td { opacity: .55; } .amount.pos { color: var(--success); } .amount.neg { color: var(--danger); }
+details.meta summary { cursor: pointer; color: var(--link); font-size: 12px; } details.meta pre { margin: 6px 0 0; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; } .mini { background: var(--bg); border: 1px solid var(--border); border-radius: var(--r); padding: 12px 14px; }
+.progress { height: 6px; background: var(--bg-2); border-radius: 3px; overflow: hidden; } .progress i { display: block; height: 100%; background: var(--success); }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.mono { direction: ltr; unicode-bidi: embed; font-family: ui-monospace, SFMono-Regular, monospace; font-size: 12px; }
+@media (max-width: 800px) { .doc { grid-template-columns: 1fr; } .kv { grid-template-columns: 1fr; } }

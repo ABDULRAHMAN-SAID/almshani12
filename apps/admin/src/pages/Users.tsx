@@ -1,35 +1,55 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api, when } from '../api';
-import { Page, Badge, Modal, Field, Empty, ar, useToast, errMsg, can, type Me } from '../ui';
+import type { AdminUserRow, PageMeta } from '@manassah/shared';
+import { api, money, when, day } from '../api';
+import { Page, Badge, DataTable, PersonLink, ROLES, ar, useToast, errMsg, useConfirm, useDebounced, can, STATUS_TONE, type Me, type Column } from '../ui';
 
-const ROLES = ['student', 'parent', 'teacher', 'content_reviewer', 'support', 'finance', 'admin', 'super_admin'];
+/** المستخدمون: بحث ومرشّحات (الحالة/الدور/الترتيب) وترقيم — الأدوار والمحفظة والمنح في صفحة الشخص.
+ * يقرأ ?role= و ?status= من الرابط (روابط النظرة العامة) ويُعاد بناؤه عند تغيّرهما كما في الحجوزات/السحوبات */
+export default function Users({ me }: { me: Me }) {
+  const [sp] = useSearchParams();
+  const role = sp.get('role') ?? '', status = sp.get('status') ?? '';
+  return <UsersTable key={`${role}|${status}`} me={me} initialRole={role} initialStatus={status} />;
+}
 
-/** المستخدمون: بحث، إيقاف/تفعيل، أدوار (للمدير العام فقط)، منح محتوى مجاناً */
-export default function Users({ me, isSuper }: { me: Me; isSuper: boolean }) {
+function UsersTable({ me, initialRole, initialStatus }: { me: Me; initialRole: string; initialStatus: string }) {
   const qc = useQueryClient();
   const toast = useToast();
+  const confirm = useConfirm();
   const [q, setQ] = useState('');
-  const [sel, setSel] = useState<any | null>(null);
-  const [roles, setRoles] = useState<string[]>([]);
-  const list = useQuery({ queryKey: ['adm-users', q], queryFn: () => api.get<{ data: any[]; meta: any }>('/admin/users', { q: q || undefined, limit: 60 }) });
-  const inv = () => qc.invalidateQueries({ queryKey: ['adm-users'] });
-  const status = useMutation({ mutationFn: ({ id, status }: { id: number; status: string }) => api.post(`/admin/users/${id}/status`, { status, reason: status === 'suspended' ? (prompt('السبب') ?? '') : undefined }), onSuccess: () => { toast('تم'); inv(); }, onError: e => toast(errMsg(e)) });
-  const saveRoles = useMutation({ mutationFn: () => api.post(`/admin/users/${sel.id}/roles`, { roles }), onSuccess: () => { toast('حُدّثت الأدوار — يحتاج المستخدم لتسجيل دخول جديد'); setSel(null); inv(); }, onError: e => toast(errMsg(e)) });
-  const grant = useMutation({ mutationFn: ({ id, itemType, itemId }: { id: number; itemType: string; itemId: number }) => api.post(`/admin/users/${id}/grant`, { itemType, itemId }), onSuccess: () => toast('مُنح الوصول'), onError: e => toast(errMsg(e)) });
+  const [status, setStatus] = useState(initialStatus);
+  const [role, setRole] = useState(initialRole);
+  const [sort, setSort] = useState('created_desc');
+  const [page, setPage] = useState(1);
+  const dq = useDebounced(q);
+  const list = useQuery({ queryKey: ['adm-users', dq, status, role, sort, page], queryFn: () => api.get<{ data: AdminUserRow[]; meta: PageMeta }>('/admin/users', { q: dq || undefined, status: status || undefined, role: role || undefined, sort, page, limit: 30 }) });
+  const setStatusM = useMutation({ mutationFn: ({ id, status, reason }: { id: number; status: string; reason?: string }) => api.post(`/admin/users/${id}/status`, { status, reason }), onSuccess: () => { toast('تم'); qc.invalidateQueries({ queryKey: ['adm-users'] }); }, onError: e => toast(errMsg(e)) });
+  const suspend = async (u: AdminUserRow) => { const r = await confirm({ title: `إيقاف ${u.name || `#${u.id}`}`, body: 'تُنهى جلساته فوراً ويُمنع من الدخول حتى التفعيل. السبب يُسجَّل ويظهر في صفحة الشخص.', reasonRequired: true, danger: true, confirmLabel: 'إيقاف' }); if (r) setStatusM.mutate({ id: u.id, status: 'suspended', reason: r.reason }); };
+  const activate = async (u: AdminUserRow) => { const r = await confirm({ title: `تفعيل ${u.name || `#${u.id}`}`, body: 'يعود الحساب نشطاً ويُمسح سبب الإيقاف.', confirmLabel: 'تفعيل' }); if (r) setStatusM.mutate({ id: u.id, status: 'active' }); };
+  const reset = (f: () => void) => { f(); setPage(1); };
+  const cols: Column<AdminUserRow>[] = [
+    { key: 'id', label: '#', className: 'num', render: u => u.id },
+    { key: 'name', label: 'الاسم', render: u => <b><PersonLink id={u.id} name={u.name} /></b> },
+    { key: 'contact', label: 'التواصل', className: 'num small', render: u => <>{u.phone ?? ''} {u.email ?? ''}</> },
+    { key: 'roles', label: 'الأدوار', render: u => <span className="chips">{u.roles.map(r => <Badge key={r} tone={['admin', 'super_admin'].includes(r) ? 'brand' : r === 'teacher' ? 'gold' : ['support', 'finance', 'content_reviewer'].includes(r) ? 'info' : ''}>{ar(r)}</Badge>)}</span> },
+    { key: 'learners', label: 'المتعلّمون', className: 'num', render: u => u.learnersCount },
+    { key: 'wallet', label: 'المحفظة', className: 'num', render: u => money(u.walletBalance) },
+    { key: 'status', label: 'الحالة', render: u => <Badge tone={STATUS_TONE[u.status]}>{ar(u.status)}</Badge> },
+    { key: 'created', label: 'أُنشئ', className: 'num small', render: u => day(u.createdAt) },
+    { key: 'login', label: 'آخر دخول', className: 'num small', render: u => when(u.lastLoginAt) },
+    { key: 'act', label: '', className: 'actions', hide: !can(me, 'admin'), render: u => u.id !== me.id && u.status !== 'deleted' ? (u.status === 'active' ? <button className="btn danger sm" onClick={() => suspend(u)}>إيقاف</button> : <button className="btn success sm" onClick={() => activate(u)}>تفعيل</button>) : null },
+  ];
   return (
-    <Page title="المستخدمون">
-      <div className="toolbar"><input placeholder="الاسم أو الهاتف أو البريد أو الرقم" value={q} onChange={e => setQ(e.target.value)} /><span className="muted small">{list.data?.meta.total ?? 0}</span></div>
-      <div className="card tbl">{list.data?.data.length ? (
-        <table><thead><tr><th>#</th><th>الاسم</th><th>التواصل</th><th>الأدوار</th><th>الحالة</th><th>آخر دخول</th><th></th></tr></thead>
-          <tbody>{list.data.data.map(u => <tr key={u.id}><td className="num">{u.id}</td><td><b>{u.name || '—'}</b></td><td className="num small">{u.phone ?? ''} {u.email ?? ''}</td><td>{u.roles.map((r: string) => <Badge key={r} tone={['admin', 'super_admin'].includes(r) ? 'brand' : r === 'teacher' ? 'gold' : ''}>{ar(r)}</Badge>)}</td><td><Badge tone={u.status === 'active' ? 'success' : 'danger'}>{u.status}</Badge></td><td className="num small">{when(u.lastLoginAt)}</td>
-            <td className="actions">{isSuper ? <button className="btn secondary sm" onClick={() => { setSel(u); setRoles(u.roles); }}>الأدوار</button> : null} {can(me, 'admin') && u.id !== me.id ? (u.status === 'active' ? <button className="btn danger sm" onClick={() => status.mutate({ id: u.id, status: 'suspended' })}>إيقاف</button> : <button className="btn success sm" onClick={() => status.mutate({ id: u.id, status: 'active' })}>تفعيل</button>) : null} {can(me, 'admin') ? <button className="btn ghost sm" onClick={() => { const t = prompt('النوع: book أو course', 'book'); const id = Number(prompt('رقم العنصر')); if (t && id) grant.mutate({ id: u.id, itemType: t, itemId: id }); }}>منح محتوى</button> : null}</td></tr>)}</tbody></table>
-      ) : <Empty text={list.isLoading ? 'جارٍ التحميل…' : 'لا نتائج'} />}</div>
-      {sel ? (
-        <Modal title={`أدوار ${sel.name || sel.id}`} onClose={() => setSel(null)} footer={<button className="btn" disabled={saveRoles.isPending || !roles.length} onClick={() => saveRoles.mutate()}>حفظ</button>}>
-          <Field label="الأدوار — الصلاحيات تُفرض في الخادم على كل مسار">{ROLES.map(r => <label key={r} className="row" style={{ marginBottom: 4 }}><input type="checkbox" style={{ width: 18, minHeight: 0 }} checked={roles.includes(r)} onChange={e => setRoles(x => e.target.checked ? [...x, r] : x.filter(y => y !== r))} />{ar(r)} <span className="muted small">({r})</span></label>)}</Field>
-        </Modal>
-      ) : null}
+    <Page title="المستخدمون" sub="الاسم يفتح صفحة الشخص: الأدوار والمحفظة والمتعلّمون والطلبات والجلسات">
+      <div className="toolbar">
+        <input placeholder="الاسم أو الهاتف أو البريد أو الرقم" value={q} onChange={e => reset(() => setQ(e.target.value))} />
+        <select value={status} onChange={e => reset(() => setStatus(e.target.value))}><option value="">كل الحالات</option>{['active', 'suspended', 'deleted'].map(s => <option key={s} value={s}>{ar(s)}</option>)}</select>
+        <select value={role} onChange={e => reset(() => setRole(e.target.value))}><option value="">كل الأدوار</option>{ROLES.map(r => <option key={r} value={r}>{ar(r)}</option>)}</select>
+        <select value={sort} onChange={e => reset(() => setSort(e.target.value))}><option value="created_desc">الأحدث تسجيلاً</option><option value="last_login_desc">آخر دخول</option><option value="name">الاسم</option></select>
+        <span className="muted small">{list.data?.meta.total ?? 0} مستخدم</span>
+      </div>
+      <div className="card"><DataTable columns={cols} rows={list.data?.data} meta={list.data?.meta} onPage={setPage} loading={list.isLoading} empty="لا نتائج" /></div>
     </Page>
   );
 }

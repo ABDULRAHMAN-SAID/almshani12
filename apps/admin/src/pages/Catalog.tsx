@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api';
-import { Page, Field, Empty, useToast, errMsg, can, type Me } from '../ui';
+import { Page, Field, Empty, useToast, errMsg, useConfirm, can, type Me } from '../ui';
 
 type Tree = { countries: any[]; curriculums: any[]; grades: any[]; semesters: any[]; subjects: any[] };
 const COLORS = ['math', 'physics', 'chemistry', 'biology', 'arabic', 'english', 'islamic', 'social', 'default'];
@@ -10,6 +10,7 @@ const COLORS = ['math', 'physics', 'chemistry', 'biology', 'arabic', 'english', 
 export default function Catalog({ me }: { me: Me }) {
   const qc = useQueryClient();
   const toast = useToast();
+  const confirm = useConfirm();
   const tree = useQuery({ queryKey: ['catalog'], queryFn: () => api.get<Tree>('/catalog/tree') });
   const [cur, setCur] = useState<number | null>(null);
   const [subjectId, setSubjectId] = useState<number | null>(null);
@@ -24,9 +25,10 @@ export default function Catalog({ me }: { me: Me }) {
   const d = tree.data;
   const curId = cur ?? d?.curriculums[0]?.id ?? null;
   const admin = can(me, 'admin');
-  const rename = (kind: string, id: number, current: string, field = 'name') => { const v = prompt('الاسم الجديد', current); if (v && v !== current) patch.mutate({ kind, id, body: { [field]: v } }); };
+  const rename = async (kind: string, id: number, current: string, field = 'name') => { const r = await confirm({ title: 'تعديل الاسم', fields: [{ key: 'v', label: 'الاسم الجديد', initial: current, required: true }], confirmLabel: 'حفظ' }); const v = r?.v?.trim(); if (v && v !== current) patch.mutate({ kind, id, body: { [field]: v } }); };
+  const remove = async (kind: string, id: number, name: string) => { const r = await confirm({ title: `حذف «${name}»`, body: 'لا يمكن حذف عنصر مرتبط بمحتوى منشور.', danger: true, confirmLabel: 'حذف' }); if (r) del.mutate({ kind, id }); };
   const list = (kind: string, items: any[], extra?: (x: any) => string) => (
-    <ul>{items.map(x => <li key={x.id}><span className="node"><span>{x.name ?? x.title}</span>{extra ? <span className="muted small">{extra(x)}</span> : null}{admin ? <><button className="btn ghost sm" onClick={() => rename(kind, x.id, x.name ?? x.title, x.name ? 'name' : 'title')}>تعديل</button><button className="btn ghost sm" onClick={() => confirm('حذف؟') && del.mutate({ kind, id: x.id })}>حذف</button></> : null}</span></li>)}</ul>
+    <ul>{items.map(x => <li key={x.id}><span className="node"><span>{x.name ?? x.title}</span>{extra ? <span className="muted small">{extra(x)}</span> : null}{admin ? <><button className="btn ghost sm" onClick={() => rename(kind, x.id, x.name ?? x.title, x.name ? 'name' : 'title')}>تعديل</button><button className="btn ghost sm" onClick={() => remove(kind, x.id, x.name ?? x.title)}>حذف</button></> : null}</span></li>)}</ul>
   );
   const adder = (kind: string, label: string, body: () => unknown) => admin ? <div className="row" style={{ marginTop: 8 }}><input placeholder={label} value={names[kind] ?? ''} onChange={e => setNames(n => ({ ...n, [kind]: e.target.value }))} style={{ width: 220 }} /><button className="btn secondary sm" disabled={!names[kind]} onClick={() => add.mutate({ kind, body: body() })}>إضافة</button></div> : null;
   if (!d) return <Page title="المنهج"><Empty text="جارٍ التحميل…" /></Page>;
@@ -36,7 +38,7 @@ export default function Catalog({ me }: { me: Me }) {
       <div className="grid grid-2">
         <div className="card tree">
           <h2>الدول والمناهج</h2>
-          {list('countries', d.countries, c => c.code)}{adder('countries', 'اسم الدولة', () => ({ code: prompt('رمز الدولة (حرفان)', 'OM') ?? 'OM', name: names.countries }))}
+          {list('countries', d.countries, c => c.code)}{admin ? <div className="row" style={{ marginTop: 8 }}><input placeholder="اسم الدولة" value={names.countries ?? ''} onChange={e => setNames(n => ({ ...n, countries: e.target.value }))} style={{ width: 180 }} /><input placeholder="الرمز (حرفان)" value={names.countryCode ?? ''} maxLength={2} onChange={e => setNames(n => ({ ...n, countryCode: e.target.value.toUpperCase() }))} style={{ width: 110 }} className="mono" /><button className="btn secondary sm" disabled={!names.countries || (names.countryCode ?? '').length !== 2} onClick={() => add.mutate({ kind: 'countries', body: { code: names.countryCode, name: names.countries } })}>إضافة</button></div> : null}
           <h3 style={{ marginTop: 14 }}>المناهج</h3>
           <ul>{d.curriculums.map(c => <li key={c.id}><span className="node"><button className={`chip ${curId === c.id ? 'on' : ''}`} onClick={() => setCur(c.id)}>{c.name}</button>{admin ? <button className="btn ghost sm" onClick={() => rename('curriculums', c.id, c.name)}>تعديل</button> : null}</span></li>)}</ul>
           {adder('curriculums', 'اسم المنهج', () => ({ countryId: d.countries[0]?.id, name: names.curriculums }))}
@@ -53,7 +55,7 @@ export default function Catalog({ me }: { me: Me }) {
             <select value={semesterId ?? ''} onChange={e => setSemesterId(Number(e.target.value) || null)} style={{ width: 160 }}><option value="">الفصل</option>{sems.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
           </div>
           {!units.isFetched ? <Empty text="اختر المادة والصف والفصل" /> : units.data?.length ? (
-            <ul>{units.data.map((u, ui) => <li key={u.id}><span className="node"><b>{ui + 1}. {u.title}</b>{can(me, 'admin', 'content_reviewer') ? <button className="btn ghost sm" onClick={() => { const t = prompt('عنوان الدرس'); if (t) add.mutate({ kind: 'lessons', body: { unitId: u.id, title: t, order: u.lessons.length + 1 } }); }}>+ درس</button> : null}{admin ? <button className="btn ghost sm" onClick={() => rename('units', u.id, u.title, 'title')}>تعديل</button> : null}</span>
+            <ul>{units.data.map((u, ui) => <li key={u.id}><span className="node"><b>{ui + 1}. {u.title}</b>{can(me, 'admin', 'content_reviewer') ? <button className="btn ghost sm" onClick={async () => { const r = await confirm({ title: `درس جديد في «${u.title}»`, fields: [{ key: 't', label: 'عنوان الدرس', required: true }], confirmLabel: 'إضافة' }); if (r?.t?.trim()) add.mutate({ kind: 'lessons', body: { unitId: u.id, title: r.t.trim(), order: u.lessons.length + 1 } }); }}>+ درس</button> : null}{admin ? <button className="btn ghost sm" onClick={() => rename('units', u.id, u.title, 'title')}>تعديل</button> : null}</span>
               {list('lessons', u.lessons)}</li>)}</ul>
           ) : <Empty text="لا وحدات بعد" />}
           {can(me, 'admin', 'content_reviewer') && subjectId && gradeId && semesterId ? <div className="row" style={{ marginTop: 8 }}><input placeholder="عنوان الوحدة" value={names.units ?? ''} onChange={e => setNames(n => ({ ...n, units: e.target.value }))} style={{ width: 240 }} /><button className="btn secondary sm" disabled={!names.units} onClick={() => add.mutate({ kind: 'units', body: { subjectId, gradeId, semesterId, title: names.units, order: (units.data?.length ?? 0) + 1 } })}>إضافة وحدة</button></div> : null}

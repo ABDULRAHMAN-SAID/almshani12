@@ -2,7 +2,7 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import type { z } from 'zod';
 import { ApiErrorBody, type ErrorCode } from '@manassah/shared';
-import { tokens } from '@/state/auth';
+import { tokens, useAuth, defaultLearner } from '@/state/auth';
 
 import { useUi } from '@/state/ui';
 
@@ -16,7 +16,8 @@ export function resolveBase(): string {
   const custom = useUi.getState().serverUrl;
   if (custom) return custom;
   if (ENV_BASE) return ENV_BASE;
-  if (Platform.OS === 'web' && typeof window !== 'undefined' && !/^(localhost|127\.0\.0\.1)$/.test(window.location.hostname) && /^https?:$/.test(window.location.protocol)) return window.location.origin;
+  // النسخة المبنيّة تُخدَم من الخادم نفسه أيّاً كان منفذه؛ أما خادم التطوير (expo start على localhost) فالواجهة على 4000
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && /^https?:$/.test(window.location.protocol) && (!__DEV__ || !/^(localhost|127\.0\.0\.1)$/.test(window.location.hostname))) return window.location.origin;
   return Platform.OS === 'android' ? 'http://10.0.2.2:4000' : 'http://localhost:4000';
 }
 
@@ -35,6 +36,8 @@ export function errorMessageKey(err: unknown): string {
       teacher_unavailable: 'errors.teacherUnavailable', slot_expired: 'errors.slotExpired',
       content_unavailable: 'errors.contentUnavailable', otp_invalid: 'errors.otpInvalid', otp_expired: 'errors.otpExpired',
       forbidden: 'errors.forbidden', not_found: 'errors.notFound', rate_limited: 'errors.rateLimited', insufficient_funds: 'errors.insufficientFunds',
+      learner_forbidden: 'errors.learnerForbidden', learner_required: 'errors.learnerRequired', learner_limit: 'learners.limit',
+      learner_has_upcoming: 'learners.hasUpcoming', last_learner: 'learners.lastLearner',
     };
     return map[err.code] ?? 'errors.generic';
   }
@@ -66,11 +69,27 @@ interface RequestOptions { auth?: boolean; noRetry?: boolean; signal?: AbortSign
 
 /** وضع العرض: التطبيق كاملاً بلا خادم (EXPO_PUBLIC_DEMO=1) — انظر ./demo.ts */
 export const DEMO = process.env.EXPO_PUBLIC_DEMO === '1';
+/** علامة البناء تُضمَّن في الحزمة كسلسلة ثابتة كي يتحقّق scripts/check-web-build.mjs أن حزمة الويب الحقيقية ليست نسخة عرض */
+export const BUILD_MARK = process.env.EXPO_PUBLIC_DEMO === '1' ? 'manassah-build:demo' : 'manassah-build:api';
 /** وضع العرض يعمل ما لم يضبط المستخدم خادماً حقيقياً من الإعدادات */
 export const isDemo = (): boolean => DEMO && !useUi.getState().serverUrl;
 // يُحمَّل بشكل متزامن كي تعمل النسخة أحادية الملف بلا جلب أجزاء إضافية؛ الشرط يُطوى وقت البناء فلا يدخل الإنتاج
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const demoModule: typeof import('./demo') | null = process.env.EXPO_PUBLIC_DEMO === '1' ? require('./demo') : null;
+/** نسخة العرض تتابع المتعلّم النشط بنفسها (لا ترويسات) */
+export const demoSetLearner = (id: number | null) => { if (isDemo() && demoModule) demoModule.setLearner(id); };
+
+/**
+ * معرّف متعلّم قديم (أُرشف أو حُذف من جهاز آخر) → الخادم يردّ 403 learner_forbidden:
+ * نعود إلى المتعلّم الافتراضي مرة واحدة ونعيد الطلب؛ لو كنّا على الافتراضي أصلاً فالخطأ حقيقي.
+ */
+function recoverLearner(): boolean {
+  const s = useAuth.getState();
+  const fallback = defaultLearner(s.user)?.id ?? null;
+  if (fallback === s.activeLearnerId) return false;
+  s.setActiveLearner(fallback);
+  return true;
+}
 
 function finish<T>(data: unknown, path: string, schema?: z.ZodType<T>): T {
   if (!schema) return data as T;
@@ -84,15 +103,22 @@ function finish<T>(data: unknown, path: string, schema?: z.ZodType<T>): T {
 }
 
 async function request<T>(method: string, path: string, body?: unknown, schema?: z.ZodType<T>, opts: RequestOptions = {}): Promise<T> {
+  const learnerId = useAuth.getState().activeLearnerId;
   if (isDemo() && demoModule) {
-    const r = await demoModule.handle(method, path, body instanceof FormData ? undefined : body);
-    if (r.status >= 400) { const e = r.body?.error ?? { code: 'server_error', message: `HTTP ${r.status}` }; throw new ApiError(e.code, e.message, r.status); }
+    const r = await demoModule.handle(method, path, body instanceof FormData ? undefined : body, { learnerId });
+    if (r.status >= 400) {
+      const e = r.body?.error ?? { code: 'server_error', message: `HTTP ${r.status}` };
+      if (e.code === 'learner_forbidden' && !opts.noRetry && recoverLearner()) return request<T>(method, path, body, schema, { ...opts, noRetry: true });
+      throw new ApiError(e.code, e.message, r.status);
+    }
     return finish<T>(r.body, path, schema);
   }
   const send = async () => {
     const headers: Record<string, string> = { Accept: 'application/json' };
     if (body !== undefined && !(body instanceof FormData)) headers['Content-Type'] = 'application/json';
     if (tokens.access && opts.auth !== false) headers.Authorization = `Bearer ${tokens.access}`;
+    // المتعلّم النشط على هذا الجهاز — الخادم يرجع إلى users.active_learner_id ثم الافتراضي عند غيابها
+    if (learnerId && opts.auth !== false) headers['X-Learner-Id'] = String(learnerId);
     return fetch(`${resolveBase()}/api${path}`, {
       method, headers, signal: opts.signal,
       body: body instanceof FormData ? body : body !== undefined ? JSON.stringify(body) : undefined,
@@ -117,6 +143,7 @@ async function request<T>(method: string, path: string, body?: unknown, schema?:
     const parsed = ApiErrorBody.safeParse(data);
     const err = parsed.success ? parsed.data.error : { code: res.status === 401 ? 'auth_expired' : 'server_error', message: `HTTP ${res.status}` };
     if (__DEV__) console.warn('[api]', method, path, res.status, err.code, err.message);
+    if (err.code === 'learner_forbidden' && !opts.noRetry && recoverLearner()) return request<T>(method, path, body, schema, { ...opts, noRetry: true });
     throw new ApiError(err.code, err.message, res.status, (err as { details?: { field: string; message: string }[] }).details);
   }
 

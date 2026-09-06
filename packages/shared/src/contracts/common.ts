@@ -35,6 +35,9 @@ export const ErrorCode = z.enum([
   'rate_limited', 'payment_required', 'payment_failed', 'booking_conflict',
   'teacher_unavailable', 'slot_expired', 'content_unavailable', 'auth_expired',
   'otp_invalid', 'otp_expired', 'insufficient_funds', 'network_error', 'server_error',
+  /* المتعلّمون وإدارة الأشخاص */
+  'learner_required', 'learner_forbidden', 'learner_limit', 'learner_has_upcoming', 'last_learner',
+  'last_super_admin', 'teacher_verified', 'phone_taken', 'email_taken', 'self_target',
 ]);
 export type ErrorCode = z.infer<typeof ErrorCode>;
 

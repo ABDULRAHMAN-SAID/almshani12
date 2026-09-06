@@ -36,8 +36,11 @@ export const api = {
   post: <T>(path: string, body?: unknown) => request<T>('POST', path, body ?? {}),
   put: <T>(path: string, body?: unknown) => request<T>('PUT', path, body ?? {}),
   patch: <T>(path: string, body?: unknown) => request<T>('PATCH', path, body ?? {}),
-  delete: <T>(path: string) => request<T>('DELETE', path),
+  delete: <T>(path: string, body?: unknown) => request<T>('DELETE', path, body),
 };
 export const money = (n: number) => `${Number(n).toFixed(3)} ر.ع`;
+export const pct = (n: number) => `${Math.round(Number(n) * 100)}٪`;
+/** كسر من الكل كنسبة مئوية — ٠ عند غياب الأساس */
+export const share = (part: number, whole: number) => whole ? `${Math.round((part / whole) * 100)}٪` : '٠٪';
 export const when = (iso?: string | null) => iso ? new Intl.DateTimeFormat('ar-u-nu-latn', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Muscat' }).format(new Date(iso)) : '—';
 export const day = (iso?: string | null) => iso ? new Intl.DateTimeFormat('ar-u-nu-latn', { dateStyle: 'medium', timeZone: 'Asia/Muscat' }).format(new Date(iso)) : '—';

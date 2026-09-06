@@ -24,6 +24,7 @@ export async function boot() {
   const seed = await import('../src/db/seed.ts');
   const helpers = await import('../src/lib/helpers.ts');
   const storage = await import('../src/services/storage.ts');
+  const learners = await import('../src/services/learners.ts');
   const { server } = app.createApp();
   const cat = seed.seedCatalog();
   await new Promise<void>(r => server.listen(0, '127.0.0.1', () => r()));
@@ -47,13 +48,34 @@ export async function boot() {
     return { token: r.json.accessToken as string, refreshToken: r.json.refreshToken as string, user: r.json.user, id: r.json.user.id as number };
   }
   const grantRole = (userId: number, role: string) => q.run('INSERT OR IGNORE INTO user_roles (user_id, role) VALUES (?,?)', userId, role);
+  /** متعلّم بالشكل نفسه الذي يبذره seed.ts (position = عدد المتعلّمين الحاليين) */
+  function addLearner(accountId: number, name: string, { isSelf, grade = 12, subjects = ['physics'], gender = null }: { isSelf: boolean; grade?: number; subjects?: string[]; gender?: 'male' | 'female' | null }) {
+    const position = q.val<number>('SELECT COUNT(*) FROM learners WHERE account_id = ? AND archived_at IS NULL', accountId) ?? 0;
+    const id = Number(q.run('INSERT INTO learners (account_id, display_name, gender, is_self, curriculum_id, grade_id, semester_id, position) VALUES (?,?,?,?,?,?,?,?)',
+      accountId, name, gender, isSelf ? 1 : 0, cat.curriculumId, cat.grades[grade], cat.semesters[1], position).lastInsertRowid);
+    for (const sub of subjects) q.run('INSERT OR IGNORE INTO learner_subjects (learner_id, subject_id) VALUES (?,?)', id, cat.subjects[sub]);
+    return id;
+  }
+  /** طالب: حساب + متعلّم ذاتي واحد (نشط) — الجدولان القديمان يُكتبان انعكاساً كما في الخدمة */
   async function student(phone: string, opts: { grade?: number; subjects?: string[] } = {}) {
     const s = await login(phone);
-    q.run('UPDATE profiles SET display_name = ? WHERE user_id = ?', `طالب ${phone.slice(-3)}`, s.id);
-    q.run('INSERT OR REPLACE INTO student_profiles (user_id, curriculum_id, grade_id, semester_id) VALUES (?,?,?,?)', s.id, cat.curriculumId, cat.grades[opts.grade ?? 12], cat.semesters[1]);
-    for (const sub of opts.subjects ?? ['physics']) q.run('INSERT OR IGNORE INTO student_subjects (user_id, subject_id) VALUES (?,?)', s.id, cat.subjects[sub]);
-    q.run('UPDATE users SET onboarding_completed = 1 WHERE id = ?', s.id);
-    return s;
+    const name = `طالب ${phone.slice(-3)}`;
+    q.run('UPDATE profiles SET display_name = ? WHERE user_id = ?', name, s.id);
+    const learnerId = addLearner(s.id, name, { isSelf: true, grade: opts.grade, subjects: opts.subjects });
+    q.run('UPDATE users SET active_learner_id = ?, onboarding_completed = 1 WHERE id = ?', learnerId, s.id);
+    learners.projectSelfLearner(s.id);
+    return { ...s, learnerId };
+  }
+  /** وليّ أمر: دور parent فقط، ومتعلّم غير ذاتي لكل ابن (الأول هو النشط) */
+  async function parent(phone: string, children: { name: string; grade: number; subjects: string[] }[]) {
+    const p = await login(phone);
+    q.run('UPDATE profiles SET display_name = ? WHERE user_id = ?', `وليّ أمر ${phone.slice(-3)}`, p.id);
+    q.run("DELETE FROM user_roles WHERE user_id = ? AND role = 'student'", p.id);
+    grantRole(p.id, 'parent');
+    const learnerIds = children.map(ch => addLearner(p.id, ch.name, { isSelf: false, grade: ch.grade, subjects: ch.subjects }));
+    q.run('UPDATE users SET active_learner_id = ?, onboarding_completed = 1 WHERE id = ?', learnerIds[0] ?? null, p.id);
+    learners.projectSelfLearner(p.id);
+    return { ...(await login(phone)), learnerIds }; // رمز جديد يحمل الدور
   }
   async function staff(phone: string, role: string) {
     const s = await login(phone);
@@ -92,5 +114,5 @@ export async function boot() {
   /** موعد بعد N ساعة، مقرّب لبداية ساعة بتوقيت مسقط */
   const slotIn = (hours: number) => { const d = new Date(Date.now() + hours * 3_600_000); d.setUTCMinutes(0, 0, 0); return d.toISOString(); };
   function close() { server.close(); try { fs.rmSync(dataDir, { recursive: true, force: true }); } catch { /* تجاهل */ } }
-  return { base, api, login, student, staff, teacher, book, course, grantRole, slotIn, q, settings, cat, helpers, close, db: dbm.db };
+  return { base, api, login, student, parent, addLearner, staff, teacher, book, course, grantRole, slotIn, q, settings, cat, helpers, close, db: dbm.db };
 }

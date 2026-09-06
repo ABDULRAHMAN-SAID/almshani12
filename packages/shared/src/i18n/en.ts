@@ -32,6 +32,7 @@ export const en: Dictionary = {
     notFound: "We couldn't find that.",
     rateLimited: 'Too many attempts. Wait a moment and try again.',
     insufficientFunds: 'Insufficient balance.',
+    learnerForbidden: 'This learner is not in your account', learnerRequired: 'Pick a learner first',
   },
   nav: { home: 'Home', library: 'Library', lessons: 'Lessons', courses: 'Courses', account: 'Account' },
   onboarding: {
@@ -47,6 +48,7 @@ export const en: Dictionary = {
     chooseSubjects: 'Subjects you care about', country: 'Country', system: 'Curriculum',
     finish: 'Start learning', skipForNow: 'Later',
     terms: 'By continuing you agree to the Terms and Privacy Policy',
+    whoUses: 'Who will use this account?', meStudent: "I'm a student", meParent: "I'm a parent",
   },
   home: {
     greetingMorning: 'Good morning, {{name}}', greetingEvening: 'Good evening, {{name}}',
@@ -58,6 +60,16 @@ export const en: Dictionary = {
     gradeSummaries: '{{grade}} summaries', diplomaSummaries: 'General Diploma summaries', featuredCourses: 'Featured courses',
     solvedProblems: 'Step-by-step solutions', offers: 'Offers',
     searchPlaceholder: 'Search books, summaries, teachers…',
+    followingLearner: 'Following: {{name}}',
+  },
+  learners: {
+    title: 'Learners', add: 'Add learner', manage: 'Manage learners', switch: 'Switch learner', active: 'Active', setActive: 'Set active',
+    self: 'Me', child: 'Child', childName: "Child's name", forLearner: 'for {{name}}', bookFor: 'Lesson for', all: 'All learners',
+    emptyTitle: 'Add your first learner', emptyBody: 'Add yourself or a child so we can tailor content to the grade', limit: 'Maximum 6 learners',
+    sameGradeHint: 'You already have a learner in this grade', delete: 'Delete learner', deleteConfirm: 'This learner will be hidden; past lessons stay in history',
+    hasUpcoming: "Can't delete: upcoming lessons exist", lastLearner: 'At least one learner must remain',
+    addAnother: 'Add another child?', later: 'Later', makeActive: 'Make this the active learner?', gradeOf: "{{name}}'s grade",
+    gender: 'Gender', male: 'Male', female: 'Female', school: 'School (optional)', isSelfToggle: 'This learner is me', moveUp: 'Move up', moveDown: 'Move down', edit: 'Edit learner', saved: 'Learner saved',
   },
   library: {
     title: 'Library', searchPlaceholder: 'Search a book, summary, subject, unit…',
@@ -94,6 +106,7 @@ export const en: Dictionary = {
     empty: 'No matching teachers', emptyHint: 'Try another subject or widen the filters',
     gender: 'Gender', male: 'Male', female: 'Female', language: 'Language',
     pending: 'Your application is under review', pendingBody: "We'll review your documents and notify you within 48 hours.",
+    studentsCount: '{{n}} students', lessonsCount: '{{n}} lessons', ratingCount: '{{n}} ratings', yearsExp: '{{n}} yrs experience', timeOff: 'Time off', weeklyAvailability: 'Weekly availability', noAvailability: 'The teacher has not set a schedule yet',
   },
   booking: {
     title: 'Book a lesson', chooseType: 'Lesson type', chooseDate: 'Date', chooseTime: 'Time', review: 'Review',
@@ -148,6 +161,7 @@ export const en: Dictionary = {
     discount: 'Discount', tax: 'Tax', total: 'Total', coupon: 'Coupon code', applyCoupon: 'Apply',
     checkout: 'Checkout', pay: 'Pay {{p}}', paymentMethod: 'Payment method', remove: 'Remove',
     success: 'Purchase complete', successBody: 'The content is now in your library', goLibrary: 'Go to my library',
+    successLesson: 'Lesson confirmed', successLessonBody: 'Your lesson is booked — find it under My lessons',
     failed: 'Payment did not complete', failedBody: 'Nothing was charged. Your cart is saved.',
     awaiting: 'Awaiting transfer confirmation', awaitingBody: 'Content unlocks after the transfer is reviewed.',
   },
@@ -217,7 +231,9 @@ export const en: Dictionary = {
     server: 'Server & connection', serverUrl: 'Server address', serverHint: 'Enter your server address after deploying it (e.g. https://manassah.onrender.com), test, then save',
     testConnection: 'Test connection', connected: 'Connected', connectionFailed: 'Connection failed', serverInvalid: 'Address must start with http:// or https://', serverTimeout: 'Connection timed out',
     demoMode: 'Demo', liveMode: 'Live server', demoHint: 'Local data, no server — set your server address to go live', useDemo: 'Back to demo',
+    learners: 'Learners & grades',
   },
+  purchases: { sharedNote: 'Purchases are available to every learner in your account' },
   teacherUi: {
     availabilityHint: 'Set your working days and hours — 60-minute slots are generated automatically', addRule: 'Add period', from: 'From', to: 'To', slot: 'Slot',
     breakM: 'Break', removeRule: 'Remove', saveRules: 'Save availability', timeOffAdd: 'Add time off', reason: 'Reason', noTimeOff: 'No upcoming time off',

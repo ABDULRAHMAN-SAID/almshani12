@@ -13,6 +13,7 @@ import { signedUrl, storeFile, publicUrl } from '../services/storage.ts';
 import { courseCard, reviewItems } from '../services/mappers.ts';
 import { scoreQuiz, quizForStudent } from '../services/quiz.ts';
 import { notifyStaff } from '../services/notifications.ts';
+import { resolveLearner } from '../services/learners.ts';
 
 const router = Router();
 
@@ -137,13 +138,14 @@ router.get('/quizzes/:quizId/attempts', requireAuth, (req, res) => {
   res.json(q.all<any>('SELECT id, percent, passed, duration_seconds, finished_at FROM quiz_attempts WHERE quiz_id = ? AND user_id = ? ORDER BY id DESC', idParam(req, 'quizId'), req.user!.id)
     .map(a => ({ attemptId: a.id, percent: a.percent, passed: !!a.passed, durationSeconds: a.duration_seconds, finishedAt: a.finished_at })));
 });
-/** اختبار سريع: أحدث اختبار وحدة/مستقل لمواد الطالب */
+/** اختبار سريع: أحدث اختبار وحدة/مستقل لمواد المتعلّم النشط وصفّه (بلا متعلّم: كحساب بلا مواد) */
 router.get('/quick-quiz/pick', requireAuth, (req, res) => {
   const uid = req.user!.id;
+  const learner = resolveLearner(req);
   const row = q.get<any>(`SELECT z.id FROM quizzes z LEFT JOIN units u ON z.owner_type = 'unit' AND u.id = z.owner_id
-    WHERE z.owner_type IN ('unit','standalone') AND (u.subject_id IS NULL OR u.subject_id IN (SELECT subject_id FROM student_subjects WHERE user_id = ?))
-    AND (u.grade_id IS NULL OR u.grade_id = (SELECT grade_id FROM student_profiles WHERE user_id = ?))
-    ORDER BY (SELECT COUNT(*) FROM quiz_attempts a WHERE a.quiz_id = z.id AND a.user_id = ?) ASC, RANDOM() LIMIT 1`, uid, uid, uid);
+    WHERE z.owner_type IN ('unit','standalone') AND (u.subject_id IS NULL OR u.subject_id IN (SELECT subject_id FROM learner_subjects WHERE learner_id = ?))
+    AND (u.grade_id IS NULL OR u.grade_id = ?)
+    ORDER BY (SELECT COUNT(*) FROM quiz_attempts a WHERE a.quiz_id = z.id AND a.user_id = ?) ASC, RANDOM() LIMIT 1`, learner?.id ?? 0, learner?.grade_id ?? null, uid);
   if (!row) throw notFound('لا اختبارات متاحة لصفّك بعد');
   res.json({ quizId: row.id });
 });

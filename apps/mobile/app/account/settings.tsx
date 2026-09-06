@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { colors, spacing, themed } from '@manassah/tokens';
 import { Screen, Text, Button, Input, Chip, Card, ListRow, Dialog, Icon, Badge } from '@/ui';
 import { useUpdateProfile, useDeleteAccount } from '@/features/queries';
-import { useAuth } from '@/state/auth';
+import { useAuth, useActiveLearner } from '@/state/auth';
 import { useUi, type ThemePref, type TextScale } from '@/state/ui';
 import { signOut } from '@/lib/session';
 import i18n from '@/i18n';
@@ -16,6 +16,7 @@ export default function Settings() {
   const { t } = useTranslation();
   const router = useRouter();
   const user = useAuth(s => s.user);
+  const active = useActiveLearner();
   const update = useUpdateProfile();
   const del = useDeleteAccount();
   const { themePref, setThemePref, textScale, setTextScale, serverUrl, setServerUrl } = useUi();
@@ -97,7 +98,7 @@ export default function Settings() {
           {update.error ? <Text role="small" tone="danger">{t(errorMessageKey(update.error))}</Text> : null}
         </Card>
 
-        <Card padded={false}><View style={styles.menu}><ListRow icon="grade" color={colors.brand.gold} label={t('settings.changeGrade')} value={user?.student?.gradeName ?? undefined} onPress={() => router.push('/(auth)/setup')} /><ListRow icon="logout" label={t('account.logout')} onPress={signOut} last /></View></Card>
+        <Card padded={false}><View style={styles.menu}><ListRow icon="people" color={colors.brand.gold} label={t('settings.learners')} value={active?.gradeName ?? undefined} onPress={() => router.push('/account/learners')} /><ListRow icon="logout" label={t('account.logout')} onPress={signOut} last /></View></Card>
         <Card padded={false}><View style={styles.menu}><ListRow icon="trash" label={t('settings.deleteAccount')} danger onPress={() => setConfirm(true)} last /></View></Card>
       </View>
       <Dialog visible={confirm} onClose={() => setConfirm(false)} title={t('settings.deleteAccount')} body={t('settings.deleteConfirm')}

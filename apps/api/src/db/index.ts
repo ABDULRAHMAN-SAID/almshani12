@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config, DEFAULT_SETTINGS } from '../config.ts';
 import { normalizeArabic } from '../lib/helpers.ts';
+import { runMigrations, hasTable, SCHEMA_VERSION } from './migrations.ts';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -14,9 +15,21 @@ db.pragma('busy_timeout = 5000');
 /** دالّة SQL للبحث العربي المطبَّع: norm(title) LIKE '%' || norm(?) || '%' */
 db.function('norm', { deterministic: true }, (v: unknown) => normalizeArabic(v == null ? '' : String(v)));
 
-/** ينشئ الجداول ويثبّت الإعدادات الافتراضية غير الموجودة. */
+/**
+ * يجهّز أي قاعدة (تُستخدم أيضاً في اختبار الترحيلات على ملف مؤقّت):
+ * قاعدة جديدة → schema.sql بشكله النهائي مباشرة ويُختم user_version بالإصدار الأخير (لا ترحيلات ولا نسخة احتياطية لملف فارغ)؛
+ * قاعدة قديمة → الترحيلات المرقّمة (مكتفية بذاتها، بنسخة احتياطية) ثم schema.sql مرة أخرى لما استُحدث من جداول/فهارس (IF NOT EXISTS فلا يمسّ الموجود).
+ */
+export function migrateDb(target: Database.Database, dbFile: string, opts: { backup?: boolean } = {}): void {
+  const schema = fs.readFileSync(path.join(here, 'schema.sql'), 'utf8');
+  if (!hasTable(target, 'users')) { target.exec(schema); target.pragma(`user_version = ${SCHEMA_VERSION}`); return; }
+  runMigrations(target, dbFile, opts);
+  target.exec(schema);
+}
+
+/** ينشئ الجداول أو يرقّيها ويثبّت الإعدادات الافتراضية غير الموجودة. */
 export function migrate(): void {
-  db.exec(fs.readFileSync(path.join(here, 'schema.sql'), 'utf8'));
+  migrateDb(db, config.db.file);
   const insert = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)');
   for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) insert.run(key, JSON.stringify(value));
 }

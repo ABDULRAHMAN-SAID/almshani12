@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { CreateBooking, CancelBooking, RescheduleBooking, PostLessonNotes } from '@manassah/shared';
+import { CreateBooking, CancelBooking, RescheduleBooking, PostLessonNotes, LessonsQuery } from '@manassah/shared';
 import { db, q, settings, nowIso } from '../db/index.ts';
 import { AppError, asyncHandler, notFound, forbidden, badRequest } from '../lib/errors.ts';
-import { validate, body, idParam } from '../lib/validate.ts';
+import { validate, body, query, idParam } from '../lib/validate.ts';
 import { requireAuth, hasRole } from '../lib/auth.ts';
 import { utcToMuscatParts } from '../lib/helpers.ts';
 import { createBooking, cancelByStudent, cancelByTeacher, completeBooking, markLeft, type BookingRow } from '../services/bookings.ts';
@@ -11,6 +11,7 @@ import { issueRoomAccess, endRoom } from '../services/rooms.ts';
 import { bookingView, personRef } from '../services/mappers.ts';
 import { signedUrl } from '../services/storage.ts';
 import { notify } from '../services/notifications.ts';
+import { requireLearner, resolveLearner, listLearnerRefs } from '../services/learners.ts';
 import { audit } from '../lib/audit.ts';
 
 const router = Router();
@@ -24,10 +25,11 @@ const load = (req: any): BookingRow => {
   return b;
 };
 
-/** حجز حصة: التحقّق كله في الخادم؛ التعارض يحسمه قيد قاعدة البيانات */
+/** حجز حصة: التحقّق كله في الخادم؛ التعارض يحسمه قيد قاعدة البيانات. لمن الحصة: learnerId ثم الترويسة ثم النشط (422 بلا متعلّم) */
 router.post('/', validate(CreateBooking), (req, res) => {
   const input = body<typeof CreateBooking>(req);
-  const { booking, order } = createBooking(req.user!.id, input);
+  const learner = requireLearner(req, input.learnerId);
+  const { booking, order } = createBooking(req.user!.id, input, learner);
   const view = bookingView(booking, req.user!.id);
   q.run('INSERT INTO analytics_events (user_id, name, props) VALUES (?,?,?)', req.user!.id, 'booking_started', JSON.stringify({ bookingId: booking.id }));
   res.status(201).json({
@@ -36,13 +38,17 @@ router.post('/', validate(CreateBooking), (req, res) => {
   });
 });
 
-/** تبويب الحصص: القادمة (اليوم/غداً/الأسبوع/لاحقاً) — السابقة — باقاتي */
-router.get('/', (req, res) => {
+/** تبويب الحصص: القادمة (اليوم/غداً/الأسبوع/لاحقاً) — السابقة — باقاتي. ?learnerId يرشّح حصص متعلّم واحد؛ بلاه كل متعلّمي الحساب */
+router.get('/', validate(LessonsQuery, 'query'), (req, res) => {
   const uid = req.user!.id;
-  const asTeacher = req.query.as === 'teacher' && req.user!.roles.includes('teacher');
+  const f = query<typeof LessonsQuery>(req);
+  const asTeacher = f.as === 'teacher' && req.user!.roles.includes('teacher');
   const col = asTeacher ? 'teacher_id' : 'student_id';
-  const upcomingRows = q.all<BookingRow>(`SELECT * FROM bookings WHERE ${col} = ? AND status IN ('pending_payment','confirmed','in_progress') AND ends_at >= ? ORDER BY starts_at LIMIT 100`, uid, nowIso());
-  const pastRows = q.all<BookingRow>(`SELECT * FROM bookings WHERE ${col} = ? AND (status IN ('completed','no_show','cancelled_by_student','cancelled_by_teacher','disputed','expired') OR ends_at < ?) ORDER BY starts_at DESC LIMIT 60`, uid, nowIso());
+  const learner = !asTeacher && f.learnerId ? resolveLearner(req, f.learnerId) : null;
+  const scope = learner ? `${col} = ? AND learner_id = ?` : `${col} = ?`;
+  const scopeArgs = learner ? [uid, learner.id] : [uid];
+  const upcomingRows = q.all<BookingRow>(`SELECT * FROM bookings WHERE ${scope} AND status IN ('pending_payment','confirmed','in_progress') AND ends_at >= ? ORDER BY starts_at LIMIT 100`, ...scopeArgs, nowIso());
+  const pastRows = q.all<BookingRow>(`SELECT * FROM bookings WHERE ${scope} AND (status IN ('completed','no_show','cancelled_by_student','cancelled_by_teacher','disputed','expired') OR ends_at < ?) ORDER BY starts_at DESC LIMIT 60`, ...scopeArgs, nowIso());
   const todayKey = utcToMuscatParts(nowIso()).date;
   const tomorrowKey = utcToMuscatParts(new Date(Date.now() + 86_400_000).toISOString()).date;
   const weekKey = utcToMuscatParts(new Date(Date.now() + 7 * 86_400_000).toISOString()).date;
@@ -56,8 +62,8 @@ router.get('/', (req, res) => {
     else upcoming.later.push(v);
   }
   const packages = asTeacher ? [] : q.all<any>('SELECT pp.*, lp.duration_minutes, lp.mode FROM package_purchases pp JOIN lesson_packages lp ON lp.id = pp.package_id WHERE pp.user_id = ? AND pp.remaining > 0 AND (pp.expires_at IS NULL OR pp.expires_at > ?) ORDER BY pp.id DESC', uid, nowIso())
-    .map(p => ({ id: p.id, teacher: personRef(p.teacher_id), lessonsCount: p.total, remaining: p.remaining, durationMinutes: p.duration_minutes, mode: p.mode, expiresAt: p.expires_at }));
-  res.json({ upcoming, past: pastRows.map(b => bookingView(b, uid)), packages });
+    .map(p => ({ id: p.id, teacher: personRef(p.teacher_id), lessonsCount: p.total, remaining: p.remaining, durationMinutes: p.duration_minutes, mode: p.mode, expiresAt: p.expires_at, learnerId: p.learner_id ?? null }));
+  res.json({ upcoming, past: pastRows.map(b => bookingView(b, uid)), packages, learners: asTeacher ? [] : listLearnerRefs(uid) });
 });
 
 router.get('/:id', (req, res) => { res.json(bookingView(load(req), req.user!.id)); });

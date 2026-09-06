@@ -5,9 +5,9 @@ import * as Clipboard from 'expo-clipboard';
 import { colors, spacing, radius, shadow, subjectColors, themed } from '@manassah/tokens';
 import type { z } from 'zod';
 import type { ContinueItem } from '@manassah/shared';
-import { Screen, Text, Icon, Button, Card, Avatar, SectionHeader, BookCard, TeacherCard, CourseCard, LessonCard, HeaderActions, type IconName } from '@/ui';
+import { Screen, Text, Icon, Button, Card, Avatar, SectionHeader, BookCard, TeacherCard, CourseCard, LessonCard, HeaderActions, LearnerSwitcher, type IconName } from '@/ui';
 import { useHome, useQuickQuiz } from '@/features/queries';
-import { useAuth } from '@/state/auth';
+import { useAuth, useActiveLearner, showSwitcher, isTeacher } from '@/state/auth';
 
 const CARD_W = 176, TEACHER_W = 300, COURSE_W = 260;
 
@@ -22,6 +22,9 @@ export default function Home() {
   const home = useHome();
   const quick = useQuickQuiz();
   const d = home.data;
+  const active = useActiveLearner();
+  const switcher = showSwitcher(user);
+  const noLearner = !!user && user.learners.length === 0 && !isTeacher(user);
   const hour = new Date().getHours();
   const greeting = t(hour < 12 ? 'home.greetingMorning' : 'home.greetingEvening', { name: d?.greeting.name || user?.displayName || '' });
 
@@ -39,21 +42,45 @@ export default function Home() {
     <Screen bare loading={home.isLoading} error={home.error} onRetry={() => home.refetch()} refreshing={home.isRefetching} onRefresh={() => home.refetch()} padded={false}>
       {/* الترويسة */}
       <View style={[styles.px, styles.header]}>
-        <Pressable onPress={() => router.push('/(tabs)/account')} style={styles.who} accessibilityRole="button">
-          <Avatar name={user?.displayName ?? ''} url={user?.avatarUrl} size="md" />
-          <View style={styles.whoText}>
-            <Text role="h3" numberOfLines={1}>{greeting}</Text>
-            {d?.greeting.gradeName ? <Text role="caption" tone="secondary" numberOfLines={1}>{d.greeting.gradeName}</Text> : null}
-          </View>
-        </Pressable>
+        {switcher ? <LearnerSwitcher /> : (
+          <Pressable onPress={() => router.push('/(tabs)/account')} style={styles.who} accessibilityRole="button">
+            <Avatar name={user?.displayName ?? ''} url={user?.avatarUrl} size="md" />
+            <View style={styles.whoText}>
+              <Text role="h3" numberOfLines={1}>{greeting}</Text>
+              {d?.greeting.gradeName ? <Text role="caption" tone="secondary" numberOfLines={1}>{d.greeting.gradeName}</Text> : null}
+            </View>
+          </Pressable>
+        )}
         <HeaderActions />
       </View>
+      {switcher ? (
+        <View style={[styles.px, styles.greetRow]}>
+          <Text role="h3" numberOfLines={1}>{greeting}</Text>
+          {active && !active.isSelf ? <Text role="caption" tone="secondary" numberOfLines={1}>{t('home.followingLearner', { name: active.displayName })}</Text> : null}
+        </View>
+      ) : null}
       <Pressable onPress={() => router.push('/search')} style={({ pressed }) => [styles.px, styles.search, pressed && styles.pressed]} accessibilityRole="search">
         <View style={styles.searchBox}>
           <Icon name="search" size={22} color={colors.text.tertiary} />
           <Text role="body" tone="tertiary" numberOfLines={1}>{t('home.searchPlaceholder')}</Text>
         </View>
       </Pressable>
+
+      {/* حساب بلا متعلّم بعد — دعوة واضحة لإضافة أول متعلّم */}
+      {noLearner ? (
+        <View style={[styles.px, styles.section]}>
+          <Card accent>
+            <View style={styles.emptyLesson}>
+              <View style={styles.emptyIcon}><Icon name="people" size={30} color={colors.brand.primary} /></View>
+              <View style={styles.flex}>
+                <Text role="h3">{t('learners.emptyTitle')}</Text>
+                <Text role="small" tone="secondary">{t('learners.emptyBody')}</Text>
+              </View>
+            </View>
+            <Button label={t('learners.add')} onPress={() => router.push('/account/learners/new')} icon="plus" full style={styles.mt} />
+          </Card>
+        </View>
+      ) : null}
 
       {/* ١) حصّتك القادمة */}
       <View style={[styles.px, styles.section]}>
@@ -167,6 +194,7 @@ const styles = themed((c) => StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: spacing[3], paddingBottom: spacing[3] },
   who: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], flex: 1, minWidth: 0 },
   whoText: { flex: 1, minWidth: 0 },
+  greetRow: { paddingBottom: spacing[3], gap: 2 },
   search: { paddingBottom: spacing[1] },
   searchBox: { height: 54, borderRadius: radius.full, backgroundColor: c.bg.card, borderWidth: 1.5, borderColor: c.border.default, flexDirection: 'row', alignItems: 'center', gap: spacing[3], paddingHorizontal: spacing[4], ...shadow.card },
   pressed: { opacity: 0.85 },

@@ -14,10 +14,10 @@ export interface ChipProps {
   small?: boolean;
 }
 
-/** شريحة فلتر/تصنيف — حبّة مستديرة كبيرة، المختارة مملوءة بلونها */
+/** شريحة فلتر/تصنيف — حبّة مستديرة كبيرة، المختارة مملوءة بلونها (أو باللون المعكوس للسِمة حين لا لون لها) */
 export function Chip({ label, selected, onPress, icon, color, softColor, small }: ChipProps) {
-  const fg = selected ? colors.text.onPrimary : color ?? colors.text.primary;
-  const bg = selected ? (color ?? colors.text.primary) : softColor ?? colors.bg.card;
+  const fg = selected ? (color ? colors.text.onPrimary : colors.text.inverse) : color ?? colors.text.primary;
+  const bg = selected ? (color ?? colors.bg.inverse) : softColor ?? colors.bg.card;
   return (
     <Pressable
       onPress={onPress}

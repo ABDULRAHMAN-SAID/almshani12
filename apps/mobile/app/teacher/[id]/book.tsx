@@ -4,8 +4,9 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { colors, spacing, radius, subjectColors, type SubjectColorKey, themed } from '@manassah/tokens';
 import type { LessonMode } from '@manassah/shared';
-import { Screen, Text, Icon, Button, Chip, Badge, Avatar, Card, Input, Price, Calendar, TimeSlotGrid, SectionHeader, RowSkeleton } from '@/ui';
+import { Screen, Text, Icon, Button, Chip, Badge, Avatar, Card, Input, Price, Calendar, TimeSlotGrid, SectionHeader, RowSkeleton, LearnerPicker } from '@/ui';
 import { useTeacher, useAvailability, useCreateBooking, useLessons } from '@/features/queries';
+import { useLearners, useActiveLearner } from '@/state/auth';
 import { errorMessageKey } from '@/api/client';
 import { dayKey, formatDateTime, money } from '@/lib/format';
 
@@ -21,7 +22,13 @@ export default function BookLesson() {
   const lessons = useLessons(false);
   const create = useCreateBooking();
   const p = teacher.data;
-  const myPackages = useMemo(() => (lessons.data?.packages ?? []).filter(x => x.teacher.id === teacherId && x.remaining > 0), [lessons.data, teacherId]);
+  // لمن الحصة؟ المتعلّم النشط افتراضياً — وليّ الأمر يبدّل من الصفّ العلوي
+  const learners = useLearners();
+  const active = useActiveLearner();
+  const [learnerId, setLearnerId] = useState<number | null>(active?.id ?? null);
+  const learner = learners.find(l => l.id === learnerId) ?? active;
+  // باقة بلا متعلّم = لأي متعلّم؛ وإلا يجب أن تطابق المتعلّم المختار
+  const myPackages = useMemo(() => (lessons.data?.packages ?? []).filter(x => x.teacher.id === teacherId && x.remaining > 0 && (x.learnerId == null || x.learnerId === learnerId)), [lessons.data, teacherId, learnerId]);
   const [packageId, setPackageId] = useState<number | null>(pkg ? Number(pkg) : null);
   const activePkg = myPackages.find(x => x.id === packageId) ?? null;
   const [subjectId, setSubjectId] = useState<number | null>(null);
@@ -31,7 +38,8 @@ export default function BookLesson() {
   const [slot, setSlot] = useState<string | null>(null);
   const [note, setNote] = useState('');
 
-  useEffect(() => { if (p && subjectId == null) setSubjectId(p.subjects[0]?.id ?? null); }, [p, subjectId]);
+  // المادة الافتراضية: أول مادة من مواد المتعلّم عند المعلّم، وإلا الأولى
+  useEffect(() => { if (p && subjectId == null) setSubjectId((p.subjects.find(s => learner?.subjectIds.includes(s.id)) ?? p.subjects[0])?.id ?? null); }, [p, subjectId, learner]);
   useEffect(() => { if (activePkg) { setMode(activePkg.mode); setDuration(activePkg.durationMinutes as Duration); } }, [activePkg]);
   const from = dayKey(new Date().toISOString());
   const avail = useAvailability(teacherId, from, duration);
@@ -44,7 +52,7 @@ export default function BookLesson() {
 
   const confirm = () => {
     if (!canConfirm || !slot || !subjectId) return;
-    create.mutate({ teacherId, subjectId, mode, durationMinutes: duration, startsAt: slot, packagePurchaseId: activePkg?.id ?? null, note: note.trim() || null }, {
+    create.mutate({ teacherId, subjectId, mode, durationMinutes: duration, startsAt: slot, packagePurchaseId: activePkg?.id ?? null, note: note.trim() || null, learnerId: learnerId ?? undefined }, {
       onSuccess: r => {
         if (r.paymentRequired) router.replace({ pathname: '/checkout', params: { bookingId: String(r.booking.id), orderNumber: r.orderNumber ?? '', expiresAt: r.expiresAt ?? '' } });
         else router.replace({ pathname: `/lesson/${r.booking.id}`, params: { booked: '1' } });
@@ -60,6 +68,7 @@ export default function BookLesson() {
           <View style={styles.flex}>
             {activePkg ? <Badge label={t('bookingUi.paidWithPackage')} tone="gold" /> : price != null ? <Price value={price} size="lg" /> : <Text role="small" tone="tertiary">—</Text>}
             {slot ? <Text role="caption" tone="secondary" tabular numberOfLines={1}>{formatDateTime(slot)}</Text> : <Text role="caption" tone="tertiary">{t('bookingUi.chooseSlot')}</Text>}
+            {learners.length > 1 && learner ? <Text role="caption" tone="brand" numberOfLines={1}>{t('learners.bookFor')} {learner.displayName}</Text> : null}
           </View>
           <Button label={activePkg ? t('bookingUi.confirmBooking') : t('bookingUi.payToConfirm')} size="lg" onPress={confirm} loading={create.isPending} disabled={!canConfirm} />
         </View>
@@ -70,6 +79,7 @@ export default function BookLesson() {
             <Avatar name={p.name} url={p.avatarUrl} size="md" verified={p.verified} />
             <View style={styles.flex}><Text role="bodyMedium" numberOfLines={1}>{p.name}</Text>{p.headline ? <Text role="caption" tone="secondary" numberOfLines={1}>{p.headline}</Text> : null}</View>
           </Card>
+          <LearnerPicker value={learnerId} onChange={id => { setLearnerId(id); setPackageId(null); setSubjectId(null); }} />
 
           {myPackages.length ? (
             <View>
@@ -103,7 +113,7 @@ export default function BookLesson() {
             <SectionHeader title={`٢ · ${t('booking.chooseDate')}`} subtitle={t('common.timezoneNote')} />
             {avail.isLoading ? <RowSkeleton /> : avail.data ? (
               <View style={styles.cal}>
-                <Calendar days={avail.data} value={selectedDay} onChange={d => { setSelectedDay(d); setSlot(null); }} />
+                <Calendar days={avail.data} timeOff={p.timeOff} value={selectedDay} onChange={d => { setSelectedDay(d); setSlot(null); }} />
                 <Text role="caption" tone="secondary" style={styles.label}>{t('booking.chooseTime')}</Text>
                 <TimeSlotGrid slots={daySlots} value={slot} onChange={setSlot} />
               </View>

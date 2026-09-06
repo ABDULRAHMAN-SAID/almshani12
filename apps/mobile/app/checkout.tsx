@@ -10,6 +10,7 @@ import { useCart, useBooking, useQuote, usePaymentMethods, useCheckout, useWalle
 import { errorMessageKey } from '@/api/client';
 import { money, formatDateTime } from '@/lib/format';
 import { useCountdown } from '@/lib/hooks';
+import { useLearners } from '@/state/auth';
 
 const ICON: Record<string, IconName> = { wallet: 'wallet', manual: 'bank', mock: 'card', thawani: 'card', stripe: 'card' };
 
@@ -29,23 +30,29 @@ export default function Checkout() {
   const afterPurchase = useAfterPurchase();
   const [provider, setProvider] = useState<string | null>(null);
   const [coupon, setCoupon] = useState('');
+  const learners = useLearners();
   const left = useCountdown(booking.data?.status === 'pending_payment' ? (p.expiresAt || null) : null);
 
   useEffect(() => { if (items) quote.mutate({ items, couponCode: coupon.trim() || null }); }, [items, coupon]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (methods.data?.length && !provider) setProvider(methods.data.find(m => m.id !== 'manual')?.id ?? methods.data[0].id); }, [methods.data, provider]);
 
-  const lines = bookingId && booking.data ? [{ title: `${booking.data.subject.name} · ${booking.data.teacher.name}`, sub: formatDateTime(booking.data.startsAt), price: booking.data.price }]
+  // سطر الحصة يذكر المتعلّم عند تعدّد متعلّمي الحساب
+  const forLearner = booking.data?.learner && learners.length > 1 ? ` · ${t('learners.forLearner', { name: booking.data.learner.displayName })}` : '';
+  const lines = bookingId && booking.data ? [{ title: `${booking.data.subject.name} · ${booking.data.teacher.name}${forLearner}`, sub: formatDateTime(booking.data.startsAt), price: booking.data.price }]
     : items && quote.data ? quote.data.items.map(i => ({ title: i.title, sub: null, price: i.price }))
     : cart.data ? cart.data.items.map(i => ({ title: i.title, sub: i.teacherName, price: i.price })) : [];
   const total = bookingId ? booking.data?.price ?? 0 : items ? quote.data?.total ?? 0 : cart.data?.total ?? 0;
   const discount = items ? quote.data?.discount ?? 0 : bookingId ? 0 : cart.data?.discount ?? 0;
   const loading = (bookingId && booking.isLoading) || (!bookingId && !items && cart.isLoading) || methods.isLoading;
   const walletShort = provider === 'wallet' && (wallet.data?.balance ?? 0) < total;
+  // لا دفع قبل أن يصل ما سيُدفع فعلاً (حجز/عرض سعر/سلة) — وإلا ظهر زرّ «ادفع ٠» في حالة الخطأ
+  const ready = bookingId ? !!booking.data : items ? !!quote.data : !!cart.data;
   const expired = !!p.expiresAt && left === 0 && booking.data?.status === 'pending_payment';
 
   const pay = () => {
     if (!provider) return;
-    checkout.mutate({ provider: provider as never, bookingId: bookingId ?? undefined, items: items?.map(i => ({ itemType: i.itemType as never, itemId: i.itemId })), couponCode: items ? (coupon.trim() || null) : undefined }, {
+    // طلب الحصة يُنسَب لمتعلّم الحجز نفسه؛ غيره للمتعلّم النشط (يضيفه useCheckout)
+    checkout.mutate({ provider: provider as never, bookingId: bookingId ?? undefined, items: items?.map(i => ({ itemType: i.itemType as never, itemId: i.itemId })), couponCode: items ? (coupon.trim() || null) : undefined, learnerId: booking.data?.learner?.id }, {
       onSuccess: async r => {
         if (r.paid) { afterPurchase(); router.replace({ pathname: `/order/${r.order.number}`, params: { state: 'paid' } }); return; }
         if (r.awaitingReview) { router.replace({ pathname: `/order/${r.order.number}`, params: { state: 'awaiting', instructions: JSON.stringify(r.instructions ?? {}) } }); return; }
@@ -60,7 +67,7 @@ export default function Checkout() {
 
   return (
     <Screen onBack={() => router.back()} title={t('checkout.title')} loading={!!loading} error={booking.error ?? methods.error} onRetry={() => { booking.refetch(); methods.refetch(); }}
-      footer={<Button label={expired ? t('checkout.expired') : t('cart.pay', { p: money(total) })} size="lg" full icon="lock" loading={checkout.isPending} disabled={!provider || walletShort || expired || total < 0 || (!!items && !quote.data)} onPress={pay} />}>
+      footer={<Button label={expired ? t('checkout.expired') : t('cart.pay', { p: money(total) })} size="lg" full icon="lock" loading={checkout.isPending} disabled={!provider || !ready || walletShort || expired || total < 0} onPress={pay} />}>
       <View style={styles.wrap}>
         {bookingId && p.expiresAt && !expired ? <View style={styles.hold}><Icon name="clock" size={16} color={colors.state.warning} /><Text role="small" tone="warning" tabular>{t('booking.expiresIn', { m: Math.max(1, Math.ceil(left / 60)) })}</Text></View> : null}
         <Card>

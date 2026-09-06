@@ -14,6 +14,7 @@ import { createOrder, fulfillOrder } from '../services/checkout.ts';
 import { grantAccess } from '../services/access.ts';
 import * as wallet from '../services/wallet.ts';
 import { releaseEarnings } from '../services/earnings.ts';
+import { projectSelfLearner } from '../services/learners.ts';
 
 /* ============================ المنهج (آمن للإنتاج) ============================ */
 export function seedCatalog() {
@@ -138,20 +139,38 @@ export function seedDemo() {
     q.run("INSERT INTO lesson_packages (teacher_id, lessons_count, duration_minutes, mode, price) VALUES (?,10,60,'individual',?)", id, money(unit60 * 10 * 0.8));
   }
 
-  /* ---- الطلاب ---- */
-  const student = (phone: string, name: string, grade: number, subjectSlugs: string[]) => {
-    const id = user(phone, name, ['student']);
-    q.run('INSERT INTO student_profiles (user_id, curriculum_id, grade_id, semester_id, school) VALUES (?,?,?,?,?)', id, cat.curriculumId, grade, S1, 'مدرسة السلطان قابوس');
-    for (const s of subjectSlugs) q.run('INSERT INTO student_subjects (user_id, subject_id) VALUES (?,?)', id, cat.subjects[s]);
-    wallet.credit(id, 100, { type: 'bonus', note: 'رصيد تجريبي (تطوير)' });
+  /* ---- الطلاب: كل حساب طالب = متعلّم ذاتي (الجدولان القديمان يُكتبان انعكاساً من الخدمة) ---- */
+  const learnerOf: Record<number, number> = {};
+  const addLearner = (accountId: number, name: string, o: { isSelf: boolean; grade: number; subjects: string[]; position: number; gender?: 'male' | 'female' | null; school?: string | null }) => {
+    const id = Number(q.run('INSERT INTO learners (account_id, display_name, gender, is_self, curriculum_id, grade_id, semester_id, school, position) VALUES (?,?,?,?,?,?,?,?,?)',
+      accountId, name, o.gender ?? null, o.isSelf ? 1 : 0, cat.curriculumId, o.grade, S1, o.school ?? null, o.position).lastInsertRowid);
+    for (const s of o.subjects) q.run('INSERT INTO learner_subjects (learner_id, subject_id) VALUES (?,?)', id, cat.subjects[s]);
     return id;
   };
-  const demo = student('+96890000010', 'عبدالرحمن', G12, ['physics', 'chemistry', 'english', 'arabic']);
+  const student = (phone: string, name: string, grade: number, subjectSlugs: string[]) => {
+    const id = user(phone, name, ['student']);
+    const learnerId = addLearner(id, name, { isSelf: true, grade, subjects: subjectSlugs, position: 0, school: 'مدرسة السلطان قابوس' });
+    q.run('UPDATE users SET active_learner_id = ?, onboarding_completed = 1 WHERE id = ?', learnerId, id);
+    projectSelfLearner(id);
+    learnerOf[id] = learnerId;
+    wallet.credit(id, 100, { type: 'bonus', note: 'رصيد تجريبي (تطوير)' });
+    return { id, learnerId };
+  };
+  const demo = student('+96890000010', 'عبدالرحمن', G12, ['physics', 'chemistry', 'english', 'arabic']).id;
+  // الطالب التجريبي يدرس صفّين: متعلّم ذاتي ثانٍ للصف الحادي عشر (رياضيات وفيزياء)
+  const demoG11 = addLearner(demo, 'عبدالرحمن (١١)', { isSelf: true, grade: G11, subjects: ['math', 'physics'], position: 1 });
   const others = [
     student('+96890000011', 'فاطمة الحارثية', G12, ['chemistry', 'math']), student('+96890000012', 'محمد العامري', G12, ['physics', 'math']),
     student('+96890000013', 'نور السعدية', G11, ['english', 'arabic']), student('+96890000014', 'يوسف الكندي', G12, ['physics', 'english']),
     student('+96890000015', 'ريم المقبالية', G11, ['chemistry', 'arabic']),
-  ];
+  ].map(s => s.id);
+
+  /* ---- وليّ أمر بابنين: حساب واحد ومتعلّمان غير ذاتيين، الأبناء لا يدخلون (+96890000020 غير مستخدم أعلاه) ---- */
+  const parent = user('+96890000020', 'أم محمد', ['parent'], { gender: 'female' });
+  const sara = addLearner(parent, 'سارة', { isSelf: false, grade: G12, subjects: ['physics', 'chemistry'], position: 0, gender: 'female' });
+  const mohammed = addLearner(parent, 'محمد', { isSelf: false, grade: G11, subjects: ['math', 'arabic'], position: 1, gender: 'male' });
+  q.run('UPDATE users SET active_learner_id = ? WHERE id = ?', sara, parent);
+  wallet.credit(parent, 50, { type: 'bonus', note: 'رصيد تجريبي (تطوير)' });
 
   /* ---- الكتب (ملف كامل + معاينة، إرسال ومراجعة حقيقيان) ---- */
   const bookDefs: { subject: string; type: string; title: string; price: number; pages: number; level?: string; points: string[]; toc: [string, number][]; grade?: number }[] = [
@@ -247,8 +266,9 @@ export function seedDemo() {
   }
 
   /* ---- مشتريات حقيقية عبر المحفظة (تنتج المبيعات والأرباح) ---- */
-  const buy = (uid: number, items: { type: 'book' | 'course'; id: number }[]) => {
+  const buy = (uid: number, items: { type: 'book' | 'course'; id: number }[], learnerId: number | null = learnerOf[uid] ?? null) => {
     const order = createOrder(uid, { items });
+    q.run('UPDATE orders SET learner_id = ? WHERE id = ?', learnerId, order.id);
     wallet.debit(uid, order.total, { type: 'purchase', refType: 'order', refId: order.id, note: `شراء ${order.number}` });
     fulfillOrder(order.id, { provider: 'wallet', providerRef: `seed_${order.id}` });
     return order.id;
@@ -261,6 +281,9 @@ export function seedDemo() {
   buy(others[3], [{ type: 'book', id: books[0] }, { type: 'book', id: books[2] }, { type: 'course', id: courses[2] }]);
   buy(others[4], [{ type: 'book', id: books[6] }, { type: 'book', id: books[10] }]);
   grantAccess(demo, 'book', books[3], { source: 'free' });
+  // وليّ الأمر يشتري ملخّص فيزياء ١٢ لسارة — الملكية للحساب، والتقدّم على مستوى الحساب في هذا الإصدار
+  buy(parent, [{ type: 'book', id: books[0] }], sara);
+  q.run('INSERT INTO reading_progress (user_id, book_id, last_page) VALUES (?,?,5)', parent, books[0]);
   // تقدّم القراءة والدورة للطالب التجريبي
   q.run('INSERT INTO reading_progress (user_id, book_id, last_page, bookmarks) VALUES (?,?,?,?)', demo, books[0], 22, JSON.stringify([5, 17]));
   const firstLessons = q.all<{ id: number; duration_seconds: number }>('SELECT l.id, l.duration_seconds FROM course_lessons l JOIN course_sections cs ON cs.id = l.section_id WHERE cs.course_id = ? ORDER BY cs."order", l."order" LIMIT 4', courses[0]);
@@ -274,11 +297,12 @@ export function seedDemo() {
     for (let i = 0; i < 7; i++) { const local = new Date(d.getTime() + 4 * 3_600_000); const wd = local.getUTCDay(); if (wd <= 4) { return muscatToUtc(local.toISOString().slice(0, 10), `${String(hour).padStart(2, '0')}:00`); } d.setTime(d.getTime() + 86_400_000); }
     return muscatToUtc(from.toISOString().slice(0, 10), `${hour}:00`);
   };
-  const lesson = (studentId: number, teacherId: number, subject: string, startsAt: string, duration: number, price: number, status: string) => {
+  const lesson = (studentId: number, teacherId: number, subject: string, startsAt: string, duration: number, price: number, status: string, learnerId: number | null = learnerOf[studentId] ?? null) => {
     const endsAt = new Date(new Date(startsAt).getTime() + duration * 60_000).toISOString();
-    const id = Number(q.run(`INSERT INTO bookings (student_id, teacher_id, subject_id, mode, duration_minutes, starts_at, ends_at, status, price) VALUES (?,?,?,'individual',?,?,?,'pending_payment',?)`,
-      studentId, teacherId, cat.subjects[subject], duration, startsAt, endsAt, price).lastInsertRowid);
+    const id = Number(q.run(`INSERT INTO bookings (student_id, teacher_id, subject_id, mode, duration_minutes, starts_at, ends_at, status, price, learner_id) VALUES (?,?,?,'individual',?,?,?,'pending_payment',?,?)`,
+      studentId, teacherId, cat.subjects[subject], duration, startsAt, endsAt, price, learnerId).lastInsertRowid);
     const order = createOrder(studentId, { items: [{ type: 'lesson', id }] });
+    q.run('UPDATE orders SET learner_id = ? WHERE id = ?', learnerId, order.id);
     wallet.debit(studentId, order.total, { type: 'purchase', refType: 'order', refId: order.id, note: `حصة ${subject}` });
     fulfillOrder(order.id, { provider: 'wallet', providerRef: `seed_${order.id}` });
     if (status === 'completed') {
@@ -304,8 +328,14 @@ export function seedDemo() {
   for (let i = 0; i < 5; i++) lesson(demo, teachers.physics, 'physics', new Date(Date.now() + (5 + i * 60) * 60_000).toISOString(), 60, 6, 'confirmed');
   lesson(demo, teachers.physics, 'physics', nextWeekday(new Date(Date.now() + 86_400_000), 17), 60, 6, 'confirmed');
   lesson(others[1], teachers.physics, 'physics', nextWeekday(new Date(Date.now() + 2 * 86_400_000), 18), 60, 6, 'confirmed');
-  // تعديل رصيد الأرباح ليعكس الحصص المكتملة
-  for (const t of Object.values(teachers)) q.run('UPDATE teacher_profiles SET students_count = (SELECT COUNT(DISTINCT student_id) FROM bookings WHERE teacher_id = ? AND status = ?) WHERE user_id = ?', t, 'completed', t);
+  // الطالب التجريبي: حصة رياضيات غداً لمتعلّمه الثاني (الصف ١١)
+  lesson(demo, teachers.math, 'math', nextWeekday(new Date(Date.now() + 86_400_000), 19), 60, 6, 'confirmed', demoG11);
+  // وليّ الأمر: سارة مع معلّم الفيزياء (مكتملة أمس بحضور وربح، ومؤكّدة غداً)، ومحمد مع معلّم الرياضيات بعد ٣ أيام
+  lesson(parent, teachers.physics, 'physics', daysAgo(1, 17), 60, 6, 'completed', sara);
+  lesson(parent, teachers.physics, 'physics', nextWeekday(new Date(Date.now() + 86_400_000), 19), 60, 6, 'confirmed', sara);
+  lesson(parent, teachers.math, 'math', nextWeekday(new Date(Date.now() + 3 * 86_400_000), 17), 60, 6, 'confirmed', mohammed);
+  // عدد الطلاب = متعلّمون متمايزون (الحجوزات القديمة بلا متعلّم تُحسب بحسابها)
+  for (const t of Object.values(teachers)) q.run('UPDATE teacher_profiles SET students_count = (SELECT COUNT(DISTINCT COALESCE(learner_id, -student_id)) FROM bookings WHERE teacher_id = ? AND status = ?) WHERE user_id = ?', t, 'completed', t);
 
   /* ---- تقييمات مقفلة بتجارب حقيقية ---- */
   const review = (uid: number, type: string, targetId: number, rating: number, comment: string) => {
@@ -323,6 +353,7 @@ export function seedDemo() {
   review(others[3], 'teacher', teachers.english, 5, 'Very helpful for writing tasks.');
   review(others[2], 'teacher', teachers.arabic, 4, 'إعراب ممتاز وتدريب على نمط الامتحان.');
   review(others[1], 'teacher', teachers.math, 5, 'التفاضل صار سهلاً.');
+  review(parent, 'teacher', teachers.physics, 5, 'ابنتي فهمت الحركة من أول حصة — شرح هادئ ومنظّم.');
   review(demo, 'book', books[0], 5, 'ملخّص مرتّب وكل القوانين في مكان واحد.');
   review(others[1], 'book', books[0], 4, 'جيد جداً، ينقصه المزيد من الأمثلة.');
   review(others[3], 'book', books[0], 5, 'اشتريته قبل الامتحان بأسبوع وكفاني.');
@@ -336,7 +367,7 @@ export function seedDemo() {
     JSON.stringify({ featured: true, title: 'خصم ١٠٪ على أول طلب' }), new Date(Date.now() + 60 * 86_400_000).toISOString());
   q.run("INSERT OR IGNORE INTO coupons (code, type, value, user_limit, scope, active) VALUES ('PHYS20','percentage',20,1,?,1)", JSON.stringify({ teacherId: teachers.physics }));
 
-  return { skipped: false, demoStudent: '+96890000010', admin: DEMO_MARK, otp: config.otp.devCode };
+  return { skipped: false, demoStudent: '+96890000010', demoParent: '+96890000020', admin: DEMO_MARK, otp: config.otp.devCode };
 }
 
 /**

@@ -12,6 +12,8 @@ import { teacherCard, bookCard, courseCard, reviewItems, gradeRef, bookingView }
 import { summary as earningsSummary } from '../services/earnings.ts';
 import { notifyStaff, notify } from '../services/notifications.ts';
 import { audit } from '../lib/audit.ts';
+import { learnerRefById } from '../services/learners.ts';
+import { publicUrlFromPath } from '../services/mappers.ts';
 import type { BookingRow } from '../services/bookings.ts';
 
 /* ============ عام: البحث والملف والتوفّر ============ */
@@ -72,6 +74,15 @@ publicRouter.get('/:id', attachUser, (req, res) => {
   const canReview = !!uid && !!q.get("SELECT 1 FROM bookings WHERE student_id = ? AND teacher_id = ? AND status = 'completed'", uid, id)
     && !q.get('SELECT 1 FROM reviews WHERE user_id = ? AND target_type = ? AND target_id = ?', uid, 'teacher', id);
   const preview = generateSlots(id, { from: new Date().toISOString(), days: 7, durationMinutes: 60 }).map(d => ({ date: d.date, slotsCount: d.slots.filter(s => s.available).length }));
+  // شريط الأرقام: الطلاب = متعلّمون متمايزون في حصص مكتملة (الحجوزات القديمة بلا متعلّم تُحسب بحسابها)
+  const studentsCount = q.val<number>("SELECT COUNT(DISTINCT COALESCE(learner_id, -student_id)) FROM bookings WHERE teacher_id = ? AND status = 'completed'", id) ?? 0;
+  const stats = { studentsCount, lessonsCount: t.lessons_count ?? 0, ratingCount: t.rating_count ?? 0, yearsExp: t.years_exp ?? 0 };
+  // التوفّر الأسبوعي (بلا مدد الخانات) والإجازات المتقاطعة مع الـ٣٠ يوماً القادمة (بلا أسباب)
+  const availabilityRules = q.all<any>('SELECT weekday, start_time, end_time FROM teacher_availability WHERE teacher_id = ? ORDER BY weekday, start_time', id)
+    .map(r => ({ weekday: r.weekday, startTime: r.start_time, endTime: r.end_time }));
+  const now = nowIso(), in30 = new Date(Date.now() + 30 * 86_400_000).toISOString();
+  const timeOff = q.all<any>('SELECT starts_at, ends_at FROM teacher_time_off WHERE teacher_id = ? AND ends_at >= ? AND starts_at <= ? ORDER BY starts_at', id, now, in30)
+    .map(r => ({ from: r.starts_at, to: r.ends_at }));
   if (uid) q.run('INSERT INTO analytics_events (user_id, name, props) VALUES (?,?,?)', uid, 'teacher_view', JSON.stringify({ id }));
   res.json({
     ...card, bio: t.bio ?? '', lessonsCount: t.lessons_count, grades,
@@ -80,6 +91,7 @@ publicRouter.get('/:id', attachUser, (req, res) => {
     courses: q.all<any>("SELECT * FROM courses WHERE teacher_id = ? AND status = 'published' ORDER BY sales_count DESC LIMIT 6", id).map(c => courseCard(c, { userId: uid })),
     books: q.all<any>("SELECT * FROM books WHERE author_id = ? AND status = 'published' ORDER BY sales_count DESC LIMIT 6", id).map(b => bookCard(b, { userId: uid })),
     reviews: reviewItems('teacher', id), canReview, availabilityPreview: preview,
+    stats, availabilityRules, timeOff,
   });
 });
 
@@ -236,12 +248,16 @@ selfRouter.post('/payouts', requireVerifiedTeacher, validate(PayoutBody), (req, 
   res.status(201).json({ id });
 });
 
-/** طلاب المعلّم — بلا هواتف ولا بريد (خصوصية القاصرين) */
+/** طلاب المعلّم = متعلّمون: كل صف {learner: LearnerRef, lessons, lastAt} فقط — لا هاتف ولا بريد ولا معرّف حساب (D11) */
 selfRouter.get('/students', requireVerifiedTeacher, (req, res) => {
-  const rows = q.all<any>(`SELECT b.student_id, p.display_name, p.avatar_path, g.name AS grade, COUNT(*) AS lessons, MAX(b.starts_at) AS last_at
-    FROM bookings b JOIN profiles p ON p.user_id = b.student_id LEFT JOIN student_profiles sp ON sp.user_id = b.student_id LEFT JOIN grades g ON g.id = sp.grade_id
-    WHERE b.teacher_id = ? AND b.status IN ('completed','confirmed','in_progress') GROUP BY b.student_id ORDER BY last_at DESC`, req.user!.id);
-  res.json(rows.map(r => ({ id: r.student_id, name: r.display_name, gradeName: r.grade ?? null, lessons: r.lessons, lastAt: r.last_at })));
+  const rows = q.all<any>(`SELECT b.learner_id, b.student_id, p.display_name, p.avatar_path, COUNT(*) AS lessons, MAX(b.starts_at) AS last_at
+    FROM bookings b JOIN profiles p ON p.user_id = b.student_id
+    WHERE b.teacher_id = ? AND b.status IN ('completed','confirmed','in_progress') GROUP BY COALESCE(b.learner_id, -b.student_id) ORDER BY last_at DESC`, req.user!.id);
+  res.json(rows.map(r => ({
+    // حجز قديم بلا متعلّم (أو متعلّم حُذف نهائياً) → مرجع اصطناعي بمعرّف سالب من الحساب، بلا أي بيانات اتصال
+    learner: (r.learner_id ? learnerRefById(r.learner_id) : null) ?? { id: -r.student_id, displayName: r.display_name ?? '', gradeName: null, avatarUrl: publicUrlFromPath(r.avatar_path) },
+    lessons: r.lessons, lastAt: r.last_at ?? null,
+  })));
 });
 
 /** حصص المعلّم القادمة والسابقة */

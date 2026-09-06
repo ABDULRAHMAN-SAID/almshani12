@@ -116,3 +116,28 @@ test('التقييم مقفل بتجربة حقيقية', async () => {
   const dup = await c.api('/api/reviews', { method: 'POST', token: s.token, body: { targetType: 'book', targetId: bookId, rating: 5 } });
   assert.equal(dup.status, 409);
 });
+
+test('الطلب يُنسب للمتعلّم النشط أو الصريح والملكية للحساب كلّه؛ متعلّم غريب → 403 learner_forbidden', async () => {
+  const t = await c.teacher('93000061');
+  const s = await c.student('93000062');
+  const other = await c.student('93000063');
+  const w = await import('../src/services/wallet.ts'); w.credit(s.id, 10, {});
+  const b1 = c.book(t.id, { price: 2 });
+  const bad = await c.api('/api/checkout', { method: 'POST', token: s.token, body: { provider: 'wallet', items: [{ itemType: 'book', itemId: b1 }], learnerId: other.learnerId } });
+  assert.equal(bad.status, 403); assert.equal(bad.json.error.code, 'learner_forbidden');
+  assert.equal(c.q.val('SELECT COUNT(*) FROM orders WHERE user_id = ?', s.id), 0);
+  const ok = await c.api('/api/checkout', { method: 'POST', token: s.token, body: { provider: 'wallet', items: [{ itemType: 'book', itemId: b1 }] } });
+  assert.equal(ok.status, 200); assert.equal(ok.json.order.learner.id, s.learnerId, 'بلا learnerId: المتعلّم النشط');
+  assert.deepEqual(Object.keys(ok.json.order.learner), ['id', 'displayName', 'gradeName', 'avatarUrl']);
+  assert.equal(c.q.val('SELECT learner_id FROM orders WHERE id = ?', ok.json.order.id), s.learnerId);
+  // متعلّم ثانٍ بالترويسة، والكتاب متاح كاملاً لكل متعلّمي الحساب
+  const l2 = c.addLearner(s.id, 'أخي', { isSelf: false, grade: 11, subjects: ['math'] });
+  const b2 = c.book(t.id, { price: 1 });
+  const ok2 = await c.api('/api/checkout', { method: 'POST', token: s.token, headers: { 'X-Learner-Id': String(l2) }, body: { provider: 'wallet', items: [{ itemType: 'book', itemId: b2 }] } });
+  assert.equal(ok2.json.order.learner.id, l2);
+  for (const lid of [s.learnerId, l2]) assert.equal((await c.api(`/api/books/${b1}/read`, { token: s.token, headers: { 'X-Learner-Id': String(lid) } })).json.kind, 'full');
+  assert.equal((await c.api(`/api/books/${b1}/read`, { token: other.token })).json.kind, 'preview');
+  const list = await c.api('/api/orders', { token: s.token });
+  assert.deepEqual(list.json.map((o: any) => o.learner.id), [l2, s.learnerId]);
+  assert.equal((await c.api(`/api/orders/${ok.json.order.number}`, { token: s.token })).json.learner.id, s.learnerId);
+});

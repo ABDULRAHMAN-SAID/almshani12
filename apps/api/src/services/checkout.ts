@@ -80,15 +80,16 @@ export function quote({ items, couponCode, userId }: { items: { type: ItemType; 
 }
 
 /* ---------- إنشاء الطلب ---------- */
-export function createOrder(userId: number, { items, couponCode, meta }: { items: { type: ItemType; id: number }[]; couponCode?: string | null; meta?: unknown }) {
+/** learnerId: نسبة الطلب لمتعلّم (للعرض والتقارير) — الملكية تبقى للحساب userId */
+export function createOrder(userId: number, { items, couponCode, meta, learnerId = null }: { items: { type: ItemType; id: number }[]; couponCode?: string | null; meta?: unknown; learnerId?: number | null }) {
   if (!items.length) throw new AppError('validation_error', 'لا عناصر للشراء', 400);
   const calc = quote({ items, couponCode, userId });
   return db.transaction(() => {
     const info = q.run(
-      `INSERT INTO orders (number, user_id, subtotal, discount, tax, total, currency, coupon_id, status, expires_at, meta)
-       VALUES (?,?,?,?,?,?,?,?,'pending',?,?)`,
+      `INSERT INTO orders (number, user_id, subtotal, discount, tax, total, currency, coupon_id, status, expires_at, meta, learner_id)
+       VALUES (?,?,?,?,?,?,?,?,'pending',?,?,?)`,
       orderNumber(), userId, calc.subtotal, calc.discount, calc.tax, calc.total, settings.get<string>('currency', 'OMR'),
-      calc.coupon?.id ?? null, addMinutes(30), meta ? JSON.stringify(meta) : null);
+      calc.coupon?.id ?? null, addMinutes(30), meta ? JSON.stringify(meta) : null, learnerId ?? null);
     const orderId = Number(info.lastInsertRowid);
     for (const it of calc.items) {
       const share = calc.subtotal > 0 ? it.price / calc.subtotal : 0;
@@ -118,9 +119,10 @@ export function fulfillOrder(orderId: number, { provider, providerRef }: { provi
       } else if (it.item_type === 'lesson') {
         q.run("UPDATE bookings SET status = 'confirmed', expires_at = NULL WHERE id = ? AND status = 'pending_payment'", it.item_id);
       } else if (it.item_type === 'package') {
+        // الباقة تتبع متعلّم الطلب (NULL = لأي متعلّم في الحساب)
         const pkg = q.get<any>('SELECT * FROM lesson_packages WHERE id = ?', it.item_id);
-        q.run('INSERT INTO package_purchases (user_id, package_id, teacher_id, order_id, total, remaining) VALUES (?,?,?,?,?,?)',
-          order.user_id, pkg.id, pkg.teacher_id, orderId, pkg.lessons_count, pkg.lessons_count);
+        q.run('INSERT INTO package_purchases (user_id, package_id, teacher_id, order_id, total, remaining, learner_id) VALUES (?,?,?,?,?,?,?)',
+          order.user_id, pkg.id, pkg.teacher_id, orderId, pkg.lessons_count, pkg.lessons_count, order.learner_id ?? null);
       }
       if (it.teacher_id && it.unit_price > 0) {
         const gross = money(it.teacher_share + it.platform_share);

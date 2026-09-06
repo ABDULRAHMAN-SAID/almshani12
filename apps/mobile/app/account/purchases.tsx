@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { colors, spacing, radius, themed } from '@manassah/tokens';
-import { Screen, Text, Tabs, Button, Card, Badge, EmptyState } from '@/ui';
+import { Screen, Text, Tabs, Button, Card, Badge, EmptyState, Icon } from '@/ui';
 import { usePurchases } from '@/features/queries';
 import { money, formatDayShort, formatDateTime } from '@/lib/format';
 
@@ -20,6 +20,7 @@ export default function Purchases() {
   const empty = <EmptyState icon="receipt" title={t('purchasesUi.empty')} actionLabel={t('library.explore')} onAction={() => router.replace('/(tabs)/library')} />;
   return (
     <Screen onBack={() => router.back()} title={t('account.purchases')} loading={q.isLoading} error={q.error} onRetry={() => q.refetch()} refreshing={q.isRefetching} onRefresh={() => q.refetch()}>
+      <View style={styles.note}><Icon name="info" size={16} color={colors.state.info} /><Text role="caption" tone="secondary" style={styles.flex}>{t('purchases.sharedNote')}</Text></View>
       <Tabs value={tab} onChange={setTab} scrollable items={[{ key: 'books', label: t('account.purchasesTabs.books'), count: d?.books.length }, { key: 'courses', label: t('account.purchasesTabs.courses'), count: d?.courses.length }, { key: 'lessons', label: t('account.purchasesTabs.lessons'), count: d?.lessons.length }, { key: 'orders', label: t('purchasesUi.orders'), count: d?.orders.length }]} />
       <View style={styles.list}>
         {tab === 'books' ? (d?.books.length ? d.books.map(b => <Card key={b.id} style={styles.row}><View style={styles.flex}><Text role="bodyMedium" numberOfLines={2}>{b.title}</Text><Text role="caption" tone="tertiary" tabular>{formatDayShort(b.purchasedAt)}</Text></View><Button label={t('library.read')} size="sm" icon="book" onPress={() => router.push(`/book/${b.id}/read`)} /></Card>) : empty) : null}
@@ -32,6 +33,7 @@ export default function Purchases() {
 }
 
 const styles = themed((c) => StyleSheet.create({
+  note: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], padding: spacing[3], borderRadius: radius.md, backgroundColor: c.state.infoSoft, marginBottom: spacing[3] },
   list: { gap: spacing[3], paddingTop: spacing[4] },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
   flex: { flex: 1, minWidth: 0 },

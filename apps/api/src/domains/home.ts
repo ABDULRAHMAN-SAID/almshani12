@@ -5,28 +5,33 @@ import { ownedIds, favoriteIds } from '../services/access.ts';
 import { publicUrl } from '../services/storage.ts';
 import { unreadCount } from '../services/notifications.ts';
 import { bookCard, courseCard, teacherCard, bookingView } from '../services/mappers.ts';
+import { resolveLearner, learnerRef, countLearners } from '../services/learners.ts';
 import type { BookingRow } from '../services/bookings.ts';
 
 /**
  * الرئيسية — الترتيب ملزم: حصّتك القادمة أولاً، ثم أكمل، ثم ملخّصات صفّك، الدورات، المعلّمون…
  * كل قسم من بيانات حقيقية؛ القسم الفارغ يُعاد فارغاً (لا أرقام مزيّفة).
+ * تُبنى للمتعلّم النشط (D4)؛ حساب بلا متعلّم (معلّم/طاقم) يحصل على رئيسية غير مرشّحة بالصف (D5).
  */
 const router = Router();
 router.use(requireAuth);
 
 router.get('/', (req, res) => {
   const uid = req.user!.id;
-  const me = q.get<any>('SELECT p.display_name, sp.grade_id, sp.semester_id, g.name AS grade_name FROM profiles p LEFT JOIN student_profiles sp ON sp.user_id = p.user_id LEFT JOIN grades g ON g.id = sp.grade_id WHERE p.user_id = ?', uid);
-  const gradeId: number | null = me?.grade_id ?? null;
-  const subjectIds = q.all<{ subject_id: number }>('SELECT subject_id FROM student_subjects WHERE user_id = ?', uid).map(r => r.subject_id);
+  const learner = resolveLearner(req);
+  const name = q.val<string>('SELECT display_name FROM profiles WHERE user_id = ?', uid) ?? '';
+  const gradeId: number | null = learner?.grade_id ?? null;
+  const subjectIds = learner ? q.all<{ subject_id: number }>('SELECT subject_id FROM learner_subjects WHERE learner_id = ?', learner.id).map(r => r.subject_id) : [];
   const owned = ownedIds(uid, 'book'), enrolled = ownedIds(uid, 'course');
   const favB = favoriteIds(uid, 'book'), favC = favoriteIds(uid, 'course'), favT = favoriteIds(uid, 'teacher');
   const bctx = { userId: uid, owned, fav: favB }, cctx = { userId: uid, enrolled, fav: favC };
 
-  // ١) الحصة القادمة (طالباً أو معلّماً)
-  const next = q.get<BookingRow>("SELECT * FROM bookings WHERE (student_id = ? OR teacher_id = ?) AND status IN ('confirmed','in_progress') AND ends_at >= ? ORDER BY starts_at LIMIT 1", uid, uid, nowIso());
+  // ١) الحصة القادمة (للمتعلّم النشط طالباً، أو للحساب معلّماً)
+  const learnerId = learner?.id ?? null;
+  const next = q.get<BookingRow>(`SELECT * FROM bookings WHERE ((student_id = ? AND (learner_id = ? OR ? IS NULL)) OR teacher_id = ?)
+    AND status IN ('confirmed','in_progress') AND ends_at >= ? ORDER BY starts_at LIMIT 1`, uid, learnerId, learnerId, uid, nowIso());
 
-  // ٢) أكمل من حيث توقّفت
+  // ٢) أكمل من حيث توقّفت (على مستوى الحساب في هذا الإصدار)
   const continueItems = [
     ...q.all<any>(`SELECT b.id, b.title, b.pages, b.cover_file_id, rp.last_page, s.name AS subject FROM reading_progress rp JOIN books b ON b.id = rp.book_id JOIN subjects s ON s.id = b.subject_id
                    WHERE rp.user_id = ? AND rp.last_page > 1 ORDER BY rp.updated_at DESC LIMIT 4`, uid)
@@ -60,7 +65,10 @@ router.get('/', (req, res) => {
     .map(c => ({ id: c.id, title: json<any>(c.scope, {}).title ?? (c.type === 'percentage' ? `خصم ${c.value}٪` : `خصم ${c.value} ر.ع`), subtitle: c.ends_at ? `حتى ${c.ends_at.slice(0, 10)}` : null, code: c.code }));
 
   res.json({
-    greeting: { name: me?.display_name ?? '', gradeName: me?.grade_name ?? null, unreadNotifications: unreadCount(uid) },
+    greeting: {
+      name, gradeName: learner?.grade_name ?? null, unreadNotifications: unreadCount(uid),
+      learner: learner ? learnerRef(learner) : null, learnersCount: countLearners(uid),
+    },
     nextLesson: next ? bookingView(next, uid) : null,
     continueItems, gradeSummaries, courses,
     recommendedTeachers: teachers.map(t => teacherCard(t, { userId: uid, fav: favT })),

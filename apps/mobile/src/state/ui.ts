@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { Platform } from 'react-native';
 import type { BooksQuery, TeachersQuery } from '@manassah/shared';
 import { z } from 'zod';
-import { readPrefs, readPrefsSync, writePrefs } from '@/lib/prefs';
+import { readPrefs, readPrefsSync, patchPrefs } from '@/lib/prefs';
 
 type BookFilters = Partial<z.infer<typeof BooksQuery>>;
 type TeacherFilters = Partial<z.infer<typeof TeachersQuery>>;
@@ -20,6 +20,9 @@ interface UiState {
   serverUrl: string;
   /** هل قُرئت التفضيلات المحفوظة؟ (فوري على الويب، غير متزامن على الجوال) */
   hydrated: boolean;
+  /** رسالة عابرة أسفل الشاشة (انتهاء الجلسة، حدّ المتعلّمين…) — تختفي وحدها */
+  toast: string | null;
+  showToast: (msg: string) => void;
   setBookFilters: (f: BookFilters) => void;
   setTeacherFilters: (f: TeacherFilters) => void;
   pushSearch: (q: string) => void;
@@ -37,12 +40,15 @@ const fromPrefs = (p: Record<string, unknown>) => ({
 });
 const initial = { ...fromPrefs(readPrefsSync()), hydrated: Platform.OS === 'web' };
 
+let toastTimer: ReturnType<typeof setTimeout> | null = null;
 export const useUi = create<UiState>((set, get) => {
-  const persist = () => { const s = get(); writePrefs(Object.fromEntries(PREF_KEYS.map(k => [k, s[k]]))); };
+  const persist = () => { const s = get(); patchPrefs(Object.fromEntries(PREF_KEYS.map(k => [k, s[k]]))); };
   return {
     bookFilters: {},
     teacherFilters: {},
     recentSearches: [],
+    toast: null,
+    showToast: (msg) => { set({ toast: msg }); if (toastTimer) clearTimeout(toastTimer); toastTimer = setTimeout(() => set({ toast: null }), 3500); },
     ...initial,
     setBookFilters: (f) => set({ bookFilters: f }),
     setTeacherFilters: (f) => set({ teacherFilters: f }),

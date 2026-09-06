@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Routes, Route, NavLink, Navigate, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, session } from './api';
-import { useMe, can, isSuper, Field, errMsg, STAFF } from './ui';
+import type { Overview as OverviewT } from '@manassah/shared';
+import { useMe, can, Field, errMsg, STAFF } from './ui';
 import Overview from './pages/Overview';
 import Teachers from './pages/Teachers';
 import Content from './pages/Content';
@@ -15,6 +16,8 @@ import Coupons from './pages/Coupons';
 import Users from './pages/Users';
 import Reports from './pages/Reports';
 import Audit from './pages/Audit';
+import Person from './pages/Person';
+import TeacherPage from './pages/Teacher';
 
 /** الدخول برمز تحقّق — الحساب يجب أن يحمل دور طاقم */
 function Login({ onDone }: { onDone: () => void }) {
@@ -56,19 +59,20 @@ export default function App() {
   const qc = useQueryClient();
   const me = useMe();
   const nav = useNavigate();
-  const overview = useQuery({ queryKey: ['overview'], queryFn: () => api.get<any>('/admin/overview'), enabled: !!me.data, refetchInterval: 60_000 });
+  // شارات الشريط الجانبي من النظرة الحيّة نفسها (المفتاح ['overview', 14] يشاركه Overview)
+  const overview = useQuery({ queryKey: ['overview', 14], queryFn: () => api.get<OverviewT>('/admin/overview', { days: 14 }), enabled: !!me.data, refetchInterval: 60_000 });
   if (!session.refresh || (me.isError)) return <Login onDone={() => { qc.invalidateQueries(); nav('/'); }} />;
   if (me.isLoading || !me.data) return <div className="empty">جارٍ التحميل…</div>;
-  const u = me.data; const q = overview.data?.queues ?? {};
+  const u = me.data; const q: Partial<OverviewT['queues']> = overview.data?.queues ?? {};
   const item = (to: string, label: string, ok: boolean, count?: number) => ok ? <NavLink to={to} end={to === '/'}>{label}{count ? <span className="count">{count}</span> : null}</NavLink> : null;
   return (
     <div className="layout">
       <aside className="side">
         <div className="brand"><span className="mark">م</span>لوحة الإدارة</div>
         {item('/', 'نظرة عامة', true)}
-        {item('/teachers', 'المعلّمون', can(u, 'support'), q.teacherApplications)}
+        {item('/teachers', 'المعلّمون', can(u, 'support'), (q.teacherApplications ?? 0) + (q.pendingDocuments ?? 0))}
         {item('/content', 'مراجعة المحتوى', can(u, 'content_reviewer'), q.contentReview)}
-        {item('/bookings', 'الحجوزات', can(u, 'support', 'finance'))}
+        {item('/bookings', 'الحجوزات', can(u, 'support', 'finance'), q.disputes)}
         {item('/orders', 'الطلبات والاسترجاع', can(u, 'finance', 'support'), q.manualPayments)}
         {item('/payouts', 'سحوبات المعلّمين', can(u, 'finance'), q.payouts)}
         {item('/coupons', 'الكوبونات', can(u, 'finance'))}
@@ -83,13 +87,17 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Overview />} />
           <Route path="/teachers" element={<Teachers me={u} />} />
+          <Route path="/teachers/:id" element={<TeacherPage me={u} />} />
+          <Route path="/teachers/:id/:tab" element={<TeacherPage me={u} />} />
           <Route path="/content" element={<Content />} />
-          <Route path="/bookings" element={<Bookings />} />
+          <Route path="/bookings" element={<Bookings me={u} />} />
           <Route path="/orders" element={<Orders me={u} />} />
           <Route path="/payouts" element={<Payouts />} />
           <Route path="/coupons" element={<Coupons />} />
           <Route path="/catalog" element={<Catalog me={u} />} />
-          <Route path="/users" element={<Users me={u} isSuper={isSuper(u)} />} />
+          <Route path="/users" element={<Users me={u} />} />
+          <Route path="/users/:id" element={<Person me={u} />} />
+          <Route path="/users/:id/:tab" element={<Person me={u} />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/settings" element={<Settings me={u} />} />
           <Route path="/audit" element={<Audit />} />

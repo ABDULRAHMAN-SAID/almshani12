@@ -12,3 +12,4 @@ export * from './contracts/bookings';
 export * from './contracts/orders';
 export * from './contracts/social';
 export * from './contracts/home';
+export * from './contracts/admin';

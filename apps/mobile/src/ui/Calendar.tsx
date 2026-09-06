@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { View, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { colors, radius, spacing, themed } from '@manassah/tokens';
 import type { DayAvailability } from '@manassah/shared';
 import { Text } from './Text';
@@ -10,15 +11,22 @@ export interface CalendarProps {
   days: DayAvailability[];
   value: string | null;      // مفتاح اليوم YYYY-MM-DD
   onChange: (dayKey: string) => void;
+  /** إجازات المعلّم — الأيام داخلها تُعطَّل وتُعلَّم «إجازة» */
+  timeOff?: { from: string; to: string }[];
 }
 
+/** هل يقع اليوم (بتوقيت مسقط) داخل إحدى فترات الإجازة؟ */
+export const isDayOff = (day: string, timeOff?: { from: string; to: string }[]) => !!timeOff?.some(r => dayKey(r.from) <= day && day <= dayKey(r.to));
+
 /** شريط أيام أفقي (١٤ يوماً) — اليوم بعدد مواعيده، والمعطّل واضح بالشكل لا باللون فقط */
-export function Calendar({ days, value, onChange }: CalendarProps) {
+export function Calendar({ days, value, onChange, timeOff }: CalendarProps) {
+  const { t } = useTranslation();
   const items = useMemo(() => days.map(d => {
-    const available = d.slots.filter(s => s.available).length;
+    const off = isDayOff(d.date, timeOff);
+    const available = off ? 0 : d.slots.filter(s => s.available).length;
     const iso = `${d.date}T12:00:00Z`;
-    return { key: d.date, iso, available, dayNum: new Date(iso).getUTCDate() };
-  }), [days]);
+    return { key: d.date, iso, available, off, dayNum: new Date(iso).getUTCDate() };
+  }), [days, timeOff]);
 
   const today = dayKey(new Date().toISOString());
 
@@ -39,7 +47,7 @@ export function Calendar({ days, value, onChange }: CalendarProps) {
           >
             <Text role="caption" tone={selected ? 'inverse' : 'secondary'}>{weekdayShort(item.iso)}</Text>
             <Text role="h3" tone={selected ? 'inverse' : disabled ? 'tertiary' : 'primary'} tabular>{item.dayNum}</Text>
-            <View style={[styles.dot, { backgroundColor: disabled ? 'transparent' : selected ? colors.text.onPrimary : colors.state.success }]} />
+            {item.off ? <Text role="caption" tone="tertiary" style={styles.off} numberOfLines={1}>{t('teachers.timeOff')}</Text> : <View style={[styles.dot, { backgroundColor: disabled ? 'transparent' : selected ? colors.text.onPrimary : colors.state.success }]} />}
           </Pressable>
         );
       })}
@@ -57,4 +65,5 @@ const styles = themed((c) => StyleSheet.create({
   dayDisabled: { backgroundColor: c.bg.subtle, borderStyle: 'dashed' },
   dayToday: { borderColor: c.brand.gold },
   dot: { width: 5, height: 5, borderRadius: 3, marginTop: 2 },
+  off: { fontSize: 9, lineHeight: 11 },
 }));

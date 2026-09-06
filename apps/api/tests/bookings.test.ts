@@ -173,3 +173,171 @@ test('إعادة الجدولة تحفظ الحجز نفسه على موعد ج�
   const rs = await c.api(`/api/bookings/${r.json.booking.id}/reschedule`, { method: 'POST', token: s.token, body: { startsAt: to } });
   assert.equal(rs.status, 200); assert.equal(rs.json.startsAt, to); assert.equal(rs.json.status, 'confirmed');
 });
+
+const flat = (feed: any) => [...feed.upcoming.today, ...feed.upcoming.tomorrow, ...feed.upcoming.thisWeek, ...feed.upcoming.later, ...feed.past];
+const REF_KEYS = ['id', 'displayName', 'gradeName', 'avatarUrl'];
+
+test('المتعلّمون: وليّ الأمر يحجز لابنه (learnerId ثم الترويسة ثم النشط)؛ متعلّم غريب → 403؛ بلا متعلّم → 422', async () => {
+  const t = await c.teacher('94000071');
+  const p = await c.parent('94000072', [{ name: 'سارة', grade: 12, subjects: ['physics'] }, { name: 'محمد', grade: 11, subjects: ['physics'] }]);
+  const [sara, mohammed] = p.learnerIds;
+  const w = await import('../src/services/wallet.ts'); w.credit(p.id, 100, {});
+  // ١) صريح: الحصة لمحمد والحساب الدافع وليّ الأمر
+  const r1 = await bookAt(p.token, t.id, c.slotIn(24), { learnerId: mohammed });
+  assert.equal(r1.status, 201);
+  assert.equal(r1.json.booking.learner.id, mohammed); assert.equal(r1.json.booking.learner.displayName, 'محمد');
+  assert.equal(r1.json.booking.learner.gradeName, c.q.val('SELECT name FROM grades WHERE id = ?', c.cat.grades[11]));
+  assert.equal(r1.json.booking.student.id, p.id);
+  assert.deepEqual(Object.keys(r1.json.booking.learner), REF_KEYS, 'bookingView.learner = LearnerRef فقط');
+  assert.equal(c.q.val('SELECT learner_id FROM bookings WHERE id = ?', r1.json.booking.id), mohammed);
+  assert.equal(c.q.val('SELECT learner_id FROM orders WHERE id = ?', r1.json.orderId), mohammed, 'طلب الحصة منسوب للمتعلّم نفسه');
+  // ٢) الترويسة وحدها تحدّد المتعلّم
+  const r2 = await c.api('/api/bookings', { method: 'POST', token: p.token, headers: { 'X-Learner-Id': String(mohammed) }, body: { teacherId: t.id, subjectId: c.cat.subjects.physics, mode: 'individual', durationMinutes: 60, startsAt: c.slotIn(25) } });
+  assert.equal(r2.status, 201); assert.equal(r2.json.booking.learner.id, mohammed);
+  // ٣) بلا شيء → المتعلّم النشط (سارة)
+  const r3 = await bookAt(p.token, t.id, c.slotIn(26));
+  assert.equal(r3.status, 201); assert.equal(r3.json.booking.learner.id, sara);
+  // ٤) متعلّم حساب آخر (صريحاً أو بالترويسة) → 403 learner_forbidden ولا حجز
+  const other = await c.student('94000073');
+  const bad = await bookAt(p.token, t.id, c.slotIn(27), { learnerId: other.learnerId });
+  assert.equal(bad.status, 403); assert.equal(bad.json.error.code, 'learner_forbidden');
+  const badHeader = await c.api('/api/bookings', { method: 'POST', token: p.token, headers: { 'X-Learner-Id': String(other.learnerId) }, body: { teacherId: t.id, subjectId: c.cat.subjects.physics, mode: 'individual', durationMinutes: 60, startsAt: c.slotIn(27) } });
+  assert.equal(badHeader.status, 403); assert.equal(badHeader.json.error.code, 'learner_forbidden');
+  assert.equal(c.q.val('SELECT COUNT(*) FROM bookings WHERE student_id = ?', p.id), 3);
+  // ٥) حساب بلا متعلّم → 422 learner_required
+  const none = await c.login('94000074');
+  const nl = await bookAt(none.token, t.id, c.slotIn(28));
+  assert.equal(nl.status, 422); assert.equal(nl.json.error.code, 'learner_required');
+  // الدفع يبقي المتعلّم كما هو
+  const pay = await c.api('/api/checkout', { method: 'POST', token: p.token, body: { provider: 'wallet', bookingId: r1.json.booking.id } });
+  assert.equal(pay.json.paid, true); assert.equal(pay.json.order.learner.id, mohammed);
+  assert.equal((await c.api(`/api/bookings/${r1.json.booking.id}`, { token: p.token })).json.learner.id, mohammed);
+});
+
+test('GET /bookings?learnerId= يرشّح حصص متعلّم واحد ويعيد learners وpackages[].learnerId؛ متعلّم غريب → 403', async () => {
+  const t = await c.teacher('94000081');
+  const p = await c.parent('94000082', [{ name: 'سارة', grade: 12, subjects: ['physics'] }, { name: 'محمد', grade: 11, subjects: ['physics'] }]);
+  const [sara, mohammed] = p.learnerIds;
+  const w = await import('../src/services/wallet.ts'); w.credit(p.id, 100, {});
+  const b1 = await bookAt(p.token, t.id, c.slotIn(24), { learnerId: mohammed });
+  const b2 = await bookAt(p.token, t.id, c.slotIn(25), { learnerId: mohammed });
+  const b3 = await bookAt(p.token, t.id, c.slotIn(26), { learnerId: sara });
+  for (const b of [b1, b2, b3]) assert.equal((await c.api('/api/checkout', { method: 'POST', token: p.token, body: { provider: 'wallet', bookingId: b.json.booking.id } })).json.paid, true);
+  const all = await c.api('/api/bookings', { token: p.token });
+  assert.equal(all.status, 200);
+  assert.deepEqual(flat(all.json).map((b: any) => b.id).sort(), [b1, b2, b3].map(b => b.json.booking.id).sort(), 'بلا ترشيح: كل المتعلّمين');
+  assert.deepEqual(all.json.learners.map((l: any) => l.id), [sara, mohammed]);
+  for (const l of all.json.learners) assert.deepEqual(Object.keys(l), REF_KEYS);
+  const onlyM = await c.api(`/api/bookings?learnerId=${mohammed}`, { token: p.token });
+  assert.equal(onlyM.status, 200);
+  assert.deepEqual(flat(onlyM.json).map((b: any) => b.id).sort(), [b1, b2].map(b => b.json.booking.id).sort());
+  assert.ok(flat(onlyM.json).every((b: any) => b.learner.id === mohammed));
+  const onlyS = await c.api(`/api/bookings?learnerId=${sara}`, { token: p.token });
+  assert.deepEqual(flat(onlyS.json).map((b: any) => b.id), [b3.json.booking.id]);
+  // الترويسة لا ترشّح تبويب الحصص (كل المتعلّمين) — الترشيح بالمعلمة فقط
+  const viaHeader = await c.api('/api/bookings', { token: p.token, headers: { 'X-Learner-Id': String(sara) } });
+  assert.equal(flat(viaHeader.json).length, 3);
+  const other = await c.student('94000083');
+  const foreign = await c.api(`/api/bookings?learnerId=${other.learnerId}`, { token: p.token });
+  assert.equal(foreign.status, 403); assert.equal(foreign.json.error.code, 'learner_forbidden');
+  assert.equal((await c.api('/api/bookings?learnerId=abc', { token: p.token })).status, 422);
+  // المعلّم: as=teacher يرى حصصه كلّها مع learner في كل حجز، وقائمة learners فارغة
+  const asT = await c.api('/api/bookings?as=teacher', { token: t.token });
+  assert.equal(flat(asT.json).length, 3); assert.deepEqual(asT.json.learners, []); assert.deepEqual(asT.json.packages, []);
+  assert.ok(flat(asT.json).every((b: any) => b.learner && Object.keys(b.learner).length === 4));
+});
+
+test('GET /teacher/students: صفوف {learner, lessons, lastAt} فقط والمتعلّم LearnerRef فقط — لا هاتف ولا بريد ولا معرّف حساب', async () => {
+  const t = await c.teacher('94000091');
+  const p = await c.parent('94000092', [{ name: 'سارة', grade: 12, subjects: ['physics'] }, { name: 'محمد', grade: 11, subjects: ['physics'] }]);
+  const [sara, mohammed] = p.learnerIds;
+  const s = await c.student('94000093');
+  const w = await import('../src/services/wallet.ts'); w.credit(p.id, 100, {}); w.credit(s.id, 100, {});
+  const pay = async (r: any, token: string) => assert.equal((await c.api('/api/checkout', { method: 'POST', token, body: { provider: 'wallet', bookingId: r.json.booking.id } })).json.paid, true);
+  await pay(await bookAt(p.token, t.id, c.slotIn(24), { learnerId: mohammed }), p.token);
+  await pay(await bookAt(p.token, t.id, c.slotIn(25), { learnerId: mohammed }), p.token);
+  await pay(await bookAt(p.token, t.id, c.slotIn(26), { learnerId: sara }), p.token);
+  await pay(await bookAt(s.token, t.id, c.slotIn(27)), s.token);
+  await bookAt(p.token, t.id, c.slotIn(28), { learnerId: sara }); // معلّق الدفع لا يُحسب
+  // حجز قديم بلا متعلّم → مرجع اصطناعي بمعرّف سالب من الحساب
+  const legacy = await c.student('94000094');
+  c.q.run(`INSERT INTO bookings (student_id, teacher_id, subject_id, mode, duration_minutes, starts_at, ends_at, status, price, learner_id) VALUES (?,?,?,'individual',60,?,?,'completed',6,NULL)`, legacy.id, t.id, c.cat.subjects.physics, c.slotIn(-48), c.slotIn(-47));
+  const st = await c.api('/api/teacher/students', { token: t.token });
+  assert.equal(st.status, 200); assert.equal(st.json.length, 4);
+  for (const row of st.json) {
+    assert.deepEqual(Object.keys(row), ['learner', 'lessons', 'lastAt']);
+    assert.deepEqual(Object.keys(row.learner), REF_KEYS);
+  }
+  const byId = Object.fromEntries(st.json.map((r: any) => [r.learner.id, r]));
+  assert.equal(byId[mohammed].lessons, 2); assert.equal(byId[sara].lessons, 1); assert.equal(byId[s.learnerId].lessons, 1);
+  assert.equal(byId[mohammed].learner.displayName, 'محمد'); assert.equal(byId[mohammed].learner.gradeName, c.q.val('SELECT name FROM grades WHERE id = ?', c.cat.grades[11]));
+  assert.equal(byId[-legacy.id].lessons, 1); assert.equal(byId[-legacy.id].learner.gradeName, null); assert.equal(byId[-legacy.id].learner.displayName, 'طالب 094');
+  assert.deepEqual(st.json.map((r: any) => r.learner.id), [s.learnerId, sara, mohammed, -legacy.id], 'الأحدث حصةً أولاً');
+  const text = JSON.stringify(st.json);
+  for (const phone of ['94000092', '94000093', '94000094']) assert.ok(!text.includes(phone), 'لا هاتف');
+  assert.ok(!text.includes('"phone"') && !text.includes('"email"') && !text.includes('account'), 'لا بيانات حساب');
+  // طالب عادي لا يصل
+  assert.equal((await c.api('/api/teacher/students', { token: s.token })).status, 403);
+});
+
+test('الباقة لمتعلّم بعينه لا تُستخدم لغيره؛ الباقة العامة (بلا متعلّم) لأي متعلّم؛ إشعار المعلّم يسمّي المتعلّم', async () => {
+  const t = await c.teacher('94000101');
+  const p = await c.parent('94000102', [{ name: 'سارة', grade: 12, subjects: ['physics'] }, { name: 'محمد', grade: 11, subjects: ['physics'] }]);
+  const [sara, mohammed] = p.learnerIds;
+  const w = await import('../src/services/wallet.ts'); w.credit(p.id, 100, {});
+  const pkgId = Number(c.q.run("INSERT INTO lesson_packages (teacher_id, lessons_count, duration_minutes, mode, price) VALUES (?,5,60,'individual',27)", t.id).lastInsertRowid);
+  const buy = await c.api('/api/checkout', { method: 'POST', token: p.token, body: { provider: 'wallet', items: [{ itemType: 'package', itemId: pkgId }], learnerId: sara } });
+  assert.equal(buy.status, 200); assert.equal(buy.json.paid, true); assert.equal(buy.json.order.learner.id, sara);
+  assert.equal(c.q.val('SELECT learner_id FROM orders WHERE id = ?', buy.json.order.id), sara);
+  const pp = c.q.get<any>('SELECT id, learner_id FROM package_purchases WHERE order_id = ?', buy.json.order.id);
+  assert.equal(pp.learner_id, sara, 'الباقة تتبع متعلّم الطلب');
+  const feed = await c.api('/api/bookings', { token: p.token });
+  assert.equal(feed.json.packages.length, 1); assert.equal(feed.json.packages[0].id, pp.id); assert.equal(feed.json.packages[0].learnerId, sara);
+  // لمحمد → مرفوضة؛ لسارة → مؤكّدة فوراً
+  const wrong = await bookAt(p.token, t.id, c.slotIn(30), { packagePurchaseId: pp.id, learnerId: mohammed });
+  assert.equal(wrong.status, 400);
+  assert.equal(c.q.val('SELECT remaining FROM package_purchases WHERE id = ?', pp.id), 5);
+  const ok = await bookAt(p.token, t.id, c.slotIn(30), { packagePurchaseId: pp.id, learnerId: sara });
+  assert.equal(ok.status, 201); assert.equal(ok.json.booking.status, 'confirmed'); assert.equal(ok.json.booking.learner.id, sara);
+  assert.equal(c.q.val('SELECT remaining FROM package_purchases WHERE id = ?', pp.id), 4);
+  const note = c.q.get<any>("SELECT title, body FROM notifications WHERE user_id = ? AND type = 'booking_confirmed' ORDER BY id DESC LIMIT 1", t.id);
+  assert.equal(note.title, 'حجز جديد');
+  assert.ok(note.body.includes('سارة') && note.body.includes(c.q.val('SELECT name FROM grades WHERE id = ?', c.cat.grades[12])!) && note.body.includes('فيزياء'), note.body);
+  assert.ok(!note.body.includes('94000102'), 'لا هاتف في إشعار المعلّم');
+  // باقة عامة (learner_id NULL) تصلح لمحمد
+  c.q.run('UPDATE package_purchases SET learner_id = NULL WHERE id = ?', pp.id);
+  const any = await bookAt(p.token, t.id, c.slotIn(31), { packagePurchaseId: pp.id, learnerId: mohammed });
+  assert.equal(any.status, 201); assert.equal(any.json.booking.learner.id, mohammed);
+  assert.equal((await c.api('/api/bookings', { token: p.token })).json.packages[0].learnerId, null);
+  // إلغاء الطالب المبكّر يعيد الحصة والحجز يحتفظ بمتعلّمه
+  await c.api(`/api/bookings/${any.json.booking.id}/cancel`, { method: 'POST', token: p.token, body: {} });
+  assert.equal(c.q.val('SELECT remaining FROM package_purchases WHERE id = ?', pp.id), 4);
+  assert.equal(c.q.val('SELECT learner_id FROM bookings WHERE id = ?', any.json.booking.id), mohammed);
+});
+
+test('الملف العام للمعلّم: stats وavailabilityRules وtimeOff؛ students_count = متعلّمون متمايزون عند الاكتمال', async () => {
+  const t = await c.teacher('94000111', { allDay: false });
+  const wd = new Date(Date.now() + 2 * 86_400_000 + 4 * 3_600_000).getUTCDay();
+  c.q.run("INSERT INTO teacher_availability (teacher_id, weekday, start_time, end_time, slot_minutes, break_minutes) VALUES (?,?, '10:00','13:00',60,0)", t.id, wd);
+  c.q.run('INSERT INTO teacher_time_off (teacher_id, starts_at, ends_at, reason) VALUES (?,?,?,?)', t.id, c.slotIn(48), c.slotIn(52), 'سبب خاص');
+  c.q.run('INSERT INTO teacher_time_off (teacher_id, starts_at, ends_at) VALUES (?,?,?)', t.id, c.slotIn(24 * 40), c.slotIn(24 * 41)); // بعد ٣٠ يوماً: لا تظهر
+  const prof = await c.api(`/api/teachers/${t.id}`);
+  assert.equal(prof.status, 200);
+  assert.deepEqual(prof.json.stats, { studentsCount: 0, lessonsCount: 0, ratingCount: 0, yearsExp: 5 });
+  assert.deepEqual(prof.json.availabilityRules, [{ weekday: wd, startTime: '10:00', endTime: '13:00' }]);
+  assert.deepEqual(prof.json.timeOff, [{ from: c.slotIn(48), to: c.slotIn(52) }]);
+  assert.ok(!JSON.stringify(prof.json.timeOff).includes('سبب'), 'بلا أسباب');
+  // حصتان مكتملتان لمتعلّمَين من حساب واحد → طالبان
+  const p = await c.parent('94000112', [{ name: 'سارة', grade: 12, subjects: ['physics'] }, { name: 'محمد', grade: 11, subjects: ['physics'] }]);
+  const svc = await import('../src/services/bookings.ts');
+  for (const lid of p.learnerIds) {
+    const id = Number(c.q.run(`INSERT INTO bookings (student_id, teacher_id, subject_id, mode, duration_minutes, starts_at, ends_at, status, price, learner_id) VALUES (?,?,?,'individual',60,?,?,'confirmed',6,?)`,
+      p.id, t.id, c.cat.subjects.physics, c.slotIn(-3), c.slotIn(-2), lid).lastInsertRowid);
+    svc.markJoined(id, t.id, 'teacher'); svc.markJoined(id, p.id, 'student');
+    svc.completeBooking(id);
+  }
+  assert.equal(c.q.val('SELECT students_count FROM teacher_profiles WHERE user_id = ?', t.id), 2);
+  assert.equal(c.q.val('SELECT lessons_count FROM teacher_profiles WHERE user_id = ?', t.id), 2);
+  const after = await c.api(`/api/teachers/${t.id}`);
+  assert.equal(after.json.stats.studentsCount, 2); assert.equal(after.json.stats.lessonsCount, 2); assert.equal(after.json.studentsCount, 2);
+});

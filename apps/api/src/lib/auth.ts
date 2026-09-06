@@ -14,7 +14,19 @@ export interface AuthUser {
 }
 
 declare module 'express-serve-static-core' {
-  interface Request { user?: AuthUser }
+  interface Request {
+    user?: AuthUser;
+    /** المتعلّم الذي يعمل عليه العميل (ترويسة X-Learner-Id) — يُحسم في services/learners.ts لا هنا */
+    learnerId?: number | null;
+  }
+}
+
+/** ترويسة X-Learner-Id: عدد صحيح موجب أو null — بلا وصول لقاعدة البيانات */
+export function parseLearnerHeader(value: unknown): number | null {
+  const raw = Array.isArray(value) ? value[0] : value;
+  if (typeof raw !== 'string' || !/^\d{1,12}$/.test(raw.trim())) return null;
+  const n = Number(raw.trim());
+  return n > 0 ? n : null;
 }
 
 const ROLE_RANK: Record<Role, number> = {
@@ -55,7 +67,7 @@ export function attachUser(req: Request, _res: Response, next: NextFunction) {
 }
 
 export function requireAuth(req: Request, _res: Response, next: NextFunction) {
-  if (req.user) return next();
+  if (req.user) { req.learnerId = parseLearnerHeader(req.headers['x-learner-id']); return next(); }
   next(req.headers['x-token-expired'] ? authExpired() : unauthorized());
 }
 

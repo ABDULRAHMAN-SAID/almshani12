@@ -13,7 +13,10 @@ import { getProvider, providerCatalog, verifyStripeSignature, verifyThawaniSigna
 import * as wallet from '../services/wallet.ts';
 import { publicUrl } from '../services/storage.ts';
 import { notifyStaff } from '../services/notifications.ts';
+import { requireLearner, resolveLearner } from '../services/learners.ts';
 import { audit } from '../lib/audit.ts';
+
+/** الطلب مع المتعلّم المنسوب إليه (LearnerRef أو null) — الملكية والوصول للحساب */
 
 /* ============ السلة ============ */
 export const cartRouter = Router();
@@ -73,6 +76,8 @@ checkoutRouter.get('/methods', requireAuth, (req, res) => {
 checkoutRouter.post('/', requireAuth, validate(CheckoutRequest), asyncHandler(async (req, res) => {
   const c = body<typeof CheckoutRequest>(req);
   const uid = req.user!.id;
+  // نسبة الطلب لمتعلّم: صريح (يجب أن يكون في الحساب) وإلا النشط إن وُجد
+  const learnerId = c.learnerId ? requireLearner(req, c.learnerId).id : resolveLearner(req)?.id ?? null;
   let order: any;
   if (c.bookingId) {
     const b = q.get<any>('SELECT * FROM bookings WHERE id = ?', c.bookingId);
@@ -82,12 +87,12 @@ checkoutRouter.post('/', requireAuth, validate(CheckoutRequest), asyncHandler(as
     order = q.get<any>("SELECT * FROM orders WHERE id = ? AND status = 'pending'", b.order_id);
     if (!order) throw new AppError('slot_expired', 'انتهت مهلة إتمام الحجز', 409);
   } else if (c.items?.length) {
-    order = createOrder(uid, { items: c.items.map(i => ({ type: i.itemType as any, id: i.itemId })), couponCode: c.couponCode ?? null });
+    order = createOrder(uid, { items: c.items.map(i => ({ type: i.itemType as any, id: i.itemId })), couponCode: c.couponCode ?? null, learnerId });
   } else {
     const items = q.all<any>('SELECT item_type AS type, item_id AS id FROM cart_items WHERE user_id = ?', uid);
     if (!items.length) throw badRequest('السلة فارغة');
     const couponCode = c.couponCode ?? q.val<string | null>('SELECT coupon_code FROM carts WHERE user_id = ?', uid) ?? null;
-    order = createOrder(uid, { items, couponCode });
+    order = createOrder(uid, { items, couponCode, learnerId });
   }
 
   // طلب بقيمة صفر (كوبون كامل / محتوى مجاني) يُنفَّذ فوراً

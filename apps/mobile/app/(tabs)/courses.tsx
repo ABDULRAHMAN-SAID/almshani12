@@ -1,11 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { View, FlatList, ScrollView, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { spacing, subjectColors, type SubjectColorKey } from '@manassah/tokens';
 import { Screen, Text, Chip, Tabs, SearchInput, CourseCard, CardSkeleton, EmptyState, ErrorState, HeaderActions } from '@/ui';
 import { useCourses, useCatalog, usePurchases } from '@/features/queries';
-import { useAuth } from '@/state/auth';
+import { useAuth, useActiveLearner } from '@/state/auth';
 import { useDebounced } from '@/lib/hooks';
 
 const SORTS = ['popular', 'newest', 'rating', 'price_asc'] as const;
@@ -14,11 +14,14 @@ const SORTS = ['popular', 'newest', 'rating', 'price_asc'] as const;
 export default function Courses() {
   const { t } = useTranslation();
   const router = useRouter();
-  const user = useAuth(s => s.user);
+  const learner = useActiveLearner();
+  const activeLearnerId = useAuth(s => s.activeLearnerId);
   const [tab, setTab] = useState<'explore' | 'mine'>('explore');
   const [q, setQ] = useState('');
   const [subjectId, setSubjectId] = useState<number | undefined>();
-  const [gradeId, setGradeId] = useState<number | undefined>(user?.student?.gradeId ?? undefined);
+  const [gradeId, setGradeId] = useState<number | undefined>(learner?.gradeId ?? undefined);
+  // تبديل المتعلّم يعيد فلتر الصف إلى صفّه
+  useEffect(() => { setGradeId(learner?.gradeId ?? undefined); }, [activeLearnerId]); // eslint-disable-line react-hooks/exhaustive-deps
   const [sort, setSort] = useState<typeof SORTS[number]>('popular');
   const dq = useDebounced(q, 300);
   const catalog = useCatalog();

@@ -4,8 +4,8 @@ import { useTranslation } from 'react-i18next';
 import Constants from 'expo-constants';
 import { colors, spacing, themed } from '@manassah/tokens';
 import { brand } from '@manassah/shared';
-import { Screen, Text, Card, Avatar, Badge, ListRow, Button, IconButton, HeaderActions } from '@/ui';
-import { useAuth } from '@/state/auth';
+import { Screen, Text, Card, Avatar, Badge, ListRow, Button, IconButton, HeaderActions, LearnerAvatar } from '@/ui';
+import { useAuth, useActiveLearner, useLearners } from '@/state/auth';
 import { useNotifications, useWallet, useConversations } from '@/features/queries';
 import { signOut } from '@/lib/session';
 import { money } from '@/lib/format';
@@ -15,6 +15,8 @@ export default function Account() {
   const { t } = useTranslation();
   const router = useRouter();
   const user = useAuth(s => s.user);
+  const active = useActiveLearner();
+  const learners = useLearners();
   const notifications = useNotifications();
   const wallet = useWallet();
   const convs = useConversations();
@@ -29,7 +31,7 @@ export default function Account() {
         <Avatar name={user.displayName} url={user.avatarUrl} size="xl" />
         <View style={styles.flex}>
           <Text role="h2" numberOfLines={1}>{user.displayName || t('ui.guest')}</Text>
-          {user.student?.gradeName ? <Text role="small" tone="secondary" numberOfLines={1}>{user.student.gradeName}{user.student.semesterName ? ` · ${user.student.semesterName}` : ''}</Text> : null}
+          {active?.gradeName ? <Text role="small" tone="secondary" numberOfLines={1}>{active.gradeName}{active.semesterName ? ` · ${active.semesterName}` : ''}</Text> : null}
           <Text role="caption" tone="tertiary" tabular numberOfLines={1}>{user.phone ?? user.email}</Text>
         </View>
         <IconButton icon="edit" label={t('account.edit')} variant="soft" size={44} color={colors.brand.primary} onPress={() => router.push('/account/settings')} />
@@ -55,6 +57,8 @@ export default function Account() {
 
       <Card padded={false} style={styles.menu}>
         <View style={styles.menuInner}>
+          <ListRow icon="people" color="#D7263D" label={t('learners.title')} onPress={() => router.push('/account/learners')}
+            right={<View style={styles.avatars}>{learners.slice(0, 4).map(l => <LearnerAvatar key={l.id} learner={l} size={28} badge={false} />)}</View>} />
           <ListRow icon="receipt" color="#2F6FED" label={t('account.purchases')} onPress={() => router.push('/account/purchases')} />
           <ListRow icon="calendar" color="#7A5AF8" label={t('account.bookings')} onPress={() => router.push('/(tabs)/lessons')} />
           <ListRow icon="heart" color="#E5488A" label={t('account.favorites')} onPress={() => router.push('/account/favorites')} />
@@ -88,5 +92,6 @@ const styles = themed((c) => StyleSheet.create({
   teacher: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], marginTop: spacing[3] },
   menu: { marginTop: spacing[3] },
   menuInner: { paddingHorizontal: spacing[4] },
+  avatars: { flexDirection: 'row', gap: 4 },
   version: { marginTop: spacing[4], color: c.text.tertiary },
 }));

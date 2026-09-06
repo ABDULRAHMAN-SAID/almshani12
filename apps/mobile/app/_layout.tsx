@@ -5,14 +5,16 @@ import { Stack, SplashScreen, useRouter, useSegments, usePathname } from 'expo-r
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { QueryClient, QueryClientProvider, onlineManager } from '@tanstack/react-query';
+import { QueryClientProvider, onlineManager } from '@tanstack/react-query';
 import * as Network from 'expo-network';
 import { useFonts, ReadexPro_400Regular, ReadexPro_500Medium, ReadexPro_600SemiBold, ReadexPro_700Bold } from '@expo-google-fonts/readex-pro';
 import { BalooBhaijaan2_700Bold, BalooBhaijaan2_800ExtraBold } from '@expo-google-fonts/baloo-bhaijaan-2';
 import { colors, setTheme, getTheme, onThemeChange, type ThemeName } from '@manassah/tokens';
 import '@/i18n';
-import { useAuth } from '@/state/auth';
+import { useAuth, needsSetup } from '@/state/auth';
 import { bootstrapAuth, homeFor, signOut } from '@/lib/session';
+import { queryClient } from '@/lib/queryClient';
+import { useSessionSocket } from '@/features/realtime';
 import { OfflineBar, Text } from '@/ui';
 import { isDemo } from '@/api/client';
 import { useUi, hydratePrefs } from '@/state/ui';
@@ -23,22 +25,28 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 if (!I18nManager.isRTL) { I18nManager.allowRTL(true); I18nManager.forceRTL(true); }
 if (Platform.OS === 'web' && typeof document !== 'undefined') { document.documentElement.dir = 'rtl'; document.documentElement.lang = 'ar'; }
 
-/* فصل حالة الخادم عن حالة الواجهة: react-query يملك بيانات الخادم فقط */
-const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, retry: 1, refetchOnWindowFocus: false } } });
-
-/** حارس التوجيه: زائر → الترحيب؛ حساب بلا إعداد → الإعداد؛ وإلا التبويبات */
+/** حارس التوجيه: زائر → الترحيب؛ حساب بلا متعلّم (وليس معلّماً/طاقماً) → الإعداد؛ وإلا التبويبات. شاشة الإعداد تبقى متاحة لإضافة متعلّم من الإعدادات */
 function AuthGate() {
   const { user, ready } = useAuth();
   const segments = useSegments() as string[];
   const router = useRouter();
+  useSessionSocket();
   useEffect(() => {
     if (!ready) return;
     const inAuth = segments[0] === '(auth)';
+    const onSetup = inAuth && segments[1] === 'setup';
     if (!user && !inAuth) router.replace('/(auth)/welcome');
-    else if (user && !user.onboardingCompleted && segments[1] !== 'setup') router.replace('/(auth)/setup');
-    else if (user && user.onboardingCompleted && inAuth) router.replace(homeFor(user) as never);
+    else if (user && needsSetup(user) && !onSetup) router.replace('/(auth)/setup');
+    else if (user && !needsSetup(user) && inAuth && !onSetup) router.replace(homeFor(user) as never);
   }, [user, ready, segments, router]);
   return null;
+}
+
+/** رسالة عابرة أسفل الشاشة — تختفي وحدها */
+function ToastBar() {
+  const toast = useUi(s => s.toast);
+  if (!toast) return null;
+  return <View pointerEvents="none" style={{ position: 'absolute', bottom: 96, left: 16, right: 16, alignItems: 'center', zIndex: 50 }}><View style={{ backgroundColor: colors.bg.inverse, paddingVertical: 10, paddingHorizontal: 18, borderRadius: 999, maxWidth: 480 }}><Text role="small" tone="inverse" center>{toast}</Text></View></View>;
 }
 
 function useOnline() {
@@ -111,6 +119,7 @@ export default function RootLayout() {
           {!isDemo() && serverUrl ? <View style={{ backgroundColor: colors.state.infoSoft, paddingVertical: 4, paddingHorizontal: 12, alignItems: 'center' }}><Text role="caption" color={colors.state.info} numberOfLines={1}>متصل بالخادم: {serverUrl}</Text></View> : null}
           {!online ? <OfflineBar /> : null}
           <AuthGate />
+          <ToastBar />
           <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg.base }, animation: 'fade_from_bottom', animationDuration: 200 }}>
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="(auth)" options={{ animation: 'fade' }} />

@@ -15,8 +15,14 @@ CREATE TABLE IF NOT EXISTS users (
   onboarding_completed INTEGER NOT NULL DEFAULT 0,
   last_login_at TEXT,
   created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+  -- المتعلّم النشط (يضبطه العميل عبر /me/learners/:id/activate) وسبب الإيقاف — أُضيفت بالترحيل 002 على القواعد القديمة
+  active_learner_id INTEGER REFERENCES learners(id) ON DELETE SET NULL,
+  status_reason TEXT,
+  suspended_at  TEXT,
+  suspended_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
   CHECK (phone IS NOT NULL OR email IS NOT NULL)
 );
+CREATE INDEX IF NOT EXISTS idx_users_created ON users(created_at);
 
 CREATE TABLE IF NOT EXISTS user_roles (
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -84,6 +90,32 @@ CREATE TABLE IF NOT EXISTS student_subjects (
   PRIMARY KEY (user_id, subject_id)
 );
 
+-- ---------- المتعلّمون: ملفّات تعلّم مملوكة للحساب (طالب بصفّين أو وليّ أمر بعدّة أبناء) ----------
+-- student_profiles / student_subjects أعلاه تُكتب انعكاساً للمتعلّم الذاتي الأول فقط (services/learners.ts) وتُحذف في الإصدار التالي
+CREATE TABLE IF NOT EXISTS learners (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  account_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  display_name  TEXT NOT NULL,
+  gender        TEXT CHECK (gender IN ('male','female')),
+  avatar_path   TEXT,
+  is_self       INTEGER NOT NULL DEFAULT 0,
+  curriculum_id INTEGER REFERENCES curriculums(id) ON DELETE SET NULL,
+  grade_id      INTEGER REFERENCES grades(id) ON DELETE SET NULL,
+  semester_id   INTEGER REFERENCES semesters(id) ON DELETE SET NULL,
+  school        TEXT,
+  position      INTEGER NOT NULL DEFAULT 0,
+  archived_at   TEXT,
+  created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+CREATE INDEX IF NOT EXISTS idx_learners_account ON learners(account_id, archived_at, position);
+
+CREATE TABLE IF NOT EXISTS learner_subjects (
+  learner_id INTEGER NOT NULL REFERENCES learners(id) ON DELETE CASCADE,
+  subject_id INTEGER NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
+  PRIMARY KEY (learner_id, subject_id)
+);
+
 CREATE TABLE IF NOT EXISTS teacher_profiles (
   user_id             INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   headline            TEXT,
@@ -124,7 +156,9 @@ CREATE TABLE IF NOT EXISTS teacher_documents (
   file_id    INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
   status     TEXT NOT NULL DEFAULT 'submitted' CHECK (status IN ('submitted','accepted','rejected')),
   note       TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  reviewed_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  reviewed_at TEXT
 );
 
 CREATE TABLE IF NOT EXISTS teacher_verifications (
@@ -410,7 +444,8 @@ CREATE TABLE IF NOT EXISTS package_purchases (
   total      INTEGER NOT NULL,
   remaining  INTEGER NOT NULL,
   expires_at TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  learner_id INTEGER REFERENCES learners(id) ON DELETE SET NULL   -- NULL = لأي متعلّم في الحساب
 );
 
 -- ------------------------- الحجوزات -------------------------
@@ -435,10 +470,13 @@ CREATE TABLE IF NOT EXISTS bookings (
   cancelled_at        TEXT,
   cancel_reason       TEXT,
   refund_percent      INTEGER,
-  created_at          TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at          TEXT NOT NULL DEFAULT (datetime('now')),
+  learner_id          INTEGER REFERENCES learners(id) ON DELETE SET NULL   -- لمن الحصة (الحساب يبقى student_id)
 );
 CREATE INDEX IF NOT EXISTS idx_bookings_student ON bookings(student_id, starts_at);
 CREATE INDEX IF NOT EXISTS idx_bookings_teacher ON bookings(teacher_id, starts_at);
+CREATE INDEX IF NOT EXISTS idx_bookings_learner ON bookings(learner_id, starts_at);
+CREATE INDEX IF NOT EXISTS idx_bookings_starts  ON bookings(starts_at);
 -- منع التعارض: معلّم واحد لا يحمل حجزين فعّالين على البداية نفسها
 CREATE UNIQUE INDEX IF NOT EXISTS ux_bookings_teacher_slot
   ON bookings(teacher_id, starts_at)
@@ -544,9 +582,11 @@ CREATE TABLE IF NOT EXISTS orders (
   paid_at      TEXT,
   expires_at   TEXT,
   meta         TEXT,
-  created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+  learner_id   INTEGER REFERENCES learners(id) ON DELETE SET NULL   -- نسبة الطلب لمتعلّم (للعرض فقط؛ الوصول للحساب)
 );
 CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(user_id);
+CREATE INDEX IF NOT EXISTS idx_orders_paid_at ON orders(paid_at);
 
 CREATE TABLE IF NOT EXISTS order_items (
   id             INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -686,6 +726,8 @@ CREATE TABLE IF NOT EXISTS reviews (
   gate_id     INTEGER NOT NULL,      -- يثبت التجربة الحقيقية
   status      TEXT NOT NULL DEFAULT 'published' CHECK (status IN ('published','hidden')),
   created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  hidden_reason TEXT,
+  hidden_by   INTEGER REFERENCES users(id) ON DELETE SET NULL,
   UNIQUE (user_id, target_type, target_id)
 );
 CREATE INDEX IF NOT EXISTS idx_reviews_target ON reviews(target_type, target_id);
@@ -784,8 +826,12 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   entity_id  INTEGER,
   meta       TEXT,
   ip         TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  target_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL   -- المستخدم المتأثّر بالإجراء (لصفحة الشخص)
 );
+CREATE INDEX IF NOT EXISTS idx_audit_target ON audit_logs(target_user_id, id);
+CREATE INDEX IF NOT EXISTS idx_audit_actor  ON audit_logs(actor_id, id);
+CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_logs(entity, entity_id);
 
 CREATE TABLE IF NOT EXISTS analytics_events (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -795,3 +841,4 @@ CREATE TABLE IF NOT EXISTS analytics_events (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_events_name ON analytics_events(name, created_at);
+CREATE INDEX IF NOT EXISTS idx_analytics_created ON analytics_events(created_at);

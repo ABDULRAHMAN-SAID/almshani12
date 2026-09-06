@@ -1,7 +1,8 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, money, when } from '../api';
-import { Page, Badge, Modal, Field, Empty, STATUS_TONE, ar, useToast, errMsg } from '../ui';
+import { Page, Badge, Modal, Field, Empty, TeacherLink, STATUS_TONE, ar, useToast, errMsg } from '../ui';
 
 const CHECKS = [['content', 'المحتوى مناسب ومطابق للمنهج'], ['price', 'السعر معقول'], ['file', 'الملف يفتح وصفحاته كاملة'], ['copyright', 'لا انتهاك لحقوق النشر'], ['category', 'التصنيف والصف صحيحان'], ['description', 'الوصف دقيق']] as const;
 
@@ -9,7 +10,8 @@ const CHECKS = [['content', 'المحتوى مناسب ومطابق للمنهج
 export default function Content() {
   const qc = useQueryClient();
   const toast = useToast();
-  const [status, setStatus] = useState('pending_review');
+  const [sp] = useSearchParams();
+  const [status, setStatus] = useState(sp.get('status') ?? 'pending_review');
   const [item, setItem] = useState<any | null>(null);
   const [reason, setReason] = useState('');
   const [checks, setChecks] = useState<Record<string, boolean>>({});
@@ -19,11 +21,11 @@ export default function Content() {
   const allChecked = CHECKS.every(([k]) => checks[k]);
   return (
     <Page title="مراجعة المحتوى" sub="لا يُنشر شيء دون مراجعة">
-      <div className="toolbar">{['pending_review', 'published', 'rejected', 'draft'].map(s => <button key={s} className={`chip ${status === s ? 'on' : ''}`} onClick={() => setStatus(s)}>{ar(s)}</button>)}</div>
+      <div className="toolbar">{['pending_review', 'published', 'rejected', 'draft', 'archived', 'all'].map(s => <button key={s} className={`chip ${status === s ? 'on' : ''}`} onClick={() => setStatus(s)}>{s === 'all' ? 'الكل' : ar(s)}</button>)}</div>
       <div className="card tbl">
         {list.data?.data.length ? (
-          <table><thead><tr><th>النوع</th><th>العنوان</th><th>المعلّم</th><th>المادة / الصف</th><th>السعر</th><th>آخر تحديث</th><th></th></tr></thead>
-            <tbody>{list.data.data.map(it => <tr key={`${it.entityType}-${it.id}`}><td><Badge tone={it.entityType === 'book' ? 'info' : 'gold'}>{ar(it.entityType)}</Badge></td><td><b>{it.title}</b>{it.type ? <div className="muted small">{it.type}</div> : null}</td><td>{it.author}</td><td>{it.subject} · {it.grade}</td><td className="num">{money(it.price)}</td><td className="num small">{when(it.updated_at)}</td><td className="actions"><button className="btn secondary sm" onClick={() => { setItem(it); setReason(''); setChecks({}); }}>مراجعة</button></td></tr>)}</tbody></table>
+          <table><thead><tr><th>النوع</th><th>العنوان</th><th>الحالة</th><th>المعلّم</th><th>المادة / الصف</th><th>السعر</th><th>آخر تحديث</th><th></th></tr></thead>
+            <tbody>{list.data.data.map(it => <tr key={`${it.entityType}-${it.id}`}><td><Badge tone={it.entityType === 'book' ? 'info' : 'gold'}>{ar(it.entityType)}</Badge></td><td><b>{it.title}</b>{it.type ? <div className="muted small">{it.type}</div> : null}</td><td><Badge tone={STATUS_TONE[it.status]}>{ar(it.status)}</Badge></td><td><TeacherLink id={it.authorId} name={it.author} /></td><td>{it.subject} · {it.grade}</td><td className="num">{money(it.price)}</td><td className="num small">{when(it.updated_at)}</td><td className="actions"><button className="btn secondary sm" onClick={() => { setItem(it); setReason(''); setChecks({}); }}>مراجعة</button></td></tr>)}</tbody></table>
         ) : <Empty text={list.isLoading ? 'جارٍ التحميل…' : 'لا محتوى في هذه الحالة'} />}
       </div>
       {item ? (

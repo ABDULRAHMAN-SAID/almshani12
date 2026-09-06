@@ -19,7 +19,7 @@
     "test": "npm run test --workspaces --if-present",
     "admin:build": "npm run build -w apps/admin",
     "web:export": "npm run export:web -w apps/mobile",
-    "web:build": "cd apps/mobile && EXPO_WEB_OUTPUT=single CI=1 npx expo export --platform web --output-dir dist",
+    "web:build": "cd apps/mobile && EXPO_PUBLIC_DEMO=0 EXPO_WEB_OUTPUT=single CI=1 npx expo export --platform web --output-dir dist --clear && node scripts/check-web-build.mjs dist",
     "web:single": "node apps/mobile/scripts/single-file.mjs",
     "test:api": "npm test -w apps/api",
     "docker:up": "docker compose up -d --build"

@@ -4,7 +4,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { colors, spacing, radius, subjectColors, type SubjectColorKey, themed } from '@manassah/tokens';
 import { savePercent } from '@manassah/shared';
-import { Screen, IconButton, Text, Icon, Button, Chip, Badge, Avatar, Rating, Price, Card, SectionHeader, BookCard, CourseCard, ReviewList, ReviewSheet, Expandable, VerifiedBadge } from '@/ui';
+import { Screen, IconButton, Text, Icon, Button, Chip, Badge, Avatar, Rating, Price, Card, SectionHeader, BookCard, CourseCard, ReviewList, ReviewSheet, Expandable, VerifiedBadge, isDayOff } from '@/ui';
 import { useTeacher, useToggleFavorite, useStartConversation } from '@/features/queries';
 import { useAuth } from '@/state/auth';
 import { money, weekdayShort } from '@/lib/format';
@@ -25,6 +25,10 @@ export default function TeacherProfile() {
   const durations = [30, 45, 60] as const;
   const price = (d: number, mode: 'individual' | 'group') => p?.prices.find(x => x.durationMinutes === d && x.mode === mode)?.price;
   const hasGroup = !!p?.prices.some(x => x.mode === 'group');
+  // شريط الأرقام من stats (الطلاب = متعلّمون متمايزون في حصص مكتملة) مع احتياط لخادم أقدم
+  const st = p ? (p.stats ?? { studentsCount: p.studentsCount, lessonsCount: p.lessonsCount, ratingCount: p.ratingCount, yearsExp: p.yearsExp }) : null;
+  const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
+  const rulesFor = (wd: number) => (p?.availabilityRules ?? []).filter(r => r.weekday === wd).sort((a, b) => a.startTime.localeCompare(b.startTime));
 
   return (
     <Screen onBack={() => router.back()} title={p?.name ?? ''} loading={q.isLoading} error={q.error} onRetry={() => q.refetch()} padded={false}
@@ -48,10 +52,10 @@ export default function TeacherProfile() {
               </View>
             </View>
             <View style={styles.stats}>
-              <View style={styles.stat}>{p.ratingCount > 0 ? <Rating value={p.ratingAvg} size={14} /> : <Text role="h3">—</Text>}<Text role="caption" tone="tertiary">{p.ratingCount} {t('common.reviews')}</Text></View>
-              <View style={styles.stat}><Text role="h3" tabular>{p.yearsExp}</Text><Text role="caption" tone="tertiary">{t('teachers.experience', { n: '' }).trim()}</Text></View>
-              <View style={styles.stat}><Text role="h3" tabular>{p.studentsCount}</Text><Text role="caption" tone="tertiary">{t('common.students')}</Text></View>
-              <View style={styles.stat}><Text role="h3" tabular>{p.lessonsCount}</Text><Text role="caption" tone="tertiary">{t('common.lessons')}</Text></View>
+              <View style={styles.stat}>{st!.ratingCount > 0 ? <Rating value={p.ratingAvg} size={14} /> : <Text role="h3">—</Text>}<Text role="caption" tone="tertiary" numberOfLines={1}>{t('teachers.ratingCount', { n: st!.ratingCount })}</Text></View>
+              <View style={styles.stat}><Text role="h3" tabular>{st!.studentsCount}</Text><Text role="caption" tone="tertiary" numberOfLines={1}>{t('teachers.studentsCount', { n: '' }).trim()}</Text></View>
+              <View style={styles.stat}><Text role="h3" tabular>{st!.lessonsCount}</Text><Text role="caption" tone="tertiary" numberOfLines={1}>{t('teachers.lessonsCount', { n: '' }).trim()}</Text></View>
+              <View style={styles.stat}><Text role="h3" tabular>{st!.yearsExp}</Text><Text role="caption" tone="tertiary" numberOfLines={1}>{t('teachers.yearsExp', { n: '' }).trim()}</Text></View>
             </View>
             <View style={styles.chips}>
               {p.subjects.map(s => { const sc = subjectColors[(s.colorKey as SubjectColorKey)] ?? subjectColors.default; return <Chip key={s.id} label={s.name} color={sc.main} softColor={sc.soft} small />; })}
@@ -97,15 +101,27 @@ export default function TeacherProfile() {
               </View>
             ) : null}
 
-            {/* المواعيد */}
+            {/* التوفّر الأسبوعي: سبعة أعمدة بالفترات من قواعد المعلّم */}
+            {p.availabilityRules?.length ? (
+              <View style={styles.section}><SectionHeader title={t('teachers.weeklyAvailability')} subtitle={t('common.timezoneNote')} />
+                <View style={styles.week}>{DAYS.map((d, wd) => { const rs = rulesFor(wd); return (
+                  <View key={d} style={[styles.weekCol, !rs.length && styles.weekColOff]}>
+                    <Text role="caption" tone={rs.length ? 'primary' : 'tertiary'} numberOfLines={1}>{t(`days.${d}`)}</Text>
+                    {rs.length ? rs.map((r, i) => <Text key={i} role="caption" tone="success" tabular numberOfLines={2} style={styles.range}>{r.startTime}{'\n'}{r.endTime}</Text>) : <Text role="caption" tone="tertiary">—</Text>}
+                  </View>
+                ); })}</View>
+              </View>
+            ) : null}
+
+            {/* المواعيد — أيام الإجازة معطّلة ومعلَّمة */}
             <View style={styles.section}><SectionHeader title={t('teachers.schedule')} subtitle={t('common.timezoneNote')} onSeeAll={() => router.push(`/teacher/${teacherId}/book`)} />
-              <View style={styles.days}>{p.availabilityPreview.map(d => (
-                <Pressable key={d.date} onPress={() => router.push({ pathname: `/teacher/${teacherId}/book`, params: { day: d.date } })} disabled={!d.slotsCount} style={[styles.day, !d.slotsCount && styles.dayOff]} accessibilityRole="button">
+              <View style={styles.days}>{p.availabilityPreview.map(d => { const off = isDayOff(d.date, p.timeOff); const n = off ? 0 : d.slotsCount; return (
+                <Pressable key={d.date} onPress={() => router.push({ pathname: `/teacher/${teacherId}/book`, params: { day: d.date } })} disabled={!n} style={[styles.day, !n && styles.dayOff]} accessibilityRole="button">
                   <Text role="caption" tone="secondary">{weekdayShort(`${d.date}T12:00:00Z`)}</Text>
-                  <Text role="h3" tabular tone={d.slotsCount ? 'primary' : 'tertiary'}>{Number(d.date.slice(8, 10))}</Text>
-                  <Text role="caption" tone={d.slotsCount ? 'success' : 'tertiary'} tabular>{d.slotsCount ? `${d.slotsCount}` : '—'}</Text>
+                  <Text role="h3" tabular tone={n ? 'primary' : 'tertiary'}>{Number(d.date.slice(8, 10))}</Text>
+                  <Text role="caption" tone={n ? 'success' : 'tertiary'} tabular numberOfLines={1} style={off ? styles.offText : undefined}>{off ? t('teachers.timeOff') : n ? `${n}` : '—'}</Text>
                 </Pressable>
-              ))}</View>
+              ); })}</View>
             </View>
           </View>
 
@@ -153,6 +169,11 @@ const styles = themed((c) => StyleSheet.create({
   days: { flexDirection: 'row', gap: spacing[1], justifyContent: 'space-between' },
   day: { flex: 1, alignItems: 'center', paddingVertical: spacing[2], borderRadius: radius.md, backgroundColor: c.bg.card, borderWidth: 1.5, borderColor: c.border.default, gap: 2 },
   dayOff: { backgroundColor: c.bg.subtle, borderStyle: 'dashed' },
+  offText: { fontSize: 10, lineHeight: 12 },
+  week: { flexDirection: 'row', gap: spacing[1] },
+  weekCol: { flex: 1, alignItems: 'center', gap: 4, paddingVertical: spacing[2], paddingHorizontal: 2, borderRadius: radius.md, backgroundColor: c.bg.card, borderWidth: 1.5, borderColor: c.border.default, minHeight: 64 },
+  weekColOff: { backgroundColor: c.bg.subtle, borderStyle: 'dashed' },
+  range: { fontSize: 10, lineHeight: 13, textAlign: 'center' },
   hList: { paddingHorizontal: spacing[4], gap: spacing[3] },
   footer: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
   footBtn: { flex: 1.2 },

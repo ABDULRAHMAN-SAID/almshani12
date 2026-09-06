@@ -17,6 +17,8 @@ export interface LessonCardProps {
   hero?: boolean;
   /** يعرض المعلّم الطالبَ بدل المعلّم (لوحة المعلّم) */
   asTeacher?: boolean;
+  /** حبّة باسم المتعلّم صاحب الحصة — عند تعدّد متعلّمي الحساب */
+  showLearner?: boolean;
 }
 
 const STATUS_TONE: Record<Booking['status'], BadgeTone> = {
@@ -25,7 +27,7 @@ const STATUS_TONE: Record<Booking['status'], BadgeTone> = {
 };
 
 /** شريط علوي بلون المادة، ثم المعلّم والوقت بخط كبير، وزر واحد واضح: دخول أو تفاصيل */
-export function LessonCard({ booking, onPress, onJoin, hero, asTeacher }: LessonCardProps) {
+export function LessonCard({ booking, onPress, onJoin, hero, asTeacher, showLearner }: LessonCardProps) {
   const { t } = useTranslation();
   const sc = subjectColors[(booking.subject.colorKey as SubjectColorKey) ?? 'default'] ?? subjectColors.default;
   const other = asTeacher ? booking.student : booking.teacher;
@@ -62,6 +64,7 @@ export function LessonCard({ booking, onPress, onJoin, hero, asTeacher }: Lesson
             <Icon name="clock" size={18} color={colors.text.secondary} />
             <Text role="bodyMedium" tabular>{formatTime(booking.startsAt)}</Text>
           </View>
+          {showLearner && booking.learner ? <Badge label={booking.learner.displayName} tone="brand" icon="account" /> : null}
           {hero && soon ? <Badge label={t('home.remaining', { m: mins })} tone="brand" icon="timer" /> : null}
         </View>
 

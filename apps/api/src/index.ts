@@ -10,6 +10,7 @@ import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import { config } from './config.ts';
 import { migrate, q } from './db/index.ts';
+import { SCHEMA_VERSION } from './db/migrations.ts';
 import { attachUser } from './lib/auth.ts';
 import { notFoundHandler, errorHandler, AppError } from './lib/errors.ts';
 import { verifySignedAccess, getFile, absolutePath } from './services/storage.ts';
@@ -37,7 +38,11 @@ export function createApp() {
   app.disable('x-powered-by');
   if (config.security.trustProxy) app.set('trust proxy', 1);
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' }, contentSecurityPolicy: false }));
-  app.use(cors({ origin: config.security.corsOrigins.length ? config.security.corsOrigins : true, credentials: true }));
+  app.use(cors({
+    origin: config.security.corsOrigins.length ? config.security.corsOrigins : true, credentials: true,
+    // X-Learner-Id: المتعلّم النشط في العميل (انظر services/learners.ts)
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With', 'X-Learner-Id'],
+  }));
   app.use(compression());
   // ردود بوابات الدفع تحتاج الجسم الخام للتحقّق من التوقيع — تُركَّب قبل json()
   app.use('/api/payments', paymentsRouter);
@@ -49,7 +54,7 @@ export function createApp() {
   }));
   app.use(attachUser);
 
-  app.get('/api/health', (_req, res) => res.json({ ok: true, name: config.brand.name.ar, env: config.env, time: new Date().toISOString() }));
+  app.get('/api/health', (_req, res) => res.json({ ok: true, name: config.brand.name.ar, env: config.env, time: new Date().toISOString(), schemaVersion: SCHEMA_VERSION }));
   app.get('/api/config', (_req, res) => res.json({
     brand: config.brand, paymentProviders: config.payments.providers, roomProvider: config.rooms.provider,
     devOtp: !!config.otp.devCode, mockPayments: config.env !== 'production' && config.payments.providers.includes('mock'),
