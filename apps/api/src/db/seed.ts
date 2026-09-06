@@ -8,7 +8,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { config } from '../config.ts';
 import { db, q, migrate, nowIso } from './index.ts';
-import { money, muscatToUtc, slugify } from '../lib/helpers.ts';
+import { money, muscatToUtc } from '../lib/helpers.ts';
 import { storeFile } from '../services/storage.ts';
 import { createOrder, fulfillOrder } from '../services/checkout.ts';
 import { grantAccess } from '../services/access.ts';
@@ -179,8 +179,10 @@ export function seedDemo() {
       `${b.title}. مُعدّ وفق كتاب الوزارة الحالي، ومراجَع من فريق المنصّة.`, JSON.stringify(b.points), JSON.stringify([b.type, b.subject]), b.price, b.pages, 'الطبعة ٢٠٢٥', '1.2', b.subject === 'english' ? 'en' : 'ar', b.level ?? null, 5,
       new Date(Date.now() - Math.floor(Math.random() * 40) * 86_400_000).toISOString()).lastInsertRowid);
     b.toc.forEach(([t, p], i) => q.run('INSERT INTO book_toc (book_id, title, page, "order") VALUES (?,?,?,?)', id, t, p, i));
-    const full = storeFile(makePdf(slugify(b.title, 40), b.pages), { ownerId: author, originalName: `${slugify(b.title)}.pdf`, mime: 'application/pdf', purpose: 'book' });
-    const preview = storeFile(makePdf(`${slugify(b.title, 40)}-preview`, 5), { ownerId: author, originalName: `${slugify(b.title)}-preview.pdf`, mime: 'application/pdf', purpose: 'book' });
+    // الخطوط القياسية في PDF لا تدعم العربية — عنوان لاتيني للملف التجريبي
+    const tag = `Manassah demo book ${id} (${b.subject} ${b.type})`;
+    const full = storeFile(makePdf(tag, b.pages), { ownerId: author, originalName: `book-${id}.pdf`, mime: 'application/pdf', purpose: 'book' });
+    const preview = storeFile(makePdf(`${tag} - preview`, 5), { ownerId: author, originalName: `book-${id}-preview.pdf`, mime: 'application/pdf', purpose: 'book' });
     q.run("INSERT INTO book_files (book_id, kind, file_id) VALUES (?,'full',?)", id, full.id);
     q.run("INSERT INTO book_files (book_id, kind, file_id) VALUES (?,'preview',?)", id, preview.id);
     q.run("INSERT INTO content_reviews (entity_type, entity_id, reviewer_id, decision, checklist) VALUES ('book',?,?,'approved',?)", id, 3, JSON.stringify({ content: true, price: true, file: true, copyright: true }));

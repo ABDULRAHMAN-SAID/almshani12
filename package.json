@@ -2,8 +2,13 @@
   "name": "manassah",
   "version": "2.0.0",
   "private": true,
-  "workspaces": ["apps/*", "packages/*"],
-  "engines": { "node": ">=22.18" },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22.18"
+  },
   "scripts": {
     "api": "npm run dev -w apps/api",
     "mobile": "npm run start -w apps/mobile",
@@ -11,6 +16,9 @@
     "admin": "npm run dev -w apps/admin",
     "seed": "npm run seed -w apps/api",
     "typecheck": "npm run typecheck --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present"
+    "test": "npm run test --workspaces --if-present",
+    "admin:build": "npm run build -w apps/admin",
+    "web:export": "npm run export:web -w apps/mobile",
+    "test:api": "npm test -w apps/api"
   }
 }

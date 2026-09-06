@@ -28,7 +28,7 @@
     "expo-web-browser": "~57.0.2",
     "i18next": "^24.2.0",
     "react": "19.2.3",
-    "react-dom": "^19.2.3",
+    "react-dom": "19.2.3",
     "react-i18next": "^15.4.0",
     "react-native": "0.86.3",
     "react-native-gesture-handler": "~2.32.0",
