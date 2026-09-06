@@ -1,7 +1,7 @@
 import { View, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { colors, spacing, radius } from '@manassah/tokens';
+import { colors, spacing, radius, themed } from '@manassah/tokens';
 import { Screen, Text, Avatar, EmptyState } from '@/ui';
 import { useConversations } from '@/features/queries';
 import { formatDayShort } from '@/lib/format';
@@ -26,10 +26,10 @@ export default function Messages() {
     </Screen>
   );
 }
-const styles = StyleSheet.create({
+const styles = themed((c) => StyleSheet.create({
   list: { gap: spacing[2], paddingTop: spacing[2] },
-  row: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], padding: spacing[3], borderRadius: radius.md, backgroundColor: colors.bg.card, borderWidth: 1.5, borderColor: colors.border.default },
+  row: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], padding: spacing[3], borderRadius: radius.md, backgroundColor: c.bg.card, borderWidth: 1.5, borderColor: c.border.default },
   flex: { flex: 1, minWidth: 0 },
   top: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
-  badge: { minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6, backgroundColor: colors.brand.primary, alignItems: 'center', justifyContent: 'center' },
-});
+  badge: { minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6, backgroundColor: c.brand.primary, alignItems: 'center', justifyContent: 'center' },
+}));

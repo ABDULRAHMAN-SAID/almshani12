@@ -6,7 +6,8 @@ import { config } from '../config.ts';
  */
 export async function sendOtp(channel: 'phone' | 'email', target: string, code: string): Promise<void> {
   const provider = process.env.SMS_PROVIDER || 'log';
-  if (provider === 'log' || config.env !== 'production') {
+  // بلا مزوّد، أو خارج الإنتاج، أو مع رمز ثابت (OTP_FIXED_CODE): لا إرسال — الرمز في السجلّ
+  if (provider === 'log' || config.env !== 'production' || config.otp.devCode) {
     if (!config.isTest) console.log(`[otp] ${channel} ${target} → ${code}`);
     return;
   }

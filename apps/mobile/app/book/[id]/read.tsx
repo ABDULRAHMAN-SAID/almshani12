@@ -3,7 +3,7 @@ import { View, Pressable, StyleSheet } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, spacing, radius, hitTarget } from '@manassah/tokens';
+import { colors, spacing, radius, hitTarget, themed } from '@manassah/tokens';
 import { Text, Icon, Button, Input, BottomSheet, EmptyState, ErrorState, ScreenSkeleton, PdfView, type PdfViewHandle } from '@/ui';
 import { useBook, useBookRead, useReaderProgress, useToggleBookmark } from '@/features/queries';
 import { ApiError } from '@/api/client';
@@ -106,16 +106,16 @@ export default function Reader() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.bg.subtle },
-  bar: { flexDirection: 'row', alignItems: 'center', height: 56, paddingHorizontal: spacing[1], backgroundColor: colors.bg.base, borderBottomWidth: 1, borderBottomColor: colors.border.default },
+const styles = themed((c) => StyleSheet.create({
+  safe: { flex: 1, backgroundColor: c.bg.subtle },
+  bar: { flexDirection: 'row', alignItems: 'center', height: 56, paddingHorizontal: spacing[1], backgroundColor: c.bg.base, borderBottomWidth: 1, borderBottomColor: c.border.default },
   btn: { width: hitTarget, height: hitTarget, alignItems: 'center', justifyContent: 'center' },
   flex: { flex: 1, minWidth: 0 },
   body: { flex: 1 },
   watermark: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, justifyContent: 'space-around', alignItems: 'center', opacity: 0.35 },
   wmText: { transform: [{ rotate: '-20deg' }], fontSize: 13 },
-  banner: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], padding: spacing[3], backgroundColor: colors.brand.goldSoft, borderTopWidth: 1, borderTopColor: colors.border.default },
-  foot: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], paddingHorizontal: spacing[3], paddingVertical: spacing[1], backgroundColor: colors.bg.base, borderTopWidth: 1, borderTopColor: colors.border.default },
+  banner: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], padding: spacing[3], backgroundColor: c.brand.goldSoft, borderTopWidth: 1, borderTopColor: c.border.default },
+  foot: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], paddingHorizontal: spacing[3], paddingVertical: spacing[1], backgroundColor: c.bg.base, borderTopWidth: 1, borderTopColor: c.border.default },
   tocGroup: { marginBottom: spacing[3], gap: spacing[1] },
-  tocRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], paddingVertical: spacing[3], borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border.default, borderRadius: radius.sm },
-});
+  tocRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], paddingVertical: spacing[3], borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border.default, borderRadius: radius.sm },
+}));

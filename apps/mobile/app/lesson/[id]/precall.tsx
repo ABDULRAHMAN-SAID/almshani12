@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
-import { colors, spacing, radius } from '@manassah/tokens';
+import { colors, spacing, radius, themed } from '@manassah/tokens';
 import { Screen, Text, Icon, Button, Badge, Card } from '@/ui';
 import { useBooking } from '@/features/queries';
 import { api } from '@/api/client';
@@ -61,14 +61,14 @@ export default function PreCall() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((c) => StyleSheet.create({
   wrap: { gap: spacing[4], paddingTop: spacing[2] },
   preview: { aspectRatio: 4 / 3, borderRadius: radius.lg, overflow: 'hidden', backgroundColor: '#1F1D1A' },
   previewOff: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing[2], padding: spacing[4] },
   checks: { paddingHorizontal: spacing[4] },
-  check: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], paddingVertical: spacing[3], borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border.default },
-  checkIcon: { width: 40, height: 40, borderRadius: radius.md, backgroundColor: colors.bg.subtle, alignItems: 'center', justifyContent: 'center' },
-  okBg: { backgroundColor: colors.state.successSoft },
-  badBg: { backgroundColor: colors.state.dangerSoft },
+  check: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], paddingVertical: spacing[3], borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border.default },
+  checkIcon: { width: 40, height: 40, borderRadius: radius.md, backgroundColor: c.bg.subtle, alignItems: 'center', justifyContent: 'center' },
+  okBg: { backgroundColor: c.state.successSoft },
+  badBg: { backgroundColor: c.state.dangerSoft },
   flex: { flex: 1, minWidth: 0 },
-});
+}));

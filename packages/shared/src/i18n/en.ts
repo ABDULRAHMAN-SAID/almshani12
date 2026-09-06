@@ -211,7 +211,13 @@ export const en: Dictionary = {
   walletUi: { title: 'Wallet', balance: 'Available balance', history: 'Transactions', empty: 'No transactions yet', note: 'Balance comes from refunds and gifts and can be used to pay instantly', types: { topup: 'Top-up', purchase: 'Purchase', refund: 'Refund', adjustment: 'Adjustment', bonus: 'Gift' } },
   purchasesUi: { title: 'My purchases', empty: 'No purchases yet', orders: 'Orders', order: 'Order', items: '{{n}} items', status: { pending: 'Pending payment', paid: 'Paid', failed: 'Failed', refunded: 'Refunded', partially_refunded: 'Partially refunded', cancelled: 'Cancelled', expired: 'Expired' } },
   notificationsUi: { title: 'Notifications', markAll: 'Mark all as read', empty: 'No notifications yet', emptyHint: 'Lesson reminders and homework will show here' },
-  settings: { title: 'Settings', language: 'Language', arabic: 'العربية', english: 'English', deleteAccount: 'Delete account', deleteConfirm: 'Your account will be disabled and your personal data erased immediately. This cannot be undone.', delete: 'Delete', version: 'Version', name: 'Name', saved: 'Saved', profile: 'Profile', changeGrade: 'Change grade and subjects' },
+  settings: {
+    title: 'Settings', language: 'Language', arabic: 'العربية', english: 'English', deleteAccount: 'Delete account', deleteConfirm: 'Your account will be disabled and your personal data erased immediately. This cannot be undone.', delete: 'Delete', version: 'Version', name: 'Name', saved: 'Saved', profile: 'Profile', changeGrade: 'Change grade and subjects',
+    appearance: 'Appearance', theme: 'Theme', light: 'Light', dark: 'Dark', system: 'Automatic', textSize: 'Text size', textNormal: 'Normal', textLarge: 'Large',
+    server: 'Server & connection', serverUrl: 'Server address', serverHint: 'Enter your server address after deploying it (e.g. https://manassah.onrender.com), test, then save',
+    testConnection: 'Test connection', connected: 'Connected', connectionFailed: 'Connection failed', serverInvalid: 'Address must start with http:// or https://', serverTimeout: 'Connection timed out',
+    demoMode: 'Demo', liveMode: 'Live server', demoHint: 'Local data, no server — set your server address to go live', useDemo: 'Back to demo',
+  },
   teacherUi: {
     availabilityHint: 'Set your working days and hours — 60-minute slots are generated automatically', addRule: 'Add period', from: 'From', to: 'To', slot: 'Slot',
     breakM: 'Break', removeRule: 'Remove', saveRules: 'Save availability', timeOffAdd: 'Add time off', reason: 'Reason', noTimeOff: 'No upcoming time off',

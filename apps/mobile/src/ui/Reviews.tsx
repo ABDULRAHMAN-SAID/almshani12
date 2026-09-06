@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { colors, spacing, radius } from '@manassah/tokens';
+import { colors, spacing, radius, themed } from '@manassah/tokens';
 import type { z } from 'zod';
 import type { ReviewItem, CreateReview } from '@manassah/shared';
 import { Text } from './Text';
@@ -56,12 +56,12 @@ export function ReviewSheet({ visible, onClose, targetType, targetId, gateRef, o
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((c) => StyleSheet.create({
   list: { gap: spacing[3] },
   summary: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
-  item: { backgroundColor: colors.bg.card, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border.default, padding: spacing[3], gap: spacing[2] },
+  item: { backgroundColor: c.bg.card, borderRadius: radius.md, borderWidth: 1, borderColor: c.border.default, padding: spacing[3], gap: spacing[2] },
   head: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
   flex: { flex: 1, minWidth: 0 },
   form: { gap: spacing[4] },
   center: { alignItems: 'center' },
-});
+}));

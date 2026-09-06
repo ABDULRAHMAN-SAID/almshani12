@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { View, TextInput, Pressable, StyleSheet, Platform, type TextInputProps } from 'react-native';
-import { colors, radius, spacing, typography } from '@manassah/tokens';
+import { colors, radius, spacing, typography, themed } from '@manassah/tokens';
 import { Text } from './Text';
 import { Icon, type IconName } from './Icon';
 
@@ -78,33 +78,33 @@ export function SearchInput({ onClear, onFilter, activeFilters, value, ...rest }
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((c) => StyleSheet.create({
   wrap: { gap: spacing[1] },
   label: { marginBottom: 2, fontSize: 14, lineHeight: 20 },
   field: {
     flexDirection: 'row', alignItems: 'center', gap: spacing[2],
     minHeight: 56, paddingHorizontal: spacing[4],
-    backgroundColor: colors.bg.card, borderRadius: radius.md, borderWidth: 2, borderColor: colors.border.default,
+    backgroundColor: c.bg.card, borderRadius: radius.md, borderWidth: 2, borderColor: c.border.default,
   },
-  focused: { borderColor: colors.border.focus },
-  errored: { borderColor: colors.state.danger },
+  focused: { borderColor: c.border.focus },
+  errored: { borderColor: c.state.danger },
   input: {
     flex: 1, minWidth: 0, paddingVertical: spacing[2],
     ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null),
-    fontFamily: typography.body.family, fontSize: typography.body.size, color: colors.text.primary,
+    fontFamily: typography.body.family, fontSize: typography.body.size, color: c.text.primary,
     textAlign: 'auto', writingDirection: 'auto',
   },
   numeric: { fontVariant: ['tabular-nums'], letterSpacing: 1 },
   helper: { marginTop: 2 },
   searchRow: { flexDirection: 'row', gap: spacing[2], alignItems: 'center' },
-  search: { flex: 1, backgroundColor: colors.bg.card, borderColor: colors.border.default, borderRadius: radius.full, minHeight: 52 },
+  search: { flex: 1, backgroundColor: c.bg.card, borderColor: c.border.default, borderRadius: radius.full, minHeight: 52 },
   filterBtn: {
     width: 52, height: 52, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: colors.bg.card, borderWidth: 2, borderColor: colors.border.default,
+    backgroundColor: c.bg.card, borderWidth: 2, borderColor: c.border.default,
   },
   filterDot: {
     position: 'absolute', top: -4, end: -4, minWidth: 18, height: 18, borderRadius: 9,
-    backgroundColor: colors.brand.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4,
+    backgroundColor: c.brand.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4,
   },
   filterDotText: { fontSize: 10, lineHeight: 12 },
-});
+}));

@@ -2,9 +2,9 @@ import { View, Linking, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import Constants from 'expo-constants';
-import { colors, spacing } from '@manassah/tokens';
+import { colors, spacing, themed } from '@manassah/tokens';
 import { brand } from '@manassah/shared';
-import { Screen, Text, Card, Avatar, Badge, ListRow, Button, IconButton } from '@/ui';
+import { Screen, Text, Card, Avatar, Badge, ListRow, Button, IconButton, HeaderActions } from '@/ui';
 import { useAuth } from '@/state/auth';
 import { useNotifications, useWallet, useConversations } from '@/features/queries';
 import { signOut } from '@/lib/session';
@@ -24,7 +24,7 @@ export default function Account() {
   if (!user) return null;
 
   return (
-    <Screen title={t('account.title')} padded>
+    <Screen title={t('account.title')} padded right={<HeaderActions cart={false} bell={false} />}>
       <Card style={styles.profile} onPress={() => router.push('/account/settings')}>
         <Avatar name={user.displayName} url={user.avatarUrl} size="xl" />
         <View style={styles.flex}>
@@ -82,11 +82,11 @@ export default function Account() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((c) => StyleSheet.create({
   profile: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], marginTop: spacing[2] },
   flex: { flex: 1, minWidth: 0 },
   teacher: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], marginTop: spacing[3] },
   menu: { marginTop: spacing[3] },
   menuInner: { paddingHorizontal: spacing[4] },
-  version: { marginTop: spacing[4], color: colors.text.tertiary },
-});
+  version: { marginTop: spacing[4], color: c.text.tertiary },
+}));

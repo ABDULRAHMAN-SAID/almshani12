@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Modal as RNModal, View, Pressable, ScrollView, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colors, radius, spacing, shadow, layout } from '@manassah/tokens';
+import { colors, radius, spacing, shadow, layout, themed } from '@manassah/tokens';
 import { Text } from './Text';
 import { Icon } from './Icon';
 
@@ -63,21 +63,21 @@ export function Dialog({ visible, onClose, title, body, children, actions }: Dia
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((c) => StyleSheet.create({
   fill: { flex: 1, justifyContent: 'flex-end' },
-  backdrop: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, backgroundColor: colors.overlay },
+  backdrop: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, backgroundColor: c.overlay },
   center: { alignItems: 'center', justifyContent: 'center', padding: spacing[6] },
   sheet: {
-    backgroundColor: colors.bg.card, borderTopStartRadius: radius.xl, borderTopEndRadius: radius.xl,
+    backgroundColor: c.bg.card, borderTopStartRadius: radius.xl, borderTopEndRadius: radius.xl,
     maxHeight: '88%', width: '100%', alignSelf: 'center', ...shadow.sheet,
   },
-  handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border.strong, alignSelf: 'center', marginTop: spacing[2] },
+  handle: { width: 40, height: 4, borderRadius: 2, backgroundColor: c.border.strong, alignSelf: 'center', marginTop: spacing[2] },
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: layout.screenPadding, paddingTop: spacing[3], paddingBottom: spacing[2] },
   headTitle: { flex: 1 },
   body: { flexGrow: 0 },
   bodyContent: { paddingHorizontal: layout.screenPadding, paddingVertical: spacing[3] },
-  footer: { paddingHorizontal: layout.screenPadding, paddingTop: spacing[3], borderTopWidth: 1, borderTopColor: colors.border.default },
-  dialog: { width: '100%', maxWidth: 400, backgroundColor: colors.bg.card, borderRadius: radius.lg, padding: spacing[5], gap: spacing[3], ...shadow.sheet },
+  footer: { paddingHorizontal: layout.screenPadding, paddingTop: spacing[3], borderTopWidth: 1, borderTopColor: c.border.default },
+  dialog: { width: '100%', maxWidth: 400, backgroundColor: c.bg.card, borderRadius: radius.lg, padding: spacing[5], gap: spacing[3], ...shadow.sheet },
   dialogBody: { marginTop: -spacing[1] },
   dialogActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: spacing[2], marginTop: spacing[2] },
-});
+}));

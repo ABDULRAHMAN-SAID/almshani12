@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { colors, spacing } from '@manassah/tokens';
+import { colors, spacing, themed } from '@manassah/tokens';
 import { Screen, Text, Chip, SearchInput, BookCard, TeacherCard, CourseCard, SectionHeader, EmptyState, ErrorState, RowSkeleton, Icon } from '@/ui';
 import { useSearch } from '@/features/queries';
 import { useUi } from '@/state/ui';
@@ -81,13 +81,13 @@ export default function Search() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((c) => StyleSheet.create({
   px: { paddingHorizontal: spacing[4] },
   body: { paddingVertical: spacing[3], paddingBottom: spacing[8] },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
   hint: { marginTop: spacing[6] },
   results: { gap: spacing[5] },
   list: { gap: spacing[3] },
-  lesson: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], backgroundColor: colors.bg.card, borderRadius: 12, borderWidth: 1.5, borderColor: colors.border.default, padding: spacing[3] },
+  lesson: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], backgroundColor: c.bg.card, borderRadius: 12, borderWidth: 1.5, borderColor: c.border.default, padding: spacing[3] },
   flex: { flex: 1, minWidth: 0 },
-});
+}));

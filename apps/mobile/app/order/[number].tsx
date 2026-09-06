@@ -3,7 +3,7 @@ import { View, Platform, StyleSheet } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import * as Clipboard from 'expo-clipboard';
-import { colors, spacing, radius } from '@manassah/tokens';
+import { colors, spacing, radius, themed } from '@manassah/tokens';
 import { Screen, Text, Icon, Button, Card, Badge } from '@/ui';
 import { useOrder, useAfterPurchase } from '@/features/queries';
 import { money } from '@/lib/format';
@@ -72,15 +72,15 @@ export default function OrderStatus() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((c) => StyleSheet.create({
   wrap: { gap: spacing[3], paddingTop: spacing[2] },
   head: { alignItems: 'center', gap: spacing[2] },
   icon: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center', marginBottom: spacing[1] },
-  ok: { backgroundColor: colors.state.success }, bad: { backgroundColor: colors.state.danger }, wait: { backgroundColor: colors.state.warning },
+  ok: { backgroundColor: c.state.success }, bad: { backgroundColor: c.state.danger }, wait: { backgroundColor: c.state.warning },
   line: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing[3], paddingVertical: spacing[1] },
-  total: { borderTopWidth: 1, borderTopColor: colors.border.default, marginTop: spacing[2], paddingTop: spacing[3] },
+  total: { borderTopWidth: 1, borderTopColor: c.border.default, marginTop: spacing[2], paddingTop: spacing[3] },
   flex: { flex: 1, minWidth: 0 },
   mb: { marginBottom: spacing[2] },
   actions: { gap: spacing[2] },
   bankNote: { borderRadius: radius.md },
-});
+}));

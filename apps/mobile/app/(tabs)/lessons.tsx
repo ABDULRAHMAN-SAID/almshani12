@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { colors, spacing, radius } from '@manassah/tokens';
+import { colors, spacing, radius, themed } from '@manassah/tokens';
 import type { Booking } from '@manassah/shared';
 import { Screen, Text, Tabs, Chip, Button, Card, Avatar, LessonCard, EmptyState, HeaderActions } from '@/ui';
 import { useLessons } from '@/features/queries';
@@ -94,7 +94,7 @@ export default function Lessons() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((c) => StyleSheet.create({
   px: { paddingHorizontal: spacing[4] },
   pt: { paddingTop: spacing[4] },
   roleRow: { flexDirection: 'row', gap: spacing[2], paddingHorizontal: spacing[4], paddingBottom: spacing[2] },
@@ -104,7 +104,7 @@ const styles = StyleSheet.create({
   rate: { alignSelf: 'flex-end' },
   pkgHead: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], marginBottom: spacing[3] },
   flex: { flex: 1, minWidth: 0 },
-  track: { height: 8, borderRadius: 4, backgroundColor: colors.bg.subtle, overflow: 'hidden' },
-  fill: { height: '100%', backgroundColor: colors.brand.gold, borderRadius: radius.full },
+  track: { height: 8, borderRadius: 4, backgroundColor: c.bg.subtle, overflow: 'hidden' },
+  fill: { height: '100%', backgroundColor: c.brand.gold, borderRadius: radius.full },
   pkgFoot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing[3] },
-});
+}));

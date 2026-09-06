@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { colors, spacing, radius } from '@manassah/tokens';
+import { colors, spacing, radius, themed } from '@manassah/tokens';
 import { Screen, Text, Tabs, Button, Card, Badge, EmptyState } from '@/ui';
 import { usePurchases } from '@/features/queries';
 import { money, formatDayShort, formatDateTime } from '@/lib/format';
@@ -31,11 +31,11 @@ export default function Purchases() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((c) => StyleSheet.create({
   list: { gap: spacing[3], paddingTop: spacing[4] },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
   flex: { flex: 1, minWidth: 0 },
   end: { alignItems: 'flex-end', gap: 4 },
-  track: { height: 5, borderRadius: radius.full, backgroundColor: colors.bg.subtle, overflow: 'hidden', marginTop: spacing[2] },
-  fill: { height: '100%', backgroundColor: colors.state.success },
-});
+  track: { height: 5, borderRadius: radius.full, backgroundColor: c.bg.subtle, overflow: 'hidden', marginTop: spacing[2] },
+  fill: { height: '100%', backgroundColor: c.state.success },
+}));

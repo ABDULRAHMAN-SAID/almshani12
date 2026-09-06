@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { View, Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
-import { colors, radius, spacing, shadow } from '@manassah/tokens';
+import { colors, radius, spacing, shadow, themed } from '@manassah/tokens';
 
 export interface CardProps {
   children: ReactNode;
@@ -34,12 +34,12 @@ export function Card({ children, onPress, padded = true, accent, rail, tint, sty
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((c) => StyleSheet.create({
   card: {
-    backgroundColor: colors.bg.card, borderRadius: radius.lg,
-    borderWidth: 1.5, borderColor: colors.border.default, ...shadow.card, overflow: 'hidden',
+    backgroundColor: c.bg.card, borderRadius: radius.lg,
+    borderWidth: 1.5, borderColor: c.border.default, ...shadow.card, overflow: 'hidden',
   },
   padded: { padding: spacing[4] },
-  accent: { borderWidth: 2, borderColor: colors.brand.gold },
+  accent: { borderWidth: 2, borderColor: c.brand.gold },
   pressed: { opacity: 0.9, transform: [{ scale: 0.99 }] },
-});
+}));

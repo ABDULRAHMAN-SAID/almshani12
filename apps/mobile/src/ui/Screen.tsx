@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { View, ScrollView, Pressable, RefreshControl, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, spacing, layout, hitTarget, radius } from '@manassah/tokens';
+import { colors, spacing, layout, hitTarget, radius, themed } from '@manassah/tokens';
 import { Text } from './Text';
 import { Icon } from './Icon';
 import { ErrorState, EmptyState, type EmptyStateProps } from './States';
@@ -79,14 +79,14 @@ export function Screen({
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.bg.base },
+const styles = themed((c) => StyleSheet.create({
+  safe: { flex: 1, backgroundColor: c.bg.base },
   header: {
     flexDirection: 'row', alignItems: 'center', height: 64,
-    paddingHorizontal: spacing[3], backgroundColor: colors.bg.base,
+    paddingHorizontal: spacing[3], backgroundColor: c.bg.base,
   },
   headerBtn: { width: hitTarget - 4, height: hitTarget - 4, alignItems: 'center', justifyContent: 'center' },
-  backBtn: { borderRadius: radius.full, backgroundColor: colors.bg.card, borderWidth: 1.5, borderColor: colors.border.default },
+  backBtn: { borderRadius: radius.full, backgroundColor: c.bg.card, borderWidth: 1.5, borderColor: c.border.default },
   pressed: { opacity: 0.7 },
   headerRight: { width: undefined, minWidth: hitTarget, flexDirection: 'row', justifyContent: 'flex-end' },
   headerCenter: { flex: 1, alignItems: 'center' },
@@ -96,7 +96,7 @@ const styles = StyleSheet.create({
   padded: { paddingHorizontal: layout.screenPadding },
   footer: {
     paddingHorizontal: layout.screenPadding, paddingVertical: spacing[3],
-    borderTopWidth: 1.5, borderTopColor: colors.border.default, backgroundColor: colors.bg.card,
+    borderTopWidth: 1.5, borderTopColor: c.border.default, backgroundColor: c.bg.card,
     borderTopStartRadius: radius.lg, borderTopEndRadius: radius.lg,
   },
-});
+}));

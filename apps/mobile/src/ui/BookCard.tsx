@@ -2,7 +2,7 @@ import { View, Pressable, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { colors, radius, spacing, shadow, subjectColors, subjectIcons, type SubjectColorKey } from '@manassah/tokens';
+import { colors, radius, spacing, shadow, subjectColors, subjectIcons, type SubjectColorKey, themed } from '@manassah/tokens';
 import type { BookCard as BookCardData } from '@manassah/shared';
 import { Text } from './Text';
 import { Badge } from './Badge';
@@ -83,22 +83,22 @@ export function BookCard({ book, onPress, compact, width }: BookCardProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  card: { backgroundColor: colors.bg.card, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.border.default, overflow: 'hidden', ...shadow.card },
+const styles = themed((c) => StyleSheet.create({
+  card: { backgroundColor: c.bg.card, borderRadius: radius.lg, borderWidth: 1.5, borderColor: c.border.default, overflow: 'hidden', ...shadow.card },
   fluid: { flex: 1 },
   pressed: { opacity: 0.9, transform: [{ scale: 0.99 }] },
-  cover: { width: '100%', backgroundColor: colors.bg.subtle },
+  cover: { width: '100%', backgroundColor: c.bg.subtle },
   coverFallback: { padding: spacing[3], justifyContent: 'flex-end', gap: spacing[1], overflow: 'hidden' },
   watermark: { position: 'absolute', top: -14, end: -18, opacity: 0.22 },
   typePill: { alignSelf: 'flex-start', backgroundColor: '#FFFFFF', borderRadius: radius.full, paddingHorizontal: spacing[2], height: 24, justifyContent: 'center' },
   coverTitle: { lineHeight: 24 },
   badgePos: { position: 'absolute', top: spacing[2], start: spacing[2] },
-  heart: { position: 'absolute', top: spacing[2], end: spacing[2], backgroundColor: colors.bg.card, borderRadius: 14, padding: 5 },
+  heart: { position: 'absolute', top: spacing[2], end: spacing[2], backgroundColor: c.bg.card, borderRadius: 14, padding: 5 },
   body: { padding: spacing[3], gap: 2 },
   title: { minHeight: 52 },
   foot: { marginTop: spacing[2], flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing[2] },
-  rowCard: { flexDirection: 'row', gap: spacing[3], backgroundColor: colors.bg.card, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.border.default, padding: spacing[2], overflow: 'hidden' },
+  rowCard: { flexDirection: 'row', gap: spacing[3], backgroundColor: c.bg.card, borderRadius: radius.lg, borderWidth: 1.5, borderColor: c.border.default, padding: spacing[2], overflow: 'hidden' },
   rowCover: { width: 80, borderRadius: radius.md, overflow: 'hidden' },
   rowBody: { flex: 1, justifyContent: 'space-between', paddingVertical: 2, gap: 2 },
   rowFoot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing[1] },
-});
+}));

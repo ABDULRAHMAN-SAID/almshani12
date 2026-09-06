@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { colors, spacing, radius } from '@manassah/tokens';
+import { colors, spacing, radius, themed } from '@manassah/tokens';
 import { Screen, Text, Button, Input, Chip, Icon } from '@/ui';
 import { api, ApiError, errorMessageKey } from '@/api/client';
 
@@ -74,16 +74,16 @@ export default function Login() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((c) => StyleSheet.create({
   wrap: { gap: spacing[5], paddingTop: spacing[4] },
   head: { gap: spacing[2] },
   chips: { flexDirection: 'row', gap: spacing[2] },
   phoneRow: { flexDirection: 'row', gap: spacing[2], alignItems: 'flex-start' },
-  code: { height: 56, paddingHorizontal: spacing[4], borderRadius: radius.md, borderWidth: 2, borderColor: colors.border.default, backgroundColor: colors.bg.card, justifyContent: 'center' },
+  code: { height: 56, paddingHorizontal: spacing[4], borderRadius: radius.md, borderWidth: 2, borderColor: c.border.default, backgroundColor: c.bg.card, justifyContent: 'center' },
   flex: { flex: 1 },
   divider: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
-  line: { flex: 1, height: 1.5, backgroundColor: colors.border.default },
+  line: { flex: 1, height: 1.5, backgroundColor: c.border.default },
   socials: { gap: spacing[2] },
   note: { flexDirection: 'row', gap: spacing[1], alignItems: 'center', justifyContent: 'center' },
   terms: { marginTop: 'auto' },
-});
+}));

@@ -4,7 +4,7 @@ import { Image } from 'expo-image';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, radius, subjectColors, subjectIcons, type SubjectColorKey } from '@manassah/tokens';
+import { colors, spacing, radius, subjectColors, subjectIcons, type SubjectColorKey, themed } from '@manassah/tokens';
 import { Screen, Text, Icon, Button, IconButton, Chip, Badge, Avatar, Rating, Price, SectionHeader, BookCard, ReviewList, ReviewSheet, Expandable, VerifiedBadge } from '@/ui';
 import { useBook, useAddToCart, useCart, useToggleFavorite } from '@/features/queries';
 import { formatDayShort } from '@/lib/format';
@@ -136,11 +136,11 @@ export default function BookDetail() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((c) => StyleSheet.create({
   px: { paddingHorizontal: spacing[4] },
   iconBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   hero: { alignItems: 'center', paddingVertical: spacing[5] },
-  cover: { width: 180, height: 240, borderRadius: radius.lg, backgroundColor: colors.bg.card, shadowColor: '#1E2430', shadowOpacity: 0.18, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 4 },
+  cover: { width: 180, height: 240, borderRadius: radius.lg, backgroundColor: c.bg.card, shadowColor: '#1E2430', shadowOpacity: 0.18, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 4 },
   coverFallback: { padding: spacing[3], justifyContent: 'flex-end', gap: spacing[2], overflow: 'hidden' },
   watermark: { position: 'absolute', top: -24, start: -34, opacity: 0.2, transform: [{ rotate: '-12deg' }] },
   typePill: { alignSelf: 'flex-start', backgroundColor: '#FFFFFF', borderRadius: radius.full, paddingHorizontal: spacing[3], height: 26, justifyContent: 'center' },
@@ -151,19 +151,19 @@ const styles = StyleSheet.create({
   flex: { flex: 1, minWidth: 0 },
   stats: { flexDirection: 'row', gap: spacing[3], alignItems: 'center', marginTop: spacing[2], flexWrap: 'wrap' },
   previewBtn: { marginTop: spacing[2] },
-  trust: { marginTop: spacing[4], backgroundColor: colors.bg.card, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.border.default, padding: spacing[3], gap: spacing[2] },
+  trust: { marginTop: spacing[4], backgroundColor: c.bg.card, borderRadius: radius.md, borderWidth: 1.5, borderColor: c.border.default, padding: spacing[3], gap: spacing[2] },
   trustItem: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
   section: { marginTop: spacing[6] },
   point: { flexDirection: 'row', gap: spacing[2], alignItems: 'flex-start', marginBottom: spacing[2] },
-  toc: { backgroundColor: colors.bg.card, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.border.default, paddingHorizontal: spacing[3] },
+  toc: { backgroundColor: c.bg.card, borderRadius: radius.md, borderWidth: 1.5, borderColor: c.border.default, paddingHorizontal: spacing[3] },
   tocRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], paddingVertical: spacing[3] },
-  tocBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border.default },
+  tocBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border.default },
   meta: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[3] },
   metaItem: { minWidth: '30%', gap: 2 },
   samples: { flexDirection: 'row', gap: spacing[2] },
-  sample: { width: 120, height: 160, borderRadius: radius.sm, backgroundColor: colors.bg.subtle },
+  sample: { width: 120, height: 160, borderRadius: radius.sm, backgroundColor: c.bg.subtle },
   hList: { paddingHorizontal: spacing[4], gap: spacing[3] },
   footer: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
   footPrice: { flex: 1, minWidth: 0 },
   footBtn: { flex: 1.3 },
-});
+}));

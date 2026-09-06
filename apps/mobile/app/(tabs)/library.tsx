@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { View, FlatList, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { colors, spacing, radius, subjectColors, subjectIcons, type SubjectColorKey } from '@manassah/tokens';
+import { colors, spacing, radius, subjectColors, subjectIcons, type SubjectColorKey, themed } from '@manassah/tokens';
 import { BookType, type BookCard as BookCardData } from '@manassah/shared';
 import { Screen, Text, Chip, Button, Tabs, SearchInput, BookCard, BottomSheet, CardSkeleton, EmptyState, ErrorState, HeaderActions, Icon, type IconName } from '@/ui';
 import { useBooks, useCatalog, usePurchases } from '@/features/queries';
@@ -138,7 +138,7 @@ function SubjectTile({ label, icon, main, soft, selected, onPress }: { label: st
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((c) => StyleSheet.create({
   search: { paddingHorizontal: spacing[4], paddingBottom: spacing[3] },
   tabs: { paddingHorizontal: spacing[4] },
   head: { gap: spacing[3], paddingTop: spacing[3], paddingBottom: spacing[2] },
@@ -154,10 +154,10 @@ const styles = StyleSheet.create({
   skeletons: { flexDirection: 'row', gap: spacing[3], paddingVertical: spacing[3] },
   bottom: { height: spacing[4] },
   mine: { padding: spacing[4], gap: spacing[3] },
-  mineRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], backgroundColor: colors.bg.card, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.border.default, padding: spacing[3] },
-  mineIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.brand.greenSoft, alignItems: 'center', justifyContent: 'center' },
+  mineRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], backgroundColor: c.bg.card, borderRadius: radius.lg, borderWidth: 1.5, borderColor: c.border.default, padding: spacing[3] },
+  mineIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: c.brand.greenSoft, alignItems: 'center', justifyContent: 'center' },
   flex: { flex: 1, minWidth: 0 },
   sheetBody: { gap: spacing[3] },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2], marginBottom: spacing[2] },
   sheetFoot: { flexDirection: 'row', gap: spacing[2], alignItems: 'center' },
-});
+}));

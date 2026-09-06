@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { colors, spacing, radius, subjectColors, type SubjectColorKey } from '@manassah/tokens';
+import { colors, spacing, radius, subjectColors, type SubjectColorKey, themed } from '@manassah/tokens';
 import { savePercent } from '@manassah/shared';
 import { Screen, IconButton, Text, Icon, Button, Chip, Badge, Avatar, Rating, Price, Card, SectionHeader, BookCard, CourseCard, ReviewList, ReviewSheet, Expandable, VerifiedBadge } from '@/ui';
 import { useTeacher, useToggleFavorite, useStartConversation } from '@/features/queries';
@@ -130,7 +130,7 @@ export default function TeacherProfile() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((c) => StyleSheet.create({
   px: { paddingHorizontal: spacing[4] },
   iconBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   top: { flexDirection: 'row', gap: spacing[3], alignItems: 'center', paddingTop: spacing[2] },
@@ -138,22 +138,22 @@ const styles = StyleSheet.create({
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
   name: { flexShrink: 1 },
   badges: { flexDirection: 'row', gap: spacing[1], marginTop: spacing[1], flexWrap: 'wrap' },
-  stats: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: colors.bg.card, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.border.default, padding: spacing[3], marginTop: spacing[4] },
+  stats: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: c.bg.card, borderRadius: radius.md, borderWidth: 1.5, borderColor: c.border.default, padding: spacing[3], marginTop: spacing[4] },
   stat: { alignItems: 'center', gap: 2, flex: 1 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[1], marginTop: spacing[3] },
   section: { marginTop: spacing[6] },
   last: { marginBottom: spacing[6] },
   priceRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing[4], paddingVertical: spacing[3] },
-  priceHead: { backgroundColor: colors.bg.subtle, borderTopStartRadius: radius.lg, borderTopEndRadius: radius.lg },
-  priceBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border.default },
+  priceHead: { backgroundColor: c.bg.subtle, borderTopStartRadius: radius.lg, borderTopEndRadius: radius.lg },
+  priceBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border.default },
   priceCol: { width: 90, textAlign: 'center' },
   pkgs: { gap: spacing[3] },
   pkgRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
   pkgFoot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing[3] },
   days: { flexDirection: 'row', gap: spacing[1], justifyContent: 'space-between' },
-  day: { flex: 1, alignItems: 'center', paddingVertical: spacing[2], borderRadius: radius.md, backgroundColor: colors.bg.card, borderWidth: 1.5, borderColor: colors.border.default, gap: 2 },
-  dayOff: { backgroundColor: colors.bg.subtle, borderStyle: 'dashed' },
+  day: { flex: 1, alignItems: 'center', paddingVertical: spacing[2], borderRadius: radius.md, backgroundColor: c.bg.card, borderWidth: 1.5, borderColor: c.border.default, gap: 2 },
+  dayOff: { backgroundColor: c.bg.subtle, borderStyle: 'dashed' },
   hList: { paddingHorizontal: spacing[4], gap: spacing[3] },
   footer: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
   footBtn: { flex: 1.2 },
-});
+}));

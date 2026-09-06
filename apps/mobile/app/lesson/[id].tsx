@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { colors, spacing, radius, subjectColors, type SubjectColorKey } from '@manassah/tokens';
+import { colors, spacing, radius, subjectColors, type SubjectColorKey, themed } from '@manassah/tokens';
 import { Screen, Text, Icon, Button, Badge, Avatar, Card, Dialog, Calendar, TimeSlotGrid, BottomSheet, SectionHeader } from '@/ui';
 import { useBooking, useCancelBooking, useReschedule, useAvailability, useEndLesson, useStartConversation, useReport } from '@/features/queries';
 import { useAuth } from '@/state/auth';
@@ -110,16 +110,16 @@ export default function LessonDetail() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((c) => StyleSheet.create({
   wrap: { gap: spacing[3], paddingTop: spacing[2] },
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing[2], marginBottom: spacing[3] },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], marginBottom: spacing[2] },
   person: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
   flex: { flex: 1, minWidth: 0 },
   para: { lineHeight: 24 },
-  hw: { marginTop: spacing[3], padding: spacing[3], backgroundColor: colors.brand.primarySoft, borderRadius: radius.md, gap: 4 },
+  hw: { marginTop: spacing[3], padding: spacing[3], backgroundColor: c.brand.primarySoft, borderRadius: radius.md, gap: 4 },
   att: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2], marginTop: spacing[2] },
   actions: { gap: spacing[2], marginTop: spacing[2] },
   policy: { flexDirection: 'row', gap: spacing[2], alignItems: 'center' },
   cal: { gap: spacing[3], marginTop: spacing[3] },
-});
+}));

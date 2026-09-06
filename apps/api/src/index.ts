@@ -18,6 +18,7 @@ import { expirePendingOrders } from './services/checkout.ts';
 import { releaseEarnings } from './services/earnings.ts';
 import { sendLessonReminders } from './services/reminders.ts';
 import { attachRealtime } from './realtime/index.ts';
+import { bootstrapIfEmpty } from './db/seed.ts';
 import auth from './domains/auth.ts';
 import users from './domains/users.ts';
 import catalog from './domains/catalog.ts';
@@ -96,6 +97,12 @@ export function createApp() {
     app.use('/admin', express.static(adminDist));
     app.get('/admin/*', (_req, res) => res.sendFile(path.join(adminDist, 'index.html')));
   }
+  // تطبيق الويب المبنيّ (npm run web:build) يُخدَم من الجذر — خادم واحد للواجهة والـ API والغرف
+  const webDist = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../mobile/dist');
+  if (fs.existsSync(path.join(webDist, 'index.html'))) {
+    app.use(express.static(webDist, { index: 'index.html', maxAge: '1h' }));
+    app.get(/^(?!\/api\/|\/admin|\/static\/|\/pay\/).*/, (_req, res) => res.sendFile(path.join(webDist, 'index.html')));
+  }
 
   app.use(notFoundHandler);
   app.use(errorHandler);
@@ -113,8 +120,10 @@ export function runMaintenance() {
 
 export function start() {
   const { server } = createApp();
+  const boot = bootstrapIfEmpty();
+  if (boot.seeded !== 'none') console.log(`[bootstrap] ${boot.seeded === 'demo' ? 'بيانات العرض' : 'المنهج'}${boot.admin ? ` + مدير ${boot.admin}` : ''}`);
   server.listen(config.port, config.host, () => {
-    console.log(`✔ ${config.brand.name.ar} API — http://localhost:${config.port}  (${config.env})`);
+    console.log(`✔ ${config.brand.name.ar} API — ${config.publicUrl}  (${config.env})`);
     console.log(`  users: ${q.val<number>('SELECT COUNT(*) FROM users')}  providers: ${config.payments.providers.join(',')}  rooms: ${config.rooms.provider}`);
   });
   runMaintenance();

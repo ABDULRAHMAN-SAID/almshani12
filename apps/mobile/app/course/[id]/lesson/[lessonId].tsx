@@ -4,7 +4,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { useEvent } from 'expo';
-import { colors, spacing, radius } from '@manassah/tokens';
+import { colors, spacing, radius, themed } from '@manassah/tokens';
 import { Screen, Text, Icon, Button, Chip, Card, Badge, EmptyState } from '@/ui';
 import { usePlayLesson, useLessonProgress, useCourse } from '@/features/queries';
 import { ApiError } from '@/api/client';
@@ -91,21 +91,21 @@ export default function LessonPlayer() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((c) => StyleSheet.create({
   px: { paddingHorizontal: spacing[4] },
   video: { aspectRatio: 16 / 9, backgroundColor: '#141210' },
   noVideo: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing[2], padding: spacing[4] },
   controls: { paddingHorizontal: spacing[4], paddingTop: spacing[3], gap: spacing[2] },
-  track: { height: 4, borderRadius: 2, backgroundColor: colors.bg.subtle, overflow: 'hidden' },
-  fill: { height: '100%', backgroundColor: colors.brand.primary },
+  track: { height: 4, borderRadius: 2, backgroundColor: c.bg.subtle, overflow: 'hidden' },
+  fill: { height: '100%', backgroundColor: c.brand.primary },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   btns: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
-  ctl: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg.card, borderWidth: 1.5, borderColor: colors.border.default },
-  play: { backgroundColor: colors.brand.primary, borderColor: colors.brand.primary, width: 52, height: 52, borderRadius: 26 },
+  ctl: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: c.bg.card, borderWidth: 1.5, borderColor: c.border.default },
+  play: { backgroundColor: c.brand.primary, borderColor: c.brand.primary, width: 52, height: 52, borderRadius: 26 },
   speeds: { flexDirection: 'row', alignItems: 'center', gap: spacing[1] },
   speedLabel: { marginEnd: spacing[1] },
   reading: { lineHeight: 28 },
   quiz: { alignItems: 'center', gap: spacing[3], paddingVertical: spacing[3] },
   mt: { marginTop: spacing[4] },
   nav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing[2] },
-});
+}));

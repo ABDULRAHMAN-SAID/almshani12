@@ -2,7 +2,7 @@ import { Tabs } from 'expo-router';
 import { Platform, View, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { colors, fontFamily, radius } from '@manassah/tokens';
+import { colors, fontFamily, radius, themed } from '@manassah/tokens';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -52,7 +52,7 @@ export default function TabsLayout() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((c) => StyleSheet.create({
   pill: { width: 58, height: 34, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' },
-  pillActive: { backgroundColor: colors.brand.primarySoft },
-});
+  pillActive: { backgroundColor: c.brand.primarySoft },
+}));

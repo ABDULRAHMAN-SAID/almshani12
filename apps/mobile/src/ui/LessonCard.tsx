@@ -1,6 +1,6 @@
 import { View, Pressable, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { colors, radius, spacing, shadow, subjectColors, type SubjectColorKey } from '@manassah/tokens';
+import { colors, radius, spacing, shadow, subjectColors, type SubjectColorKey, themed } from '@manassah/tokens';
 import type { Booking } from '@manassah/shared';
 import { Text } from './Text';
 import { Avatar } from './Avatar';
@@ -76,11 +76,11 @@ export function LessonCard({ booking, onPress, onJoin, hero, asTeacher }: Lesson
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((c) => StyleSheet.create({
   card: {
-    backgroundColor: colors.bg.card, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.border.default, overflow: 'hidden', ...shadow.card,
+    backgroundColor: c.bg.card, borderRadius: radius.lg, borderWidth: 1.5, borderColor: c.border.default, overflow: 'hidden', ...shadow.card,
   },
-  hero: { borderWidth: 2, borderColor: colors.brand.gold },
+  hero: { borderWidth: 2, borderColor: c.brand.gold },
   pressed: { opacity: 0.92 },
   band: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing[2], paddingHorizontal: spacing[4], paddingVertical: spacing[2] },
   subject: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], flexShrink: 1 },
@@ -92,4 +92,4 @@ const styles = StyleSheet.create({
   time: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
   actions: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
   flex: { flex: 1 },
-});
+}));

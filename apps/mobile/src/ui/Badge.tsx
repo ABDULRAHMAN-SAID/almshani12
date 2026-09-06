@@ -1,26 +1,27 @@
 import { View, StyleSheet } from 'react-native';
-import { colors, radius, spacing } from '@manassah/tokens';
+import { colors, radius, spacing, type Colors } from '@manassah/tokens';
 import { Text } from './Text';
 import { Icon, type IconName } from './Icon';
 
 export type BadgeTone = 'neutral' | 'brand' | 'gold' | 'success' | 'info' | 'warning' | 'danger' | 'live';
 
-const TONES: Record<BadgeTone, { bg: string; fg: string }> = {
-  neutral: { bg: colors.bg.subtle, fg: colors.text.secondary },
-  brand: { bg: colors.brand.primarySoft, fg: colors.brand.primaryDark },
-  gold: { bg: colors.brand.goldSoft, fg: colors.brand.goldDark },
-  success: { bg: colors.state.successSoft, fg: colors.brand.greenDark },
-  info: { bg: colors.state.infoSoft, fg: colors.state.info },
-  warning: { bg: colors.state.warningSoft, fg: '#B36A0E' },
-  danger: { bg: colors.state.dangerSoft, fg: colors.state.danger },
-  live: { bg: colors.state.live, fg: colors.text.onPrimary },
-};
+/** تُحسب عند الرسم كي تتبع السِمة (فاتح/داكن) */
+const tones = (c: Colors): Record<BadgeTone, { bg: string; fg: string }> => ({
+  neutral: { bg: c.bg.subtle, fg: c.text.secondary },
+  brand: { bg: c.brand.primarySoft, fg: c.brand.primary },
+  gold: { bg: c.brand.goldSoft, fg: c.brand.goldDark },
+  success: { bg: c.state.successSoft, fg: c.brand.green },
+  info: { bg: c.state.infoSoft, fg: c.state.info },
+  warning: { bg: c.state.warningSoft, fg: c.state.warningText },
+  danger: { bg: c.state.dangerSoft, fg: c.state.danger },
+  live: { bg: c.state.live, fg: c.text.onPrimary },
+});
 
 export interface BadgeProps { label: string; tone?: BadgeTone; icon?: IconName }
 
 /** شارة حالة — حبّة صغيرة، الحالة بالشكل واللون معاً لا باللون وحده */
 export function Badge({ label, tone = 'neutral', icon }: BadgeProps) {
-  const t = TONES[tone];
+  const t = tones(colors)[tone];
   return (
     <View style={[styles.badge, { backgroundColor: t.bg }]}>
       {icon ? <Icon name={icon} size={13} color={t.fg} /> : null}

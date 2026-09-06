@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { colors, spacing, radius } from '@manassah/tokens';
+import { colors, spacing, radius, themed } from '@manassah/tokens';
 import type { z } from 'zod';
 import type { QuizResult } from '@manassah/shared';
 import { Screen, Text, Icon, Button, Input, Card, Badge, EmptyState } from '@/ui';
@@ -126,26 +126,26 @@ export default function Quiz() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((c) => StyleSheet.create({
   intro: { alignItems: 'center', gap: spacing[3], paddingTop: spacing[8] },
-  introIcon: { width: 84, height: 84, borderRadius: 42, backgroundColor: colors.brand.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  introIcon: { width: 84, height: 84, borderRadius: 42, backgroundColor: c.brand.primarySoft, alignItems: 'center', justifyContent: 'center' },
   wrap: { gap: spacing[3], paddingTop: spacing[2] },
   meta: { gap: spacing[1] },
-  track: { height: 4, borderRadius: 2, backgroundColor: colors.bg.subtle, overflow: 'hidden' },
-  fill: { height: '100%', backgroundColor: colors.brand.primary },
+  track: { height: 4, borderRadius: 2, backgroundColor: c.bg.subtle, overflow: 'hidden' },
+  fill: { height: '100%', backgroundColor: c.brand.primary },
   qText: { marginVertical: spacing[3], lineHeight: 28 },
-  opt: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], padding: spacing[3], borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.border.default, marginBottom: spacing[2], minHeight: 52 },
-  optOn: { borderColor: colors.brand.primary, backgroundColor: colors.brand.primarySoft },
-  radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: colors.border.strong, alignItems: 'center', justifyContent: 'center' },
-  radioOn: { backgroundColor: colors.brand.primary, borderColor: colors.brand.primary },
+  opt: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], padding: spacing[3], borderRadius: radius.md, borderWidth: 1.5, borderColor: c.border.default, marginBottom: spacing[2], minHeight: 52 },
+  optOn: { borderColor: c.brand.primary, backgroundColor: c.brand.primarySoft },
+  radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: c.border.strong, alignItems: 'center', justifyContent: 'center' },
+  radioOn: { backgroundColor: c.brand.primary, borderColor: c.brand.primary },
   flex: { flex: 1, minWidth: 0 },
   nav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing[2] },
   resultHead: { alignItems: 'center', gap: spacing[2] },
   score: { width: 110, height: 110, borderRadius: 55, alignItems: 'center', justifyContent: 'center' },
-  scoreOk: { backgroundColor: colors.state.success }, scoreBad: { backgroundColor: colors.state.danger },
+  scoreOk: { backgroundColor: c.state.success }, scoreBad: { backgroundColor: c.state.danger },
   mb: { marginBottom: spacing[3] },
   topic: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], marginBottom: spacing[2] },
-  topicTrack: { width: 90, height: 6, borderRadius: 3, backgroundColor: colors.bg.subtle, overflow: 'hidden' },
+  topicTrack: { width: 90, height: 6, borderRadius: 3, backgroundColor: c.bg.subtle, overflow: 'hidden' },
   topicFill: { height: '100%' },
   expl: { marginTop: spacing[1] },
-});
+}));

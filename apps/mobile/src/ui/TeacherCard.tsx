@@ -1,6 +1,6 @@
 import { View, Pressable, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { colors, radius, spacing, shadow, subjectColors, type SubjectColorKey } from '@manassah/tokens';
+import { colors, radius, spacing, shadow, subjectColors, type SubjectColorKey, themed } from '@manassah/tokens';
 import type { TeacherCard as TeacherCardData } from '@manassah/shared';
 import { Text } from './Text';
 import { Avatar } from './Avatar';
@@ -68,14 +68,14 @@ export function TeacherCard({ teacher, onPress, onBook, compact, width }: Teache
   );
 }
 
-const styles = StyleSheet.create({
-  card: { backgroundColor: colors.bg.card, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.border.default, padding: spacing[4], gap: spacing[3], ...shadow.card },
+const styles = themed((c) => StyleSheet.create({
+  card: { backgroundColor: c.bg.card, borderRadius: radius.lg, borderWidth: 1.5, borderColor: c.border.default, padding: spacing[4], gap: spacing[3], ...shadow.card },
   pressed: { opacity: 0.92 },
   top: { flexDirection: 'row', gap: spacing[3], alignItems: 'center' },
   head: { flex: 1, gap: 4, minWidth: 0 },
   statRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], flexWrap: 'wrap' },
-  ratingPill: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: colors.brand.goldSoft, borderRadius: radius.full, paddingHorizontal: spacing[2], height: 26 },
+  ratingPill: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: c.brand.goldSoft, borderRadius: radius.full, paddingHorizontal: spacing[2], height: 26 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
-  foot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing[2], borderTopWidth: 1.5, borderTopColor: colors.border.default, paddingTop: spacing[3] },
+  foot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing[2], borderTopWidth: 1.5, borderTopColor: c.border.default, paddingTop: spacing[3] },
   footInfo: { flex: 1, gap: 2, minWidth: 0 },
-});
+}));

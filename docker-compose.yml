@@ -1,0 +1,20 @@
+# تشغيل محلي أو على أي خادم فيه Docker:  docker compose up -d   →  http://localhost:4000
+services:
+  manassah:
+    build: .
+    ports:
+      - "4000:4000"
+    environment:
+      NODE_ENV: production
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:4000}   # عنوانك العام (https://…) خلف الدومين
+      CORS_ORIGINS: ${CORS_ORIGINS:-}                    # فارغ = الكل؛ في الإنتاج حدّد الدومينات
+      ALLOW_DEMO_SEED: ${ALLOW_DEMO_SEED:-1}             # 1 = بيانات عرض عند أول تشغيل (خادم تجريبي)
+      ADMIN_PHONE: ${ADMIN_PHONE:-}                      # بديل البذر التجريبي: مدير أوّل بهذا الرقم
+      OTP_FIXED_CODE: ${OTP_FIXED_CODE:-000000}          # رمز دخول ثابت حتى ربط مزوّد SMS — أزله بعدها
+      PAYMENT_PROVIDERS: ${PAYMENT_PROVIDERS:-mock,wallet,manual}
+      ROOM_PROVIDER: ${ROOM_PROVIDER:-internal}
+    volumes:
+      - manassah-data:/data
+    restart: unless-stopped
+volumes:
+  manassah-data:

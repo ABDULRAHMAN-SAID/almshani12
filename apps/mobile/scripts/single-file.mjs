@@ -49,6 +49,8 @@ const safe = (s) => s.replace(/<\/(script|style)/gi, '<\\/$1').replace(/<!--/g, 
 const boot = `
 window.__MN_INLINE__=${safe(JSON.stringify(map))};
 (function(){
+  // الوضع الليلي المحفوظ يُطبَّق على الخلفية قبل تشغيل التطبيق (لا وميض)
+  try{var pf=JSON.parse(localStorage.getItem('mn_prefs')||'{}');var dk=pf.themePref==='dark'||(pf.themePref!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);if(dk){document.documentElement.style.background='#0E0F12';document.addEventListener('DOMContentLoaded',function(){document.body.style.background='#0E0F12'})}}catch(e){}
   // الموجّه يقرأ المسار من العنوان: نثبّته على الجذر كي تعمل الصفحة من أي مسار استضافة
   try{if(location.pathname!=='/')history.replaceState(null,'','/'+location.search+location.hash)}catch(e){}
   var map=window.__MN_INLINE__;

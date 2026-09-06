@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { colors, spacing, radius } from '@manassah/tokens';
+import { colors, spacing, radius, themed } from '@manassah/tokens';
 import { Screen, Text, Icon, Button, Input, Rating, Avatar, Card, SectionHeader } from '@/ui';
 import { useBooking, useSubmitReview } from '@/features/queries';
 import { errorMessageKey } from '@/api/client';
@@ -50,12 +50,12 @@ export default function PostLesson() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((c) => StyleSheet.create({
   wrap: { gap: spacing[4], paddingTop: spacing[2] },
   teacher: { alignItems: 'center', gap: spacing[2] },
   stars: { alignItems: 'center', marginBottom: spacing[3] },
   mt: { marginTop: spacing[3] },
   thanks: { alignItems: 'center', gap: spacing[2], paddingVertical: spacing[2] },
   para: { lineHeight: 24 },
-  hw: { marginTop: spacing[3], padding: spacing[3], backgroundColor: colors.brand.primarySoft, borderRadius: radius.md, gap: 4 },
-});
+  hw: { marginTop: spacing[3], padding: spacing[3], backgroundColor: c.brand.primarySoft, borderRadius: radius.md, gap: 4 },
+}));

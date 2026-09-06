@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { View, ScrollView, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { colors, spacing, radius } from '@manassah/tokens';
+import { colors, spacing, radius, themed } from '@manassah/tokens';
 import { Screen, Text, Button, Input, RowSkeleton, ErrorState } from '@/ui';
 import { useMessages, useSendMessage, useConversations } from '@/features/queries';
 import { useAuth } from '@/state/auth';
@@ -51,14 +51,14 @@ export default function Conversation() {
     </Screen>
   );
 }
-const styles = StyleSheet.create({
+const styles = themed((c) => StyleSheet.create({
   px: { paddingHorizontal: spacing[4] },
   msgs: { paddingHorizontal: spacing[4], paddingVertical: spacing[3], gap: spacing[2] },
   day: { marginVertical: spacing[2] },
   bubble: { maxWidth: '84%', padding: spacing[3], borderRadius: radius.lg, gap: 2 },
-  mine: { alignSelf: 'flex-end', backgroundColor: colors.brand.primarySoft, borderBottomEndRadius: 4 },
-  theirs: { alignSelf: 'flex-start', backgroundColor: colors.bg.card, borderWidth: 1.5, borderColor: colors.border.default, borderBottomStartRadius: 4 },
+  mine: { alignSelf: 'flex-end', backgroundColor: c.brand.primarySoft, borderBottomEndRadius: 4 },
+  theirs: { alignSelf: 'flex-start', backgroundColor: c.bg.card, borderWidth: 1.5, borderColor: c.border.default, borderBottomStartRadius: 4 },
   time: { alignSelf: 'flex-end' },
   inputRow: { flexDirection: 'row', gap: spacing[2], alignItems: 'flex-start' },
   flex: { flex: 1, minWidth: 0 },
-});
+}));

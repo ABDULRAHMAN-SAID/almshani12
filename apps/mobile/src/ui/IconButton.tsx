@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, ActivityIndicator } from 'react-native';
-import { colors, radius } from '@manassah/tokens';
+import { colors, radius, themed } from '@manassah/tokens';
 import { Icon, type IconName } from './Icon';
 
 export interface IconButtonProps {
@@ -25,11 +25,11 @@ export function IconButton({ icon, onPress, label, variant = 'secondary', size =
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((c) => StyleSheet.create({
   base: { borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' },
-  secondary: { backgroundColor: colors.bg.card, borderWidth: 2, borderColor: colors.border.strong },
-  soft: { backgroundColor: colors.brand.primarySoft },
-  primary: { backgroundColor: colors.brand.primary },
+  secondary: { backgroundColor: c.bg.card, borderWidth: 2, borderColor: c.border.strong },
+  soft: { backgroundColor: c.brand.primarySoft },
+  primary: { backgroundColor: c.brand.primary },
   pressed: { opacity: 0.75 },
   disabled: { opacity: 0.45 },
-});
+}));

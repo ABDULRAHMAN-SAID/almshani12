@@ -1,7 +1,7 @@
 import { View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { colors, spacing, radius, subjectColors, type SubjectColorKey } from '@manassah/tokens';
+import { colors, spacing, radius, subjectColors, type SubjectColorKey, themed } from '@manassah/tokens';
 import { Screen, Text, Card, Icon, EmptyState, SectionHeader, type IconName } from '@/ui';
 import { useProgress } from '@/features/queries';
 
@@ -42,12 +42,12 @@ export default function Progress() {
     </Screen>
   );
 }
-const styles = StyleSheet.create({
+const styles = themed((c) => StyleSheet.create({
   wrap: { gap: spacing[4], paddingTop: spacing[2] },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[3] },
   tile: { width: '47%', flexGrow: 1, gap: spacing[1] },
   bar: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], paddingVertical: spacing[2] },
   flex: { flex: 1, minWidth: 0 },
-  track: { width: 110, height: 6, borderRadius: radius.full, backgroundColor: colors.bg.subtle, overflow: 'hidden' },
+  track: { width: 110, height: 6, borderRadius: radius.full, backgroundColor: c.bg.subtle, overflow: 'hidden' },
   fill: { height: '100%' },
-});
+}));

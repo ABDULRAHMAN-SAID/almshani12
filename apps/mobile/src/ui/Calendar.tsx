@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { View, Pressable, ScrollView, StyleSheet } from 'react-native';
-import { colors, radius, spacing } from '@manassah/tokens';
+import { colors, radius, spacing, themed } from '@manassah/tokens';
 import type { DayAvailability } from '@manassah/shared';
 import { Text } from './Text';
 import { weekdayShort, dayKey } from '@/lib/format';
@@ -47,14 +47,14 @@ export function Calendar({ days, value, onChange }: CalendarProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((c) => StyleSheet.create({
   row: { flexDirection: 'row', gap: spacing[2], paddingVertical: spacing[1] },
   day: {
     width: 58, height: 76, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', gap: 2,
-    backgroundColor: colors.bg.card, borderWidth: 1, borderColor: colors.border.default,
+    backgroundColor: c.bg.card, borderWidth: 1, borderColor: c.border.default,
   },
-  daySelected: { backgroundColor: colors.brand.primary, borderColor: colors.brand.primary },
-  dayDisabled: { backgroundColor: colors.bg.subtle, borderStyle: 'dashed' },
-  dayToday: { borderColor: colors.brand.gold },
+  daySelected: { backgroundColor: c.brand.primary, borderColor: c.brand.primary },
+  dayDisabled: { backgroundColor: c.bg.subtle, borderStyle: 'dashed' },
+  dayToday: { borderColor: c.brand.gold },
   dot: { width: 5, height: 5, borderRadius: 3, marginTop: 2 },
-});
+}));

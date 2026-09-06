@@ -3,7 +3,7 @@ import { View, Pressable, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { colors, spacing, radius, subjectColors, type SubjectColorKey } from '@manassah/tokens';
+import { colors, spacing, radius, subjectColors, type SubjectColorKey, themed } from '@manassah/tokens';
 import { Screen, Text, Icon, Button, Chip, Badge, Avatar, Rating, Price, Card, SectionHeader, ReviewList, ReviewSheet, Expandable, VerifiedBadge } from '@/ui';
 import { useCourse, useAddToCart, useCart, useToggleFavorite } from '@/features/queries';
 import { durationLabel } from '@/lib/format';
@@ -81,7 +81,7 @@ export default function CourseDetail() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((c) => StyleSheet.create({
   px: { paddingHorizontal: spacing[4] },
   iconBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   cover: { aspectRatio: 16 / 9, justifyContent: 'flex-end', padding: spacing[4] },
@@ -93,16 +93,16 @@ const styles = StyleSheet.create({
   flex: { flex: 1, minWidth: 0 },
   stats: { flexDirection: 'row', gap: spacing[3], alignItems: 'center', marginTop: spacing[2], flexWrap: 'wrap' },
   progress: { marginTop: spacing[3], gap: 4 },
-  track: { height: 6, borderRadius: 3, backgroundColor: colors.bg.subtle, overflow: 'hidden' },
-  fill: { height: '100%', backgroundColor: colors.state.success },
+  track: { height: 6, borderRadius: 3, backgroundColor: c.bg.subtle, overflow: 'hidden' },
+  fill: { height: '100%', backgroundColor: c.state.success },
   section: { marginTop: spacing[6] },
   last: { marginBottom: spacing[6] },
   point: { flexDirection: 'row', gap: spacing[2], alignItems: 'flex-start', marginBottom: spacing[2] },
   sectionCard: { marginBottom: spacing[3] },
-  sectionHead: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], padding: spacing[3], backgroundColor: colors.bg.subtle, borderTopStartRadius: radius.lg, borderTopEndRadius: radius.lg },
+  sectionHead: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], padding: spacing[3], backgroundColor: c.bg.subtle, borderTopStartRadius: radius.lg, borderTopEndRadius: radius.lg },
   lesson: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], paddingHorizontal: spacing[3], paddingVertical: spacing[3] },
-  lessonBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border.default },
-  lessonIcon: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.brand.primarySoft, alignItems: 'center', justifyContent: 'center' },
-  doneBg: { backgroundColor: colors.state.successSoft },
+  lessonBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border.default },
+  lessonIcon: { width: 32, height: 32, borderRadius: 16, backgroundColor: c.brand.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  doneBg: { backgroundColor: c.state.successSoft },
   footer: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
-});
+}));

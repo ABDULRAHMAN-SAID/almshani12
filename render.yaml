@@ -1,0 +1,30 @@
+# نشر بنقرة على Render: New → Blueprint → اختر هذا المستودع. العنوان يُضبط تلقائياً من RENDER_EXTERNAL_URL.
+services:
+  - type: web
+    name: manassah
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit
+    disk:
+      name: manassah-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATA_DIR
+        value: /data
+      - key: TRUST_PROXY
+        value: "true"
+      - key: ALLOW_DEMO_SEED
+        value: "1"
+      - key: OTP_FIXED_CODE
+        value: "000000"
+      - key: PAYMENT_PROVIDERS
+        value: mock,wallet,manual
+      - key: ROOM_PROVIDER
+        value: internal
+      - key: CORS_ORIGINS
+        value: ""

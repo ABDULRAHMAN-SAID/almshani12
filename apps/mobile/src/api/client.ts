@@ -4,11 +4,21 @@ import type { z } from 'zod';
 import { ApiErrorBody, type ErrorCode } from '@manassah/shared';
 import { tokens } from '@/state/auth';
 
-/** عنوان الخادم: من app.json extra أو المتغيّر البيئي، وإلا localhost */
-const BASE =
-  (Constants.expoConfig?.extra?.apiUrl as string | undefined) ||
-  process.env.EXPO_PUBLIC_API_URL ||
-  (Platform.OS === 'android' ? 'http://10.0.2.2:4000' : 'http://localhost:4000');
+import { useUi } from '@/state/ui';
+
+const ENV_BASE = ((Constants.expoConfig?.extra?.apiUrl as string | undefined) || process.env.EXPO_PUBLIC_API_URL || '').replace(/\/+$/, '');
+
+/**
+ * عنوان الخادم بالأولوية: ما ضبطه المستخدم في الإعدادات → app.json/المتغيّر البيئي →
+ * على الويب أصل الصفحة نفسه (الخادم يخدم التطبيق والواجهة معاً) → localhost للتطوير.
+ */
+export function resolveBase(): string {
+  const custom = useUi.getState().serverUrl;
+  if (custom) return custom;
+  if (ENV_BASE) return ENV_BASE;
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && !/^(localhost|127\.0\.0\.1)$/.test(window.location.hostname) && /^https?:$/.test(window.location.protocol)) return window.location.origin;
+  return Platform.OS === 'android' ? 'http://10.0.2.2:4000' : 'http://localhost:4000';
+}
 
 export class ApiError extends Error {
   constructor(public code: ErrorCode | string, message: string, public status: number, public details?: { field: string; message: string }[]) {
@@ -36,7 +46,7 @@ let refreshing: Promise<boolean> | null = null;
 async function refreshSession(): Promise<boolean> {
   if (!tokens.refresh) return false;
   if (!refreshing) {
-    refreshing = fetch(`${BASE}/api/auth/refresh`, {
+    refreshing = fetch(`${resolveBase()}/api/auth/refresh`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refreshToken: tokens.refresh }),
     })
@@ -56,6 +66,8 @@ interface RequestOptions { auth?: boolean; noRetry?: boolean; signal?: AbortSign
 
 /** وضع العرض: التطبيق كاملاً بلا خادم (EXPO_PUBLIC_DEMO=1) — انظر ./demo.ts */
 export const DEMO = process.env.EXPO_PUBLIC_DEMO === '1';
+/** وضع العرض يعمل ما لم يضبط المستخدم خادماً حقيقياً من الإعدادات */
+export const isDemo = (): boolean => DEMO && !useUi.getState().serverUrl;
 // يُحمَّل بشكل متزامن كي تعمل النسخة أحادية الملف بلا جلب أجزاء إضافية؛ الشرط يُطوى وقت البناء فلا يدخل الإنتاج
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const demoModule: typeof import('./demo') | null = process.env.EXPO_PUBLIC_DEMO === '1' ? require('./demo') : null;
@@ -72,7 +84,7 @@ function finish<T>(data: unknown, path: string, schema?: z.ZodType<T>): T {
 }
 
 async function request<T>(method: string, path: string, body?: unknown, schema?: z.ZodType<T>, opts: RequestOptions = {}): Promise<T> {
-  if (DEMO && demoModule) {
+  if (isDemo() && demoModule) {
     const r = await demoModule.handle(method, path, body instanceof FormData ? undefined : body);
     if (r.status >= 400) { const e = r.body?.error ?? { code: 'server_error', message: `HTTP ${r.status}` }; throw new ApiError(e.code, e.message, r.status); }
     return finish<T>(r.body, path, schema);
@@ -81,7 +93,7 @@ async function request<T>(method: string, path: string, body?: unknown, schema?:
     const headers: Record<string, string> = { Accept: 'application/json' };
     if (body !== undefined && !(body instanceof FormData)) headers['Content-Type'] = 'application/json';
     if (tokens.access && opts.auth !== false) headers.Authorization = `Bearer ${tokens.access}`;
-    return fetch(`${BASE}/api${path}`, {
+    return fetch(`${resolveBase()}/api${path}`, {
       method, headers, signal: opts.signal,
       body: body instanceof FormData ? body : body !== undefined ? JSON.stringify(body) : undefined,
     });
@@ -118,7 +130,7 @@ const qs = (params?: Record<string, unknown>) => {
 };
 
 export const api = {
-  base: BASE,
+  get base() { return resolveBase(); },
   get: <T>(path: string, schema?: z.ZodType<T>, params?: Record<string, unknown>, opts?: RequestOptions) =>
     request<T>('GET', path + qs(params), undefined, schema, opts),
   post: <T>(path: string, body?: unknown, schema?: z.ZodType<T>, opts?: RequestOptions) =>

@@ -1,6 +1,6 @@
 import { View, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
-import { colors } from '@manassah/tokens';
+import { colors, themed } from '@manassah/tokens';
 import { Text } from './Text';
 import { Icon } from './Icon';
 import { initials } from '@/lib/format';
@@ -42,12 +42,12 @@ export function Avatar({ name, url, size = 'md', verified, ring }: AvatarProps) 
   );
 }
 
-const styles = StyleSheet.create({
-  img: { backgroundColor: colors.bg.subtle },
+const styles = themed((c) => StyleSheet.create({
+  img: { backgroundColor: c.bg.subtle },
   fallback: { alignItems: 'center', justifyContent: 'center' },
-  ring: { borderWidth: 3, borderColor: colors.bg.card },
+  ring: { borderWidth: 3, borderColor: c.bg.card },
   verified: {
-    position: 'absolute', bottom: -2, end: -2, backgroundColor: colors.brand.gold,
-    alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.bg.card,
+    position: 'absolute', bottom: -2, end: -2, backgroundColor: c.brand.gold,
+    alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: c.bg.card,
   },
-});
+}));

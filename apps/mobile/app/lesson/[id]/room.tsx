@@ -3,7 +3,7 @@ import { View, Pressable, ScrollView, StyleSheet, Platform } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { colors, spacing, radius, hitTarget } from '@manassah/tokens';
+import { colors, spacing, radius, hitTarget, themed } from '@manassah/tokens';
 import { Text, Icon, Button, Badge, Avatar, Input, BottomSheet, Dialog, ErrorState, ScreenSkeleton, VideoTile, Whiteboard, type IconName } from '@/ui';
 import { useLiveRoom } from '@/features/room';
 import { useRoom } from '@/state/room';
@@ -120,30 +120,30 @@ export default function Room() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((c) => StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#141210' },
-  safeLight: { flex: 1, backgroundColor: colors.bg.base, padding: spacing[4], justifyContent: 'center' },
+  safeLight: { flex: 1, backgroundColor: c.bg.base, padding: spacing[4], justifyContent: 'center' },
   top: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], paddingHorizontal: spacing[4], paddingVertical: spacing[2] },
   flex: { flex: 1, minWidth: 0 },
   dim: { opacity: 0.75 },
   conn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: radius.full },
-  connOk: { backgroundColor: colors.state.success }, connWarn: { backgroundColor: colors.state.warning }, connBad: { backgroundColor: colors.state.danger },
+  connOk: { backgroundColor: c.state.success }, connWarn: { backgroundColor: c.state.warning }, connBad: { backgroundColor: c.state.danger },
   stage: { flex: 1, marginHorizontal: spacing[3], borderRadius: radius.lg, overflow: 'hidden' },
   pip: { position: 'absolute', bottom: spacing[3], end: spacing[3], width: 120, borderRadius: radius.md, overflow: 'hidden', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.3)' },
-  shareBanner: { position: 'absolute', top: spacing[3], start: spacing[3], flexDirection: 'row', gap: 4, alignItems: 'center', backgroundColor: colors.state.info, paddingHorizontal: 8, paddingVertical: 4, borderRadius: radius.sm },
-  handBanner: { position: 'absolute', top: spacing[3], end: spacing[3], flexDirection: 'row', gap: 4, alignItems: 'center', backgroundColor: colors.brand.goldSoft, paddingHorizontal: 8, paddingVertical: 4, borderRadius: radius.sm },
+  shareBanner: { position: 'absolute', top: spacing[3], start: spacing[3], flexDirection: 'row', gap: 4, alignItems: 'center', backgroundColor: c.state.info, paddingHorizontal: 8, paddingVertical: 4, borderRadius: radius.sm },
+  handBanner: { position: 'absolute', top: spacing[3], end: spacing[3], flexDirection: 'row', gap: 4, alignItems: 'center', backgroundColor: c.brand.goldSoft, paddingHorizontal: 8, paddingVertical: 4, borderRadius: radius.sm },
   controlsBar: { flexGrow: 0 },
   controls: { flexDirection: 'row', gap: spacing[2], paddingHorizontal: spacing[3], paddingVertical: spacing[3] },
   ctl: { width: 72, height: hitTarget + 20, borderRadius: radius.md, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center', gap: 2 },
-  ctlActive: { backgroundColor: colors.bg.card },
-  ctlDanger: { backgroundColor: colors.state.danger },
+  ctlActive: { backgroundColor: c.bg.card },
+  ctlDanger: { backgroundColor: c.state.danger },
   ctlDisabled: { opacity: 0.4 },
   ctlLabel: { fontSize: 10, lineHeight: 12 },
-  badge: { position: 'absolute', top: 4, end: 6, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: colors.brand.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 },
+  badge: { position: 'absolute', top: 4, end: 6, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: c.brand.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 },
   badgeText: { fontSize: 10, lineHeight: 12 },
   chatRow: { flexDirection: 'row', gap: spacing[2], alignItems: 'flex-end' },
-  msg: { backgroundColor: colors.bg.subtle, borderRadius: radius.md, padding: spacing[3], marginBottom: spacing[2], alignSelf: 'flex-start', maxWidth: '88%' },
-  msgMine: { backgroundColor: colors.brand.primarySoft, alignSelf: 'flex-end' },
-  person: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], paddingVertical: spacing[2], borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border.default },
+  msg: { backgroundColor: c.bg.subtle, borderRadius: radius.md, padding: spacing[3], marginBottom: spacing[2], alignSelf: 'flex-start', maxWidth: '88%' },
+  msgMine: { backgroundColor: c.brand.primarySoft, alignSelf: 'flex-end' },
+  person: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], paddingVertical: spacing[2], borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border.default },
   hint: { marginBottom: spacing[2] },
-});
+}));

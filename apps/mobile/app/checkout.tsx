@@ -3,7 +3,7 @@ import { View, Pressable, Platform, StyleSheet } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import * as WebBrowser from 'expo-web-browser';
-import { colors, spacing, radius } from '@manassah/tokens';
+import { colors, spacing, radius, themed } from '@manassah/tokens';
 import { brand } from '@manassah/shared';
 import { Screen, Text, Icon, Button, Input, Card, Badge, RowSkeleton, type IconName } from '@/ui';
 import { useCart, useBooking, useQuote, usePaymentMethods, useCheckout, useWallet, useAfterPurchase } from '@/features/queries';
@@ -93,19 +93,19 @@ export default function Checkout() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((c) => StyleSheet.create({
   wrap: { gap: spacing[3], paddingTop: spacing[2] },
-  hold: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], padding: spacing[3], backgroundColor: colors.state.warningSoft, borderRadius: radius.md },
+  hold: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], padding: spacing[3], backgroundColor: c.state.warningSoft, borderRadius: radius.md },
   mb: { marginBottom: spacing[2] },
   line: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing[3], paddingVertical: spacing[1] },
-  total: { borderTopWidth: 1, borderTopColor: colors.border.default, marginTop: spacing[2], paddingTop: spacing[3] },
+  total: { borderTopWidth: 1, borderTopColor: c.border.default, marginTop: spacing[2], paddingTop: spacing[3] },
   couponRow: { flexDirection: 'row', gap: spacing[2], marginTop: spacing[3] },
   flex: { flex: 1, minWidth: 0 },
-  method: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], padding: spacing[3], borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.border.default, backgroundColor: colors.bg.card, minHeight: 64 },
-  methodOn: { borderColor: colors.brand.primary },
-  mIcon: { width: 40, height: 40, borderRadius: radius.md, backgroundColor: colors.bg.subtle, alignItems: 'center', justifyContent: 'center' },
-  mIconOn: { backgroundColor: colors.brand.primarySoft },
-  radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: colors.border.strong, alignItems: 'center', justifyContent: 'center' },
-  radioOn: { backgroundColor: colors.brand.primary, borderColor: colors.brand.primary },
+  method: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], padding: spacing[3], borderRadius: radius.md, borderWidth: 1.5, borderColor: c.border.default, backgroundColor: c.bg.card, minHeight: 64 },
+  methodOn: { borderColor: c.brand.primary },
+  mIcon: { width: 40, height: 40, borderRadius: radius.md, backgroundColor: c.bg.subtle, alignItems: 'center', justifyContent: 'center' },
+  mIconOn: { backgroundColor: c.brand.primarySoft },
+  radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: c.border.strong, alignItems: 'center', justifyContent: 'center' },
+  radioOn: { backgroundColor: c.brand.primary, borderColor: c.brand.primary },
   secure: { flexDirection: 'row', alignItems: 'center', gap: spacing[1], justifyContent: 'center' },
-});
+}));

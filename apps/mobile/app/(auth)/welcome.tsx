@@ -1,14 +1,14 @@
 import { View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { colors, spacing, radius, shadow } from '@manassah/tokens';
+import { colors, spacing, radius, shadow, subjectColors, themed } from '@manassah/tokens';
 import { brand } from '@manassah/shared';
 import { Screen, Text, Button, Icon, type IconName } from '@/ui';
 
-const FEATURES: { icon: IconName; key: string; bg: string; fg: string }[] = [
-  { icon: 'bookSolid', key: 'library.title', bg: '#E6EEFF', fg: '#2F6FED' },
-  { icon: 'videoSolid', key: 'lessons.title', bg: '#FDE9EC', fg: '#D7263D' },
-  { icon: 'playCircle', key: 'courses.title', bg: '#E3F5EB', fg: '#159A5B' },
+const features = (): { icon: IconName; key: string; bg: string; fg: string }[] => [
+  { icon: 'bookSolid', key: 'library.title', bg: subjectColors.math.soft, fg: subjectColors.math.main },
+  { icon: 'videoSolid', key: 'lessons.title', bg: colors.brand.primarySoft, fg: colors.brand.primary },
+  { icon: 'playCircle', key: 'courses.title', bg: colors.brand.greenSoft, fg: colors.brand.green },
 ];
 
 /** الترحيب: شعار كبير، جملة واحدة، ثلاث بلاطات ملوّنة، وزر واحد كبير */
@@ -26,7 +26,7 @@ export default function Welcome() {
         <Text role="display" center style={styles.title}>{t('onboarding.welcomeTitle')}</Text>
         <Text role="body" tone="secondary" center style={styles.body}>{t('onboarding.welcomeBody')}</Text>
         <View style={styles.tiles}>
-          {FEATURES.map(f => (
+          {features().map(f => (
             <View key={f.key} style={[styles.tile, { backgroundColor: f.bg }]}>
               <View style={styles.tileIcon}><Icon name={f.icon} size={26} color={f.fg} /></View>
               <Text role="caption" color={f.fg} center>{t(f.key)}</Text>
@@ -43,16 +43,16 @@ export default function Welcome() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((c) => StyleSheet.create({
   wrap: { justifyContent: 'space-between', paddingTop: spacing[10], paddingBottom: spacing[6] },
   top: { alignItems: 'center', gap: spacing[1] },
-  logo: { width: 96, height: 96, borderRadius: radius.xl, backgroundColor: colors.brand.primary, alignItems: 'center', justifyContent: 'center', marginBottom: spacing[3], borderBottomWidth: 6, borderBottomColor: colors.brand.primaryDark, ...shadow.raised },
+  logo: { width: 96, height: 96, borderRadius: radius.xl, backgroundColor: c.brand.primary, alignItems: 'center', justifyContent: 'center', marginBottom: spacing[3], borderBottomWidth: 6, borderBottomColor: c.brand.primaryDark, ...shadow.raised },
   logoText: { fontSize: 52, lineHeight: 70 },
   middle: { gap: spacing[3], alignItems: 'center' },
   title: { lineHeight: 48 },
   body: { maxWidth: 320 },
   tiles: { flexDirection: 'row', gap: spacing[3], marginTop: spacing[3], alignSelf: 'stretch' },
   tile: { flex: 1, alignItems: 'center', gap: spacing[2], paddingVertical: spacing[4], borderRadius: radius.lg },
-  tileIcon: { width: 52, height: 52, borderRadius: 26, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
+  tileIcon: { width: 52, height: 52, borderRadius: 26, backgroundColor: c.bg.card, alignItems: 'center', justifyContent: 'center' },
   actions: { gap: spacing[3] },
-});
+}));

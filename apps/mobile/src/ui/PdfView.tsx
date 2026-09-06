@@ -1,7 +1,7 @@
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import { StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
-import { colors } from '@manassah/tokens';
+import { colors, themed } from '@manassah/tokens';
 import { api } from '@/api/client';
 import { viewerHtml, parseViewerMessage, type ViewerMessage } from '@/lib/pdfViewer';
 
@@ -26,4 +26,4 @@ export const PdfView = forwardRef<PdfViewHandle, PdfViewProps>(function PdfView(
   );
 });
 
-const styles = StyleSheet.create({ web: { flex: 1, backgroundColor: colors.bg.subtle } });
+const styles = themed((c) => StyleSheet.create({ web: { flex: 1, backgroundColor: c.bg.subtle } }));

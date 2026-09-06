@@ -1,7 +1,7 @@
 import { View, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { colors, spacing, radius } from '@manassah/tokens';
+import { colors, spacing, radius, themed } from '@manassah/tokens';
 import type { z } from 'zod';
 import type { Notification } from '@manassah/shared';
 import { Screen, Text, Icon, Button, EmptyState, type IconName } from '@/ui';
@@ -42,11 +42,11 @@ export default function Notifications() {
     </Screen>
   );
 }
-const styles = StyleSheet.create({
+const styles = themed((c) => StyleSheet.create({
   list: { gap: spacing[2], paddingTop: spacing[2] },
-  row: { flexDirection: 'row', gap: spacing[3], alignItems: 'flex-start', padding: spacing[3], borderRadius: radius.md, backgroundColor: colors.bg.card, borderWidth: 1.5, borderColor: colors.border.default },
-  unread: { borderColor: colors.brand.primarySoft, backgroundColor: '#FFFBFB' },
-  icon: { width: 38, height: 38, borderRadius: radius.md, backgroundColor: colors.brand.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  row: { flexDirection: 'row', gap: spacing[3], alignItems: 'flex-start', padding: spacing[3], borderRadius: radius.md, backgroundColor: c.bg.card, borderWidth: 1.5, borderColor: c.border.default },
+  unread: { borderColor: c.brand.primarySoft, backgroundColor: '#FFFBFB' },
+  icon: { width: 38, height: 38, borderRadius: radius.md, backgroundColor: c.brand.primarySoft, alignItems: 'center', justifyContent: 'center' },
   flex: { flex: 1, minWidth: 0, gap: 2 },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.brand.primary, marginTop: 6 },
-});
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: c.brand.primary, marginTop: 6 },
+}));

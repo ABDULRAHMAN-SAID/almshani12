@@ -1,5 +1,5 @@
 import { Pressable, ActivityIndicator, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import { colors, radius, spacing, typography } from '@manassah/tokens';
+import { colors, radius, spacing, typography, type Colors } from '@manassah/tokens';
 import { Text } from './Text';
 import { Icon, type IconName } from './Icon';
 
@@ -29,7 +29,7 @@ export function Button({
   label, onPress, variant = 'primary', size = 'md', icon, iconEnd, loading, disabled, full, style, accessibilityLabel,
 }: ButtonProps) {
   const isDisabled = disabled || loading;
-  const p = PALETTE[variant];
+  const p = palette(colors)[variant];
   const iconSize = size === 'sm' ? 17 : 21;
 
   return (
@@ -66,15 +66,16 @@ export function Button({
   );
 }
 
-const PALETTE: Record<ButtonVariant, { bg: string; bgPressed: string; fg: string; border?: string; edge?: string }> = {
-  primary: { bg: colors.brand.primary, bgPressed: colors.brand.primaryDark, fg: colors.text.onPrimary, edge: colors.brand.primaryDark },
-  success: { bg: colors.brand.green, bgPressed: colors.brand.greenDark, fg: colors.text.onPrimary, edge: colors.brand.greenDark },
-  info: { bg: colors.state.info, bgPressed: '#175A96', fg: colors.text.onPrimary, edge: '#175A96' },
-  danger: { bg: colors.state.danger, bgPressed: '#8F1E17', fg: colors.text.onPrimary, edge: '#8F1E17' },
-  secondary: { bg: colors.bg.card, bgPressed: colors.bg.subtle, fg: colors.text.primary, border: colors.border.strong },
-  soft: { bg: colors.brand.primarySoft, bgPressed: '#F9D5DB', fg: colors.brand.primaryDark },
-  ghost: { bg: 'transparent', bgPressed: colors.bg.subtle, fg: colors.brand.primary },
-};
+/** تُحسب عند الرسم كي تتبع السِمة (فاتح/داكن) */
+const palette = (c: Colors): Record<ButtonVariant, { bg: string; bgPressed: string; fg: string; border?: string; edge?: string }> => ({
+  primary: { bg: c.brand.primary, bgPressed: c.brand.primaryDark, fg: c.text.onPrimary, edge: c.brand.primaryDark },
+  success: { bg: c.brand.green, bgPressed: c.brand.greenDark, fg: c.text.onPrimary, edge: c.brand.greenDark },
+  info: { bg: c.state.info, bgPressed: '#175A96', fg: c.text.onPrimary, edge: '#175A96' },
+  danger: { bg: c.state.danger, bgPressed: '#8F1E17', fg: c.text.onPrimary, edge: '#8F1E17' },
+  secondary: { bg: c.bg.card, bgPressed: c.bg.subtle, fg: c.text.primary, border: c.border.strong },
+  soft: { bg: c.brand.primarySoft, bgPressed: c.brand.primarySoft, fg: c.brand.primary },
+  ghost: { bg: 'transparent', bgPressed: c.bg.subtle, fg: c.brand.primary },
+});
 
 const styles = StyleSheet.create({
   base: { borderRadius: radius.full, alignItems: 'center', justifyContent: 'center', alignSelf: 'flex-start', minWidth: 72 },

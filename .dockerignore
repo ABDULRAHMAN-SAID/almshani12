@@ -1,0 +1,14 @@
+node_modules
+**/node_modules
+.git
+docs
+data
+**/data
+**/dist
+**/dist-single
+**/.expo
+legacy
+*.log
+.env
+.env.*
+!.env.example

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { colors, spacing, radius } from '@manassah/tokens';
+import { colors, spacing, radius, themed } from '@manassah/tokens';
 import { Screen, Text, Icon, Button, Card, Badge, Avatar, BottomSheet, EmptyState, type IconName } from '@/ui';
 import { useTeacherMe, useTeacherStudents } from '@/features/queries';
 import { ApiError } from '@/api/client';
@@ -60,7 +60,7 @@ export default function TeacherDashboard() {
     </Screen>
   );
 }
-const styles = StyleSheet.create({
+const styles = themed((c) => StyleSheet.create({
   wrap: { gap: spacing[3], paddingTop: spacing[2] },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
   flex: { flex: 1, minWidth: 0 },
@@ -68,5 +68,5 @@ const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[3] },
   tile: { width: '47%', flexGrow: 1, gap: 2 },
   actions: { gap: spacing[2] },
-  student: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], paddingVertical: spacing[2], borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border.default, borderRadius: radius.sm },
-});
+  student: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], paddingVertical: spacing[2], borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border.default, borderRadius: radius.sm },
+}));

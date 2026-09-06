@@ -2,7 +2,7 @@ import { View, Pressable, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { colors, radius, spacing, shadow, subjectColors, subjectIcons, type SubjectColorKey } from '@manassah/tokens';
+import { colors, radius, spacing, shadow, subjectColors, subjectIcons, type SubjectColorKey, themed } from '@manassah/tokens';
 import type { CourseCard as CourseCardData } from '@manassah/shared';
 import { Text } from './Text';
 import { Rating } from './Rating';
@@ -52,11 +52,11 @@ export function CourseCard({ course, onPress, width }: CourseCardProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  card: { backgroundColor: colors.bg.card, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.border.default, overflow: 'hidden', ...shadow.card },
+const styles = themed((c) => StyleSheet.create({
+  card: { backgroundColor: c.bg.card, borderRadius: radius.lg, borderWidth: 1.5, borderColor: c.border.default, overflow: 'hidden', ...shadow.card },
   fluid: { flex: 1 },
   pressed: { opacity: 0.9, transform: [{ scale: 0.99 }] },
-  cover: { width: '100%', aspectRatio: 16 / 9, backgroundColor: colors.bg.subtle },
+  cover: { width: '100%', aspectRatio: 16 / 9, backgroundColor: c.bg.subtle },
   coverFallback: { alignItems: 'flex-start', justifyContent: 'space-between', padding: spacing[3], overflow: 'hidden' },
   watermark: { position: 'absolute', bottom: -30, start: -20, opacity: 0.2 },
   play: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', paddingStart: 3 },
@@ -65,6 +65,6 @@ const styles = StyleSheet.create({
   title: { minHeight: 56 },
   foot: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing[2] },
   progressWrap: { marginTop: spacing[2], gap: 6 },
-  track: { height: 8, borderRadius: 4, backgroundColor: colors.bg.subtle, overflow: 'hidden' },
+  track: { height: 8, borderRadius: 4, backgroundColor: c.bg.subtle, overflow: 'hidden' },
   fill: { height: '100%', borderRadius: 4 },
-});
+}));

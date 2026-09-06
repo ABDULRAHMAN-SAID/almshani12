@@ -209,7 +209,13 @@ export const ar = {
   walletUi: { title: 'المحفظة', balance: 'الرصيد المتاح', history: 'الحركات', empty: 'لا حركات بعد', note: 'يُضاف الرصيد من الاسترجاعات والهدايا ويُستخدم للدفع فوراً', types: { topup: 'شحن', purchase: 'شراء', refund: 'استرجاع', adjustment: 'تسوية', bonus: 'هدية' } },
   purchasesUi: { title: 'مشترياتي', empty: 'لا مشتريات بعد', orders: 'الطلبات', order: 'طلب', items: '{{n}} عناصر', status: { pending: 'قيد الدفع', paid: 'مدفوع', failed: 'فشل', refunded: 'مسترجَع', partially_refunded: 'مسترجَع جزئياً', cancelled: 'ملغى', expired: 'منتهٍ' } },
   notificationsUi: { title: 'الإشعارات', markAll: 'تحديد الكل كمقروء', empty: 'لا إشعارات بعد', emptyHint: 'ستصلك تذكيرات الحصص والواجبات هنا' },
-  settings: { title: 'الإعدادات', language: 'اللغة', arabic: 'العربية', english: 'English', deleteAccount: 'حذف الحساب', deleteConfirm: 'سيُعطَّل حسابك وتُمسح بياناتك الشخصية فوراً. لا يمكن التراجع.', delete: 'احذف', version: 'الإصدار', name: 'الاسم', saved: 'تم الحفظ', profile: 'الملف الشخصي', changeGrade: 'تغيير الصف والمواد' },
+  settings: {
+    title: 'الإعدادات', language: 'اللغة', arabic: 'العربية', english: 'English', deleteAccount: 'حذف الحساب', deleteConfirm: 'سيُعطَّل حسابك وتُمسح بياناتك الشخصية فوراً. لا يمكن التراجع.', delete: 'احذف', version: 'الإصدار', name: 'الاسم', saved: 'تم الحفظ', profile: 'الملف الشخصي', changeGrade: 'تغيير الصف والمواد',
+    appearance: 'المظهر', theme: 'الوضع', light: 'نهاري', dark: 'ليلي', system: 'تلقائي', textSize: 'حجم الخط', textNormal: 'عادي', textLarge: 'كبير',
+    server: 'الخادم والاتصال', serverUrl: 'عنوان الخادم', serverHint: 'اكتب عنوان خادمك بعد نشره (مثال: https://manassah.onrender.com) ثم اختبر الاتصال واحفظ',
+    testConnection: 'اختبار الاتصال', connected: 'الاتصال ناجح', connectionFailed: 'تعذّر الاتصال', serverInvalid: 'العنوان يجب أن يبدأ بـ http:// أو https://', serverTimeout: 'انتهت مهلة الاتصال',
+    demoMode: 'نسخة تجريبية', liveMode: 'متصل بخادم', demoHint: 'بيانات محلية بلا خادم — اضبط عنوان خادمك للاتصال الحقيقي', useDemo: 'العودة للنسخة التجريبية',
+  },
   teacherUi: {
     availabilityHint: 'حدّد أيام وأوقات عملك — تُولَّد المواعيد تلقائياً بخانات ٦٠ دقيقة', addRule: 'إضافة فترة', from: 'من', to: 'إلى', slot: 'الخانة',
     breakM: 'استراحة', removeRule: 'حذف', saveRules: 'حفظ التوفّر', timeOffAdd: 'إضافة إجازة', reason: 'السبب', noTimeOff: 'لا إجازات قادمة',

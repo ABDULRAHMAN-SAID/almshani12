@@ -1,6 +1,6 @@
 import { View, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { colors, spacing } from '@manassah/tokens';
+import { colors, spacing, themed } from '@manassah/tokens';
 import { Text } from './Text';
 import { Icon, type IconName } from './Icon';
 import { Button } from './Button';
@@ -54,12 +54,12 @@ export function OfflineBar() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((c) => StyleSheet.create({
   wrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: spacing[10], paddingHorizontal: spacing[6], gap: spacing[2] },
   compact: { paddingVertical: spacing[6] },
-  iconWrap: { width: 88, height: 88, borderRadius: 44, backgroundColor: colors.brand.primarySoft, alignItems: 'center', justifyContent: 'center', marginBottom: spacing[2] },
-  warn: { backgroundColor: colors.state.warningSoft },
+  iconWrap: { width: 88, height: 88, borderRadius: 44, backgroundColor: c.brand.primarySoft, alignItems: 'center', justifyContent: 'center', marginBottom: spacing[2] },
+  warn: { backgroundColor: c.state.warningSoft },
   body: { maxWidth: 300 },
   action: { marginTop: spacing[3] },
-  offline: { flexDirection: 'row', gap: spacing[2], alignItems: 'center', justifyContent: 'center', backgroundColor: colors.text.secondary, paddingVertical: 6 },
-});
+  offline: { flexDirection: 'row', gap: spacing[2], alignItems: 'center', justifyContent: 'center', backgroundColor: c.text.secondary, paddingVertical: 6 },
+}));

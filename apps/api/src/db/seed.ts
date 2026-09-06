@@ -88,7 +88,7 @@ export function makePdf(title: string, pages: number): Buffer {
   return Buffer.from(out, 'latin1');
 }
 
-function user(phone: string, name: string, roles: string[], extra: { gender?: 'male' | 'female'; email?: string } = {}) {
+export function user(phone: string, name: string, roles: string[], extra: { gender?: 'male' | 'female'; email?: string } = {}) {
   const existing = q.get<{ id: number }>('SELECT id FROM users WHERE phone = ?', phone);
   if (existing) return existing.id;
   const id = Number(q.run('INSERT INTO users (phone, email, onboarding_completed) VALUES (?,?,1)', phone, extra.email ?? null).lastInsertRowid);
@@ -99,7 +99,7 @@ function user(phone: string, name: string, roles: string[], extra: { gender?: 'm
 }
 
 export function seedDemo() {
-  if (config.env === 'production') throw new Error('seedDemo ممنوع في الإنتاج');
+  if (config.env === 'production' && !config.bootstrap.allowDemoSeed) throw new Error('seedDemo ممنوع في الإنتاج (اضبط ALLOW_DEMO_SEED=1 لخادم عرض)');
   if (q.get('SELECT 1 FROM users WHERE phone = ?', DEMO_MARK)) return { skipped: true };
   const cat = seedCatalog();
   const G12 = cat.grades[12], G11 = cat.grades[11], S1 = cat.semesters[1];
@@ -335,6 +335,25 @@ export function seedDemo() {
   q.run("INSERT OR IGNORE INTO coupons (code, type, value, user_limit, scope, active) VALUES ('PHYS20','percentage',20,1,?,1)", JSON.stringify({ teacherId: teachers.physics }));
 
   return { skipped: false, demoStudent: '+96890000010', admin: DEMO_MARK, otp: config.otp.devCode };
+}
+
+/**
+ * الإقلاع الأول على خادم فارغ (لا مستخدمين):
+ * ALLOW_DEMO_SEED=1 → بيانات العرض كاملة؛ وإلا المنهج فقط + حساب مدير أوّل من ADMIN_PHONE (يدخل برمز التحقّق).
+ */
+export function bootstrapIfEmpty(): { seeded: 'demo' | 'catalog' | 'none'; admin: string | null } {
+  if ((q.val<number>('SELECT COUNT(*) FROM users') ?? 0) > 0) return { seeded: 'none', admin: null };
+  return db.transaction(() => {
+    if (config.bootstrap.allowDemoSeed) { seedDemo(); return { seeded: 'demo' as const, admin: null }; }
+    seedCatalog();
+    let admin: string | null = null;
+    if (config.bootstrap.adminPhone) {
+      const phone = config.bootstrap.adminPhone.startsWith('+') ? config.bootstrap.adminPhone : `+968${config.bootstrap.adminPhone.replace(/\D/g, '').slice(-8)}`;
+      user(phone, 'مدير المنصّة', ['super_admin', 'admin']);
+      admin = phone;
+    }
+    return { seeded: 'catalog' as const, admin };
+  })();
 }
 
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);

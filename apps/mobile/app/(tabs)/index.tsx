@@ -2,7 +2,7 @@ import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import * as Clipboard from 'expo-clipboard';
-import { colors, spacing, radius, shadow } from '@manassah/tokens';
+import { colors, spacing, radius, shadow, subjectColors, themed } from '@manassah/tokens';
 import type { z } from 'zod';
 import type { ContinueItem } from '@manassah/shared';
 import { Screen, Text, Icon, Button, Card, Avatar, SectionHeader, BookCard, TeacherCard, CourseCard, LessonCard, HeaderActions, type IconName } from '@/ui';
@@ -27,13 +27,13 @@ export default function Home() {
 
   const tiles: { key: string; icon: IconName; label: string; bg: string; fg: string; onPress: () => void }[] = [
     { key: 'teacher', icon: 'schoolSolid', label: t('home.quick.bookTeacher'), bg: colors.brand.primarySoft, fg: colors.brand.primary, onPress: () => router.push('/teachers') },
-    { key: 'summary', icon: 'bookSolid', label: t('home.quick.buySummary'), bg: '#E6EEFF', fg: '#2F6FED', onPress: () => router.push({ pathname: '/(tabs)/library', params: { type: 'summary' } }) },
-    { key: 'solve', icon: 'calculator', label: t('home.quick.solve'), bg: '#E0F7F7', fg: '#0EA5A5', onPress: () => router.push({ pathname: '/(tabs)/library', params: { type: 'solved_problems' } }) },
+    { key: 'summary', icon: 'bookSolid', label: t('home.quick.buySummary'), bg: subjectColors.math.soft, fg: subjectColors.math.main, onPress: () => router.push({ pathname: '/(tabs)/library', params: { type: 'summary' } }) },
+    { key: 'solve', icon: 'calculator', label: t('home.quick.solve'), bg: subjectColors.chemistry.soft, fg: subjectColors.chemistry.main, onPress: () => router.push({ pathname: '/(tabs)/library', params: { type: 'solved_problems' } }) },
     { key: 'quiz', icon: 'sparkles', label: t('home.quick.quiz'), bg: colors.brand.goldSoft, fg: colors.brand.goldDark, onPress: () => quick.mutate(undefined, { onSuccess: r => router.push(`/quiz/${r.quizId}`) }) },
   ];
 
   const openContinue = (c: z.infer<typeof ContinueItem>) => router.push(c.type === 'book' ? `/book/${c.id}/read` : c.type === 'course' ? `/course/${c.id}` : `/quiz/${c.id}`);
-  const contColor = (type: string) => type === 'book' ? '#2F6FED' : type === 'course' ? '#159A5B' : '#B98C14';
+  const contColor = (type: string) => type === 'book' ? subjectColors.math.main : type === 'course' ? colors.brand.green : colors.brand.goldDark;
 
   return (
     <Screen bare loading={home.isLoading} error={home.error} onRetry={() => home.refetch()} refreshing={home.isRefetching} onRefresh={() => home.refetch()} padded={false}>
@@ -161,30 +161,30 @@ export default function Home() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((c) => StyleSheet.create({
   px: { paddingHorizontal: spacing[4] },
   section: { paddingTop: spacing[5] },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: spacing[3], paddingBottom: spacing[3] },
   who: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], flex: 1, minWidth: 0 },
   whoText: { flex: 1, minWidth: 0 },
   search: { paddingBottom: spacing[1] },
-  searchBox: { height: 54, borderRadius: radius.full, backgroundColor: colors.bg.card, borderWidth: 1.5, borderColor: colors.border.default, flexDirection: 'row', alignItems: 'center', gap: spacing[3], paddingHorizontal: spacing[4], ...shadow.card },
+  searchBox: { height: 54, borderRadius: radius.full, backgroundColor: c.bg.card, borderWidth: 1.5, borderColor: c.border.default, flexDirection: 'row', alignItems: 'center', gap: spacing[3], paddingHorizontal: spacing[4], ...shadow.card },
   pressed: { opacity: 0.85 },
   emptyLesson: { flexDirection: 'row', gap: spacing[3], alignItems: 'center' },
-  emptyIcon: { width: 60, height: 60, borderRadius: 30, backgroundColor: colors.brand.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  emptyIcon: { width: 60, height: 60, borderRadius: 30, backgroundColor: c.brand.primarySoft, alignItems: 'center', justifyContent: 'center' },
   flex: { flex: 1, minWidth: 0 },
   mt: { marginTop: spacing[4] },
   tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[3] },
   tile: { width: '48%', flexGrow: 1, borderRadius: radius.lg, padding: spacing[3], gap: spacing[2], minHeight: 128, justifyContent: 'space-between' },
-  tileIcon: { width: 52, height: 52, borderRadius: 26, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
+  tileIcon: { width: 52, height: 52, borderRadius: 26, backgroundColor: c.bg.card, alignItems: 'center', justifyContent: 'center' },
   hList: { paddingHorizontal: spacing[4], gap: spacing[3], paddingBottom: spacing[2] },
-  cont: { width: 210, backgroundColor: colors.bg.card, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.border.default, padding: spacing[3], gap: spacing[1], ...shadow.card },
+  cont: { width: 210, backgroundColor: c.bg.card, borderRadius: radius.lg, borderWidth: 1.5, borderColor: c.border.default, padding: spacing[3], gap: spacing[1], ...shadow.card },
   contIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginBottom: spacing[1] },
   contTitle: { minHeight: 52 },
   contFoot: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], marginTop: spacing[1] },
-  track: { flex: 1, height: 8, borderRadius: 4, backgroundColor: colors.bg.subtle, overflow: 'hidden' },
+  track: { flex: 1, height: 8, borderRadius: 4, backgroundColor: c.bg.subtle, overflow: 'hidden' },
   fill: { height: '100%', borderRadius: 4 },
   offer: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
-  offerIcon: { width: 52, height: 52, borderRadius: 26, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
+  offerIcon: { width: 52, height: 52, borderRadius: 26, backgroundColor: c.bg.card, alignItems: 'center', justifyContent: 'center' },
   bottom: { height: spacing[8] },
-});
+}));

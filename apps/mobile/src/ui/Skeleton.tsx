@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Animated, View, StyleSheet, type DimensionValue } from 'react-native';
-import { colors, radius, spacing } from '@manassah/tokens';
+import { colors, radius, spacing, themed } from '@manassah/tokens';
 
 export interface SkeletonProps { width?: DimensionValue; height?: number; round?: number | 'full'; style?: object }
 
@@ -58,10 +58,10 @@ export function ScreenSkeleton() {
   );
 }
 
-const styles = StyleSheet.create({
-  card: { backgroundColor: colors.bg.card, borderRadius: radius.lg, padding: spacing[3], gap: spacing[3], borderWidth: 1, borderColor: colors.border.default },
+const styles = themed((c) => StyleSheet.create({
+  card: { backgroundColor: c.bg.card, borderRadius: radius.lg, padding: spacing[3], gap: spacing[3], borderWidth: 1, borderColor: c.border.default },
   lines: { gap: spacing[2] },
   row: { flexDirection: 'row', gap: spacing[3], alignItems: 'center', paddingVertical: spacing[2] },
   screen: { gap: spacing[4], paddingTop: spacing[4] },
   grid: { flexDirection: 'row', gap: spacing[3] },
-});
+}));

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { View, TextInput, Pressable, StyleSheet } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { colors, spacing, radius, fontFamily } from '@manassah/tokens';
+import { colors, spacing, radius, fontFamily, themed } from '@manassah/tokens';
 import { AuthSession } from '@manassah/shared';
 import { Screen, Text, Button } from '@/ui';
 import { api, errorMessageKey } from '@/api/client';
@@ -72,13 +72,13 @@ export default function Verify() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((c) => StyleSheet.create({
   wrap: { gap: spacing[5], paddingTop: spacing[4] },
   head: { gap: spacing[2] },
   targetRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' },
   boxes: { flexDirection: 'row', gap: spacing[2], justifyContent: 'center', direction: 'ltr' },
-  box: { width: 48, height: 58, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.border.default, backgroundColor: colors.bg.card, alignItems: 'center', justifyContent: 'center' },
-  boxActive: { borderColor: colors.border.focus, borderWidth: 2 },
-  boxError: { borderColor: colors.state.danger },
+  box: { width: 48, height: 58, borderRadius: radius.md, borderWidth: 1.5, borderColor: c.border.default, backgroundColor: c.bg.card, alignItems: 'center', justifyContent: 'center' },
+  boxActive: { borderColor: c.border.focus, borderWidth: 2 },
+  boxError: { borderColor: c.state.danger },
   hidden: { position: 'absolute', opacity: 0, width: 1, height: 1, fontFamily: fontFamily.regular },
-});
+}));

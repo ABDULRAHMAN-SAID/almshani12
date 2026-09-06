@@ -1,6 +1,6 @@
 import { View, Pressable, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { colors, radius, spacing, hitTarget } from '@manassah/tokens';
+import { colors, radius, spacing, hitTarget, themed } from '@manassah/tokens';
 import type { TimeSlot as TimeSlotData } from '@manassah/shared';
 import { Text } from './Text';
 import { formatTime } from '@/lib/format';
@@ -45,15 +45,15 @@ export function TimeSlotGrid({ slots, value, onChange }: TimeSlotGridProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((c) => StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
   slot: {
     minWidth: 92, height: hitTarget, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: colors.bg.card, borderWidth: 1, borderColor: colors.border.strong, paddingHorizontal: spacing[3],
+    backgroundColor: c.bg.card, borderWidth: 1, borderColor: c.border.strong, paddingHorizontal: spacing[3],
   },
-  selected: { backgroundColor: colors.state.info, borderColor: colors.state.info },
-  disabled: { backgroundColor: colors.bg.subtle, borderColor: colors.border.default },
+  selected: { backgroundColor: c.state.info, borderColor: c.state.info },
+  disabled: { backgroundColor: c.bg.subtle, borderColor: c.border.default },
   strike: { textDecorationLine: 'line-through' },
   empty: { paddingVertical: spacing[6] },
   tz: { marginTop: spacing[3] },
-});
+}));

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { colors, spacing } from '@manassah/tokens';
+import { colors, spacing, themed } from '@manassah/tokens';
 import { Screen, Text, Button, Input, Chip, Card, SectionHeader, Icon } from '@/ui';
 import { useTeacherAvailability, useSaveAvailability, useAddTimeOff, useRemoveTimeOff } from '@/features/queries';
 import { errorMessageKey } from '@/api/client';
@@ -71,9 +71,9 @@ export default function Availability() {
     </Screen>
   );
 }
-const styles = StyleSheet.create({
+const styles = themed((c) => StyleSheet.create({
   wrap: { gap: spacing[3], paddingTop: spacing[2] },
-  warn: { flexDirection: 'row', gap: spacing[2], alignItems: 'center', padding: spacing[3], backgroundColor: colors.state.warningSoft, borderRadius: 12 },
+  warn: { flexDirection: 'row', gap: spacing[2], alignItems: 'center', padding: spacing[3], backgroundColor: c.state.warningSoft, borderRadius: 12 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[1] },
   row: { flexDirection: 'row', gap: spacing[2], flexWrap: 'wrap' },
   center: { alignItems: 'center' },
@@ -81,4 +81,4 @@ const styles = StyleSheet.create({
   flex: { flex: 1, minWidth: 0 },
   remove: { marginStart: 'auto' },
   offRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
-});
+}));

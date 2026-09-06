@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { colors, spacing, subjectColors, type SubjectColorKey } from '@manassah/tokens';
+import { colors, spacing, subjectColors, type SubjectColorKey, themed } from '@manassah/tokens';
 import { Screen, Text, Button, Input, Chip } from '@/ui';
 import { useCatalog, useStudentSetup } from '@/features/queries';
 import { useAuth } from '@/state/auth';
@@ -70,9 +70,9 @@ export default function Setup() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((c) => StyleSheet.create({
   wrap: { gap: spacing[6], paddingTop: spacing[2] },
   block: { gap: spacing[3] },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
-  hint: { color: colors.text.tertiary },
-});
+  hint: { color: c.text.tertiary },
+}));

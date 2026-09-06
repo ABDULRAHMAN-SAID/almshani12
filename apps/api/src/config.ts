@@ -28,10 +28,16 @@ const isTest = process.env.NODE_ENV === 'test';
 
 export const config = {
   env: process.env.NODE_ENV || 'development',
+  /** الإقلاع الأول على خادم فارغ: بذر تجريبي كامل (خادم عرض) أو المنهج فقط + مدير أوّل */
+  bootstrap: {
+    allowDemoSeed: bool(process.env.ALLOW_DEMO_SEED, false),
+    adminPhone: process.env.ADMIN_PHONE || null,
+  },
   isTest,
   port: num(process.env.PORT, 4000),
   host: process.env.HOST || '0.0.0.0',
-  publicUrl: (process.env.PUBLIC_URL || `http://localhost:${num(process.env.PORT, 4000)}`).replace(/\/$/, ''),
+  /** العنوان العام: PUBLIC_URL، وإلا ما تضبطه المنصّات تلقائياً (Render / Fly)، وإلا localhost */
+  publicUrl: (process.env.PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || (process.env.FLY_APP_NAME ? `https://${process.env.FLY_APP_NAME}.fly.dev` : '') || `http://localhost:${num(process.env.PORT, 4000)}`).replace(/\/$/, ''),
   brand,
 
   db: { file: process.env.DB_FILE || path.join(DATA_DIR, 'manassah.db') },
@@ -50,8 +56,11 @@ export const config = {
   otp: {
     ttlSeconds: num(process.env.OTP_TTL, 300),
     maxAttempts: 5,
-    /** في التطوير يُطبَع الرمز في السجلّ ويُقبل 000000 */
-    devCode: isTest || process.env.NODE_ENV !== 'production' ? '000000' : null,
+    /**
+     * في التطوير يُطبَع الرمز في السجلّ ويُقبل 000000.
+     * في الإنتاج بلا مزوّد رسائل بعد: OTP_FIXED_CODE يثبّت رمزاً للتجربة (أزله فور ربط مزوّد SMS).
+     */
+    devCode: process.env.OTP_FIXED_CODE || (isTest || process.env.NODE_ENV !== 'production' ? '000000' : null),
   },
 
   money: {

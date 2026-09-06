@@ -1,7 +1,7 @@
 import 'react-native-gesture-handler';
-import { useEffect, useState } from 'react';
-import { I18nManager, Platform, View } from 'react-native';
-import { Stack, SplashScreen, useRouter, useSegments } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
+import { I18nManager, Platform, View, useColorScheme } from 'react-native';
+import { Stack, SplashScreen, useRouter, useSegments, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -9,12 +9,13 @@ import { QueryClient, QueryClientProvider, onlineManager } from '@tanstack/react
 import * as Network from 'expo-network';
 import { useFonts, ReadexPro_400Regular, ReadexPro_500Medium, ReadexPro_600SemiBold, ReadexPro_700Bold } from '@expo-google-fonts/readex-pro';
 import { BalooBhaijaan2_700Bold, BalooBhaijaan2_800ExtraBold } from '@expo-google-fonts/baloo-bhaijaan-2';
-import { colors } from '@manassah/tokens';
+import { colors, setTheme, getTheme, onThemeChange, type ThemeName } from '@manassah/tokens';
 import '@/i18n';
 import { useAuth } from '@/state/auth';
-import { bootstrapAuth, homeFor } from '@/lib/session';
+import { bootstrapAuth, homeFor, signOut } from '@/lib/session';
 import { OfflineBar, Text } from '@/ui';
-import { DEMO } from '@/api/client';
+import { isDemo } from '@/api/client';
+import { useUi, hydratePrefs } from '@/state/ui';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -56,22 +57,58 @@ function useOnline() {
   return online;
 }
 
+/**
+ * السِمة: التفضيل (فاتح/داكن/تلقائي) + نظام الجهاز → السِمة النشطة في الرموز.
+ * عند التبديل يُعاد تركيب الشجرة كاملة (كل الأنماط تُقرأ من جديد) ثم يُستعاد المسار الحالي.
+ */
+function useThemeSync(): ThemeName {
+  const pref = useUi(s => s.themePref);
+  const scheme = useColorScheme();
+  const [name, setName] = useState<ThemeName>(getTheme());
+  useEffect(() => { setTheme(pref === 'system' ? (scheme === 'dark' ? 'dark' : 'light') : pref); }, [pref, scheme]);
+  useEffect(() => onThemeChange(setName), []);
+  return name;
+}
+
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({ ReadexPro_400Regular, ReadexPro_500Medium, ReadexPro_600SemiBold, ReadexPro_700Bold, BalooBhaijaan2_700Bold, BalooBhaijaan2_800ExtraBold });
   const ready = useAuth(s => s.ready);
   const online = useOnline();
+  const themeName = useThemeSync();
+  const serverUrl = useUi(s => s.serverUrl);
+  const hydrated = useUi(s => s.hydrated);
+  const router = useRouter();
+  // تغيير الخادم (تجريبي ↔ حقيقي أو خادم آخر) يُبطل الجلسة الحالية: نخرج ليدخل المستخدم على الخادم الجديد
+  const prevServer = useRef<string | null>(null);
+  useEffect(() => {
+    if (!hydrated) return;
+    if (prevServer.current === null) { prevServer.current = serverUrl; return; }
+    if (prevServer.current !== serverUrl) { prevServer.current = serverUrl; signOut(); }
+  }, [serverUrl, hydrated]);
+  const pathname = usePathname();
+  const pathRef = useRef(pathname); pathRef.current = pathname;
+  const restore = useRef<string | null>(null);
+  const first = useRef(true);
+  // بعد إعادة التركيب بسبب تغيير السِمة نعود إلى الشاشة نفسها
+  useEffect(() => {
+    if (first.current) { first.current = false; return; }
+    const p = restore.current; restore.current = null;
+    if (p && p !== '/') { const id = setTimeout(() => router.replace(p as never), 30); return () => clearTimeout(id); }
+  }, [themeName, router]);
+  useEffect(() => onThemeChange(() => { restore.current = pathRef.current; }), []);
 
-  useEffect(() => { bootstrapAuth(); }, []);
+  useEffect(() => { bootstrapAuth(); hydratePrefs(); }, []);
   useEffect(() => { if (fontsLoaded && ready) SplashScreen.hideAsync().catch(() => {}); }, [fontsLoaded, ready]);
 
   if (!fontsLoaded || !ready) return <View style={{ flex: 1, backgroundColor: colors.bg.base }} />;
 
   return (
-    <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.bg.base }}>
+    <GestureHandlerRootView key={themeName} style={{ flex: 1, backgroundColor: colors.bg.base }}>
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
-          <StatusBar style="dark" />
-          {DEMO ? <View style={{ backgroundColor: colors.brand.goldSoft, paddingVertical: 5, paddingHorizontal: 12, alignItems: 'center' }}><Text role="caption" color={colors.brand.goldDark}>نسخة عرض بلا خادم — بيانات تجريبية · رمز الدخول 000000</Text></View> : null}
+          <StatusBar style={themeName === 'dark' ? 'light' : 'dark'} />
+          {isDemo() ? <View style={{ backgroundColor: colors.brand.goldSoft, paddingVertical: 5, paddingHorizontal: 12, alignItems: 'center' }}><Text role="caption" color={colors.brand.goldDark}>نسخة عرض بلا خادم — بيانات تجريبية · رمز الدخول 000000</Text></View> : null}
+          {!isDemo() && serverUrl ? <View style={{ backgroundColor: colors.state.infoSoft, paddingVertical: 4, paddingHorizontal: 12, alignItems: 'center' }}><Text role="caption" color={colors.state.info} numberOfLines={1}>متصل بالخادم: {serverUrl}</Text></View> : null}
           {!online ? <OfflineBar /> : null}
           <AuthGate />
           <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg.base }, animation: 'fade_from_bottom', animationDuration: 200 }}>

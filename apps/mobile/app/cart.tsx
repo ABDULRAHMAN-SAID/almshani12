@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { colors, spacing, radius } from '@manassah/tokens';
+import { colors, spacing, radius, themed } from '@manassah/tokens';
 import { Screen, Text, Icon, Button, Input, Card, Price, EmptyState } from '@/ui';
 import { useCart, useRemoveFromCart, useApplyCoupon } from '@/features/queries';
 import { errorMessageKey } from '@/api/client';
@@ -49,7 +49,7 @@ export default function Cart() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((c) => StyleSheet.create({
   wrap: { gap: spacing[3], paddingTop: spacing[2] },
   item: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
   thumb: { width: 56, height: 56, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
@@ -58,5 +58,5 @@ const styles = StyleSheet.create({
   couponRow: { flexDirection: 'row', gap: spacing[2], alignItems: 'flex-start' },
   couponOn: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
   line: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: spacing[1] },
-  total: { borderTopWidth: 1, borderTopColor: colors.border.default, marginTop: spacing[2], paddingTop: spacing[3] },
-});
+  total: { borderTopWidth: 1, borderTopColor: c.border.default, marginTop: spacing[2], paddingTop: spacing[3] },
+}));

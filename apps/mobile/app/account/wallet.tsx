@@ -1,7 +1,7 @@
 import { View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { colors, spacing } from '@manassah/tokens';
+import { colors, spacing, themed } from '@manassah/tokens';
 import { Screen, Text, Card, Icon, SectionHeader } from '@/ui';
 import { useWallet } from '@/features/queries';
 import { money, formatDateTime } from '@/lib/format';
@@ -30,12 +30,12 @@ export default function Wallet() {
     </Screen>
   );
 }
-const styles = StyleSheet.create({
+const styles = themed((c) => StyleSheet.create({
   wrap: { gap: spacing[3], paddingTop: spacing[2] },
   balance: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], marginBottom: spacing[2] },
   list: { paddingHorizontal: spacing[4] },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], paddingVertical: spacing[3] },
-  border: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border.default },
+  border: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border.default },
   flex: { flex: 1, minWidth: 0 },
   end: { alignItems: 'flex-end' },
-});
+}));

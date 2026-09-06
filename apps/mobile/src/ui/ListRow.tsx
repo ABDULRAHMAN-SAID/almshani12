@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
-import { colors, spacing, radius } from '@manassah/tokens';
+import { colors, spacing, radius, themed } from '@manassah/tokens';
 import { Text } from './Text';
 import { Icon, type IconName } from './Icon';
 
@@ -33,11 +33,11 @@ export function ListRow({ icon, color, label, value, badge, onPress, danger, rig
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((c) => StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], minHeight: 60, paddingVertical: spacing[2] },
-  border: { borderBottomWidth: 1, borderBottomColor: colors.border.default },
+  border: { borderBottomWidth: 1, borderBottomColor: c.border.default },
   pressed: { opacity: 0.7 },
   icon: { width: 40, height: 40, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
   label: { flex: 1 },
-  badge: { minWidth: 24, height: 24, borderRadius: 12, paddingHorizontal: 7, backgroundColor: colors.brand.primary, alignItems: 'center', justifyContent: 'center' },
-});
+  badge: { minWidth: 24, height: 24, borderRadius: 12, paddingHorizontal: 7, backgroundColor: c.brand.primary, alignItems: 'center', justifyContent: 'center' },
+}));

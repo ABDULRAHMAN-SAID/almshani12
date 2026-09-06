@@ -24,6 +24,7 @@ export const ICONS = {
   location: 'location-outline', phone: 'call-outline', mail: 'mail-outline', school: 'school-outline', grade: 'ribbon-outline',
   // أيقونات المواد (مملوءة — تظهر بوضوح على الأغلفة الملوّنة)
   calculator: 'calculator', planet: 'planet', flask: 'flask', leaf: 'leaf', bookSolid: 'book', moon: 'moon', earth: 'earth', schoolSolid: 'school',
+  sun: 'sunny-outline', sunSolid: 'sunny', moonOutline: 'moon-outline', server: 'server-outline', linkIcon: 'link-outline', palette: 'color-palette-outline', textSize: 'text-outline', globe: 'globe-outline',
   sparkles: 'sparkles', trophy: 'trophy', flame: 'flame', rocket: 'rocket', gift: 'gift', bulb: 'bulb', pencil: 'pencil', videoSolid: 'videocam', playCircle: 'play-circle', chatSolid: 'chatbubble-ellipses',
 } as const;
 

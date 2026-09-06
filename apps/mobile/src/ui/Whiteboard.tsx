@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { View, PanResponder, StyleSheet, type LayoutChangeEvent } from 'react-native';
 import Svg, { Polyline } from 'react-native-svg';
-import { colors, radius, spacing } from '@manassah/tokens';
+import { colors, radius, spacing, themed } from '@manassah/tokens';
 import { Button } from './Button';
 import { Chip } from './Chip';
 
@@ -48,9 +48,9 @@ export function Whiteboard({ ops, onStroke, onClear, canDraw }: WhiteboardProps)
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((c) => StyleSheet.create({
   wrap: { gap: spacing[2] },
-  board: { width: '100%', aspectRatio: 4 / 3, backgroundColor: colors.bg.card, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border.default, overflow: 'hidden' },
+  board: { width: '100%', aspectRatio: 4 / 3, backgroundColor: c.bg.card, borderRadius: radius.md, borderWidth: 1, borderColor: c.border.default, overflow: 'hidden' },
   tools: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
   clear: { marginStart: 'auto' },
-});
+}));

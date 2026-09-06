@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { colors, spacing, radius, subjectColors, type SubjectColorKey } from '@manassah/tokens';
+import { colors, spacing, radius, subjectColors, type SubjectColorKey, themed } from '@manassah/tokens';
 import type { LessonMode } from '@manassah/shared';
 import { Screen, Text, Icon, Button, Chip, Badge, Avatar, Card, Input, Price, Calendar, TimeSlotGrid, SectionHeader, RowSkeleton } from '@/ui';
 import { useTeacher, useAvailability, useCreateBooking, useLessons } from '@/features/queries';
@@ -123,7 +123,7 @@ export default function BookLesson() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = themed((c) => StyleSheet.create({
   wrap: { gap: spacing[5], paddingTop: spacing[2] },
   teacher: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
   flex: { flex: 1, minWidth: 0 },
@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
   durations: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2] },
   cal: { gap: spacing[2] },
-  policy: { flexDirection: 'row', gap: spacing[2], alignItems: 'flex-start', marginTop: spacing[3], padding: spacing[3], backgroundColor: colors.state.infoSoft, borderRadius: radius.md },
+  policy: { flexDirection: 'row', gap: spacing[2], alignItems: 'flex-start', marginTop: spacing[3], padding: spacing[3], backgroundColor: c.state.infoSoft, borderRadius: radius.md },
   err: { marginTop: spacing[2] },
   footer: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
-});
+}));
