@@ -26,6 +26,15 @@ const list = (v: string | undefined, d: string[]) => (v ? v.split(',').map(s => 
 
 const isTest = process.env.NODE_ENV === 'test';
 
+type IceServer = { urls: string | string[]; username?: string; credential?: string };
+function iceServers(): IceServer[] {
+  if (process.env.ICE_SERVERS) { try { return JSON.parse(process.env.ICE_SERVERS) as IceServer[]; } catch { /* يُتجاهل — نستعمل الافتراضي */ } }
+  const list: IceServer[] = [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }];
+  if (process.env.TURN_URL) list.push({ urls: process.env.TURN_URL.split(',').map(u => u.trim()), username: process.env.TURN_USERNAME, credential: process.env.TURN_CREDENTIAL });
+  else if (process.env.NODE_ENV !== 'production') list.push({ urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443', 'turns:openrelay.metered.ca:443?transport=tcp'], username: 'openrelayproject', credential: 'openrelayproject' });
+  return list;
+}
+
 export const config = {
   env: process.env.NODE_ENV || 'development',
   /** الإقلاع الأول على خادم فارغ: بذر تجريبي كامل (خادم عرض) أو المنهج فقط + مدير أوّل */
@@ -82,6 +91,11 @@ export const config = {
 
   rooms: {
     provider: (process.env.ROOM_PROVIDER || 'internal') as 'internal' | 'livekit' | 'daily' | 'agora',
+    /**
+     * خوادم ICE للفيديو المباشر (WebRTC): STUN عام دائماً، وTURN من TURN_URL/TURN_USERNAME/TURN_CREDENTIAL
+     * (أو ICE_SERVERS كمصفوفة JSON). خارج الإنتاج يُضاف مرحّل TURN عام مجاني حتى تعمل التجربة عبر شبكات الجوال.
+     */
+    iceServers: iceServers(),
     livekit: { url: process.env.LIVEKIT_URL || '', apiKey: process.env.LIVEKIT_API_KEY || '', apiSecret: process.env.LIVEKIT_API_SECRET || '' },
     tokenTtlSeconds: num(process.env.ROOM_TOKEN_TTL, 3 * 3600),
   },

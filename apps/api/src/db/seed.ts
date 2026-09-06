@@ -300,6 +300,8 @@ export function seedDemo() {
   lesson(others[2], teachers.arabic, 'arabic', daysAgo(8, 20), 60, 4, 'completed');
   lesson(others[1], teachers.math, 'math', daysAgo(1, 18), 60, 6, 'completed');
   // القادمة: أول يوم دراسي بعد الغد الساعة ١٧:٠٠
+  // حصة تبدأ بعد ٥ دقائق: القاعة مفتوحة فوراً لتجربة الكاميرا والمايك على خادم العرض
+  lesson(demo, teachers.physics, 'physics', new Date(Date.now() + 5 * 60_000).toISOString(), 60, 6, 'confirmed');
   lesson(demo, teachers.physics, 'physics', nextWeekday(new Date(Date.now() + 86_400_000), 17), 60, 6, 'confirmed');
   lesson(others[1], teachers.physics, 'physics', nextWeekday(new Date(Date.now() + 2 * 86_400_000), 18), 60, 6, 'confirmed');
   // تعديل رصيد الأرباح ليعكس الحصص المكتملة

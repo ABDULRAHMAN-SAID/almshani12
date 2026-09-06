@@ -89,7 +89,7 @@ export async function issueRoomAccess(bookingId: number, user: { id: number; rol
     q.run('INSERT INTO room_participants (room_id, user_id, token_hash, token_expires_at) VALUES (?,?,?,?)', room.id, user.id, sha256(token), Math.floor(now / 1000) + ttl);
   })();
 
-  return { provider: provider.id, roomId: providerRoomId, token, expiresAt: new Date(now + ttl * 1000).toISOString(), joinUrl, isHost: isTeacher || isAdmin, booking, roomRowId: room.id as number };
+  return { provider: provider.id, roomId: providerRoomId, token, expiresAt: new Date(now + ttl * 1000).toISOString(), joinUrl, isHost: isTeacher || isAdmin, booking, roomRowId: room.id as number, iceServers: config.rooms.iceServers };
 }
 
 /** يتحقّق من رمز غرفة داخلية عند اتصال Socket.IO */

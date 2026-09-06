@@ -110,7 +110,7 @@ router.get('/:id/room', asyncHandler(async (req, res) => {
   q.run('INSERT INTO analytics_events (user_id, name, props) VALUES (?,?,?)', req.user!.id, 'room_join', JSON.stringify({ bookingId: b.id }));
   res.json({
     provider: access.provider, roomId: access.roomId, token: access.token, expiresAt: access.expiresAt, joinUrl: access.joinUrl,
-    realtimeNamespace: '/room', isHost: access.isHost, booking: bookingView(access.booking, req.user!.id),
+    realtimeNamespace: '/room', isHost: access.isHost, booking: bookingView(access.booking, req.user!.id), iceServers: access.iceServers,
   });
 }));
 

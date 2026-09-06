@@ -101,6 +101,8 @@ export const RoomAccess = z.object({
   realtimeNamespace: z.string(),
   isHost: z.boolean(),
   booking: Booking,
+  /** خوادم STUN/TURN للفيديو المباشر — يقرّرها الخادم لا التطبيق */
+  iceServers: z.array(z.object({ urls: z.union([z.string(), z.array(z.string())]), username: z.string().optional(), credential: z.string().optional() })).optional(),
 });
 export type RoomAccess = z.infer<typeof RoomAccess>;
 

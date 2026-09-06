@@ -52,7 +52,7 @@ export function useLiveRoom(bookingId: number) {
   const ensurePeer = useCallback((target: number) => {
     if (pc.current && peer.current === target) return pc.current;
     closePeer();
-    const conn = new RTCPeerConnection({ iceServers: ICE });
+    const conn = new RTCPeerConnection({ iceServers: (access?.iceServers as RTCIceServer[] | undefined) ?? ICE });
     peer.current = target; pc.current = conn;
     localRef.current?.getTracks().forEach(t => conn.addTrack(t, localRef.current!));
     conn.onicecandidate = e => { if (e.candidate) emit('rtc:signal', { to: target, data: { type: 'ice', candidate: e.candidate.toJSON() } satisfies Signal }); };

@@ -1,0 +1,106 @@
+# خادم تجريبي حيّ على الإنترنت لتجربة الكاميرا والمايك والحصص المباشرة — بلا أي حساب استضافة.
+# يبني المشروع، يشغّل الـ API مع بيانات العرض، ويفتح نفقاً عاماً HTTPS عبر Cloudflare (trycloudflare.com).
+# الرابط يظهر في ملخّص التشغيل (Summary). يعمل حتى ٥ ساعات ثم يتوقف؛ أعد تشغيله من زر Re-run / Run workflow.
+name: live-server
+on:
+  workflow_dispatch:
+    inputs:
+      minutes:
+        description: 'مدة تشغيل الخادم بالدقائق (حتى 330)'
+        default: '300'
+        required: false
+  push:
+    branches:
+      - claude/digital-education-platform-1w1zvq
+    paths:
+      - '.github/workflows/live-server.yml'
+concurrency:
+  group: live-server
+  cancel-in-progress: true
+jobs:
+  serve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: تثبيت الحزم
+        run: npm ci --legacy-peer-deps
+      - name: بناء لوحة الإدارة وتطبيق الويب
+        run: |
+          npm run admin:build
+          npm run web:build
+      - name: فتح النفق العام (Cloudflare)
+        id: tunnel
+        run: |
+          curl -sSL -o cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
+          chmod +x cloudflared
+          nohup ./cloudflared tunnel --url http://localhost:4000 --no-autoupdate > tunnel.log 2>&1 &
+          URL=""
+          for i in $(seq 1 90); do
+            URL=$(grep -o 'https://[a-z0-9-]*\.trycloudflare\.com' tunnel.log | head -1 || true)
+            [ -n "$URL" ] && break
+            sleep 1
+          done
+          if [ -z "$URL" ]; then echo "لم يُفتح النفق"; cat tunnel.log; exit 1; fi
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "PUBLIC_URL=$URL" >> "$GITHUB_ENV"
+          echo "النفق: $URL"
+      - name: تشغيل الخادم
+        working-directory: apps/api
+        env:
+          NODE_ENV: development
+          PORT: "4000"
+          HOST: 0.0.0.0
+          TRUST_PROXY: "true"
+          ALLOW_DEMO_SEED: "1"
+          PAYMENT_PROVIDERS: mock,wallet,manual
+          ROOM_PROVIDER: internal
+          TURN_URL: ${{ secrets.TURN_URL }}
+          TURN_USERNAME: ${{ secrets.TURN_USERNAME }}
+          TURN_CREDENTIAL: ${{ secrets.TURN_CREDENTIAL }}
+        run: |
+          nohup npx tsx src/index.ts > ../../api.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://localhost:4000/api/health > /dev/null && break; sleep 2; done
+          curl -sf http://localhost:4000/api/health || { cat ../../api.log; exit 1; }
+          echo
+          echo "فحص من الإنترنت عبر النفق:"
+          for i in $(seq 1 20); do curl -sf "$PUBLIC_URL/api/health" && break; sleep 3; done
+          echo
+      - name: نشر الرابط
+        env:
+          URL: ${{ steps.tunnel.outputs.url }}
+          MINUTES: ${{ github.event.inputs.minutes || '300' }}
+        run: |
+          {
+            echo "# 🟢 الخادم يعمل الآن"
+            echo
+            echo "## $URL"
+            echo
+            echo "| ماذا | الرابط |"
+            echo "| --- | --- |"
+            echo "| التطبيق | $URL |"
+            echo "| لوحة الإدارة | $URL/admin |"
+            echo "| فحص الصحة | $URL/api/health |"
+            echo
+            echo "**الدخول:** طالب \`90000010\` · معلّم \`91000001\` · فريق الإدارة \`90000001\` · الرمز \`000000\`"
+            echo
+            echo "**تجربة الكاميرا:** افتح الرابط على جهازين (أو متصفحين): ادخل كمعلّم في الأول وكطالب في الثاني → الحصص → الحصة القادمة → **دخول الحصة** → اسمح للكاميرا والمايك."
+            echo
+            echo "يتوقف الخادم بعد $MINUTES دقيقة. لإعادة التشغيل: **Re-run all jobs** من هذه الصفحة."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "LIVE_URL=$URL"
+      - name: إبقاء الخادم حيّاً
+        env:
+          MINUTES: ${{ github.event.inputs.minutes || '300' }}
+        run: |
+          END=$(( $(date +%s) + MINUTES * 60 ))
+          while [ "$(date +%s)" -lt "$END" ]; do
+            if ! curl -sf http://localhost:4000/api/health > /dev/null; then echo "الخادم توقف"; tail -50 api.log; exit 1; fi
+            echo "$(date -u +%H:%M) ✔ يعمل — $PUBLIC_URL"
+            sleep 60
+          done
+          echo "انتهت المدة."
