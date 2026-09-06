@@ -109,13 +109,8 @@ jobs:
           MANASSAH_UPLOAD_KEY_ALIAS=$KEY_ALIAS
           MANASSAH_UPLOAD_KEY_PASSWORD=$KEY_PASS
           PROPS
-            # إدراج إعداد توقيع الإصدار في build.gradle الذي ولّده Expo
-            node -e "
-              const fs = require('fs'); const p = 'app/build.gradle'; let s = fs.readFileSync(p, 'utf8');
-              s = s.replace(/signingConfigs \{\n\s*debug \{/, m => m.replace('debug {', 'release {\n            storeFile file(MANASSAH_UPLOAD_STORE_FILE)\n            storePassword MANASSAH_UPLOAD_STORE_PASSWORD\n            keyAlias MANASSAH_UPLOAD_KEY_ALIAS\n            keyPassword MANASSAH_UPLOAD_KEY_PASSWORD\n        }\n        debug {'));
-              s = s.replace(/release \{\n(\s*)\/\/ Caution![^\n]*\n\s*signingConfig signingConfigs\.debug/, 'release {\n\$1signingConfig signingConfigs.release');
-              fs.writeFileSync(p, s);
-            "
+            # إدراج إعداد توقيع الإصدار في build.gradle الذي ولّده Expo (سكربت مختبَر بدل تعابير مضمّنة)
+            node ../scripts/android-signing.mjs app/build.gradle
             grep -n "signingConfigs.release" app/build.gradle > /dev/null && echo "توقيع بالمفتاح الخاص بالمشروع" || { echo "::error::تعذّر إدراج إعداد التوقيع"; exit 1; }
           fi
           # معماريات الهواتف فقط (arm) — x86 للمحاكيات يضاعف الحجم بلا فائدة
