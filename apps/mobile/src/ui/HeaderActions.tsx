@@ -1,6 +1,6 @@
 import { View, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import { colors, hitTarget } from '@manassah/tokens';
+import { colors, hitTarget, radius, spacing } from '@manassah/tokens';
 import { Icon } from './Icon';
 import { Text } from './Text';
 import { useCart, useNotifications } from '@/features/queries';
@@ -31,9 +31,9 @@ export function HeaderActions({ cart = true, bell = true }: { cart?: boolean; be
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row' },
-  btn: { width: hitTarget, height: hitTarget, alignItems: 'center', justifyContent: 'center' },
-  dot: { position: 'absolute', top: 10, end: 10, width: 8, height: 8, borderRadius: 4, backgroundColor: colors.brand.primary, borderWidth: 1.5, borderColor: colors.bg.base },
-  count: { position: 'absolute', top: 6, end: 6, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: colors.brand.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 },
+  row: { flexDirection: 'row', gap: spacing[2] },
+  btn: { width: hitTarget - 4, height: hitTarget - 4, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg.card, borderWidth: 1.5, borderColor: colors.border.default },
+  dot: { position: 'absolute', top: 8, end: 9, width: 10, height: 10, borderRadius: 5, backgroundColor: colors.brand.primary, borderWidth: 2, borderColor: colors.bg.card },
+  count: { position: 'absolute', top: -4, end: -4, minWidth: 20, height: 20, borderRadius: 10, backgroundColor: colors.brand.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4, borderWidth: 2, borderColor: colors.bg.card },
   countText: { fontSize: 10, lineHeight: 12 },
 });

@@ -11,7 +11,7 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#F8F6F1"
+      "backgroundColor": "#FBF7F0"
     },
     "ios": {
       "supportsTablet": true,
@@ -30,7 +30,7 @@
       "package": "om.manassah.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#F8F6F1"
+        "backgroundColor": "#FBF7F0"
       },
       "permissions": [
         "CAMERA",
@@ -50,7 +50,7 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#F8F6F1",
+          "backgroundColor": "#FBF7F0",
           "image": "./assets/splash-icon.png",
           "imageWidth": 160
         }

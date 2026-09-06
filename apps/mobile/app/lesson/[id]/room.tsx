@@ -129,7 +129,7 @@ const styles = StyleSheet.create({
   conn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: radius.full },
   connOk: { backgroundColor: colors.state.success }, connWarn: { backgroundColor: colors.state.warning }, connBad: { backgroundColor: colors.state.danger },
   stage: { flex: 1, marginHorizontal: spacing[3], borderRadius: radius.lg, overflow: 'hidden' },
-  pip: { position: 'absolute', bottom: spacing[3], end: spacing[3], width: 120, borderRadius: radius.md, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)' },
+  pip: { position: 'absolute', bottom: spacing[3], end: spacing[3], width: 120, borderRadius: radius.md, overflow: 'hidden', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.3)' },
   shareBanner: { position: 'absolute', top: spacing[3], start: spacing[3], flexDirection: 'row', gap: 4, alignItems: 'center', backgroundColor: colors.state.info, paddingHorizontal: 8, paddingVertical: 4, borderRadius: radius.sm },
   handBanner: { position: 'absolute', top: spacing[3], end: spacing[3], flexDirection: 'row', gap: 4, alignItems: 'center', backgroundColor: colors.brand.goldSoft, paddingHorizontal: 8, paddingVertical: 4, borderRadius: radius.sm },
   controlsBar: { flexGrow: 0 },

@@ -7,9 +7,8 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider, onlineManager } from '@tanstack/react-query';
 import * as Network from 'expo-network';
-import {
-  useFonts, IBMPlexSansArabic_400Regular, IBMPlexSansArabic_500Medium, IBMPlexSansArabic_600SemiBold, IBMPlexSansArabic_700Bold,
-} from '@expo-google-fonts/ibm-plex-sans-arabic';
+import { useFonts, ReadexPro_400Regular, ReadexPro_500Medium, ReadexPro_600SemiBold, ReadexPro_700Bold } from '@expo-google-fonts/readex-pro';
+import { BalooBhaijaan2_700Bold, BalooBhaijaan2_800ExtraBold } from '@expo-google-fonts/baloo-bhaijaan-2';
 import { colors } from '@manassah/tokens';
 import '@/i18n';
 import { useAuth } from '@/state/auth';
@@ -58,7 +57,7 @@ function useOnline() {
 }
 
 export default function RootLayout() {
-  const [fontsLoaded] = useFonts({ IBMPlexSansArabic_400Regular, IBMPlexSansArabic_500Medium, IBMPlexSansArabic_600SemiBold, IBMPlexSansArabic_700Bold });
+  const [fontsLoaded] = useFonts({ ReadexPro_400Regular, ReadexPro_500Medium, ReadexPro_600SemiBold, ReadexPro_700Bold, BalooBhaijaan2_700Bold, BalooBhaijaan2_800ExtraBold });
   const ready = useAuth(s => s.ready);
   const online = useOnline();
 
@@ -72,7 +71,7 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
           <StatusBar style="dark" />
-          {DEMO ? <View style={{ backgroundColor: colors.brand.goldSoft, paddingVertical: 4, paddingHorizontal: 12, alignItems: 'center' }}><Text role="caption" tone="gold">نسخة عرض بلا خادم — بيانات تجريبية · رمز الدخول 000000</Text></View> : null}
+          {DEMO ? <View style={{ backgroundColor: colors.brand.goldSoft, paddingVertical: 5, paddingHorizontal: 12, alignItems: 'center' }}><Text role="caption" color={colors.brand.goldDark}>نسخة عرض بلا خادم — بيانات تجريبية · رمز الدخول 000000</Text></View> : null}
           {!online ? <OfflineBar /> : null}
           <AuthGate />
           <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg.base }, animation: 'fade_from_bottom', animationDuration: 200 }}>

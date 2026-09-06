@@ -6,29 +6,35 @@ import { Icon } from './Icon';
 import { initials } from '@/lib/format';
 
 export type AvatarSize = 'sm' | 'md' | 'lg' | 'xl';
-const SIZES: Record<AvatarSize, number> = { sm: 32, md: 44, lg: 64, xl: 96 };
+const SIZES: Record<AvatarSize, number> = { sm: 36, md: 48, lg: 68, xl: 100 };
+/** لون ثابت لكل اسم — حتى يميّز الطالب معلّميه بسرعة بلا صور */
+const PALETTE = ['#2F6FED', '#7A5AF8', '#0EA5A5', '#3FA34D', '#F08A24', '#E5488A', '#1F8A70', '#D7263D'];
+const hue = (name: string) => PALETTE[[...name].reduce((s, c) => s + c.charCodeAt(0), 0) % PALETTE.length];
 
 export interface AvatarProps {
   name: string;
   url?: string | null;
   size?: AvatarSize;
   verified?: boolean;
+  /** حلقة بيضاء حول الصورة — فوق الخلفيات الملوّنة */
+  ring?: boolean;
 }
 
-/** صورة أو حرفان من الاسم — بلا صور عشوائية */
-export function Avatar({ name, url, size = 'md', verified }: AvatarProps) {
+/** صورة أو حرفان من الاسم على لون ثابت — بلا صور عشوائية */
+export function Avatar({ name, url, size = 'md', verified, ring }: AvatarProps) {
   const px = SIZES[size];
+  const r = px / 2;
   return (
     <View style={{ width: px, height: px }}>
       {url ? (
-        <Image source={{ uri: url }} style={[styles.img, { width: px, height: px, borderRadius: px / 2 }]} contentFit="cover" transition={150} accessibilityLabel={name} />
+        <Image source={{ uri: url }} style={[styles.img, { width: px, height: px, borderRadius: r }, ring && styles.ring]} contentFit="cover" transition={150} accessibilityLabel={name} />
       ) : (
-        <View style={[styles.fallback, { width: px, height: px, borderRadius: px / 2 }]} accessibilityLabel={name}>
-          <Text role={size === 'sm' ? 'caption' : size === 'xl' ? 'h1' : 'h3'} color={colors.brand.primaryDark}>{initials(name)}</Text>
+        <View style={[styles.fallback, { width: px, height: px, borderRadius: r, backgroundColor: hue(name || '?') }, ring && styles.ring]} accessibilityLabel={name}>
+          <Text role={size === 'sm' ? 'caption' : size === 'xl' ? 'h1' : size === 'lg' ? 'h2' : 'h3'} tone="inverse">{initials(name)}</Text>
         </View>
       )}
       {verified ? (
-        <View style={[styles.verified, { width: px * 0.34, height: px * 0.34, borderRadius: px * 0.17 }]}>
+        <View style={[styles.verified, { width: px * 0.36, height: px * 0.36, borderRadius: px * 0.18 }]}>
           <Icon name="verified" size={px * 0.2} color={colors.text.onPrimary} />
         </View>
       ) : null}
@@ -38,7 +44,8 @@ export function Avatar({ name, url, size = 'md', verified }: AvatarProps) {
 
 const styles = StyleSheet.create({
   img: { backgroundColor: colors.bg.subtle },
-  fallback: { backgroundColor: colors.brand.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  fallback: { alignItems: 'center', justifyContent: 'center' },
+  ring: { borderWidth: 3, borderColor: colors.bg.card },
   verified: {
     position: 'absolute', bottom: -2, end: -2, backgroundColor: colors.brand.gold,
     alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.bg.card,

@@ -57,7 +57,7 @@ const styles = StyleSheet.create({
   day: { marginVertical: spacing[2] },
   bubble: { maxWidth: '84%', padding: spacing[3], borderRadius: radius.lg, gap: 2 },
   mine: { alignSelf: 'flex-end', backgroundColor: colors.brand.primarySoft, borderBottomEndRadius: 4 },
-  theirs: { alignSelf: 'flex-start', backgroundColor: colors.bg.card, borderWidth: 1, borderColor: colors.border.default, borderBottomStartRadius: 4 },
+  theirs: { alignSelf: 'flex-start', backgroundColor: colors.bg.card, borderWidth: 1.5, borderColor: colors.border.default, borderBottomStartRadius: 4 },
   time: { alignSelf: 'flex-end' },
   inputRow: { flexDirection: 'row', gap: spacing[2], alignItems: 'flex-start' },
   flex: { flex: 1, minWidth: 0 },

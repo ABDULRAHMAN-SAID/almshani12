@@ -32,7 +32,7 @@ const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap(e => e.is
 const mime = { ttf: 'font/ttf', otf: 'font/otf', png: 'image/png', jpg: 'image/jpeg', svg: 'image/svg+xml', ico: 'image/x-icon' };
 const map = {};
 // الخطوط والصور التي يطلبها التطبيق فعلاً (عائلة الأيقونات المستعملة + أوزان الخط العربي المحمَّلة)
-const wanted = /IBMPlexSansArabic_(400|500|600|700)|Ionicons\.|expo-router\/assets/;
+const wanted = /ReadexPro_(400|500|600|700)|BalooBhaijaan2_(700|800)|Ionicons\.|expo-router\/assets/;
 for (const f of walk(path.join(exportDir, 'assets'))) {
   const rel = '/' + path.relative(exportDir, f).split(path.sep).join('/');
   if (!wanted.test(rel)) continue;

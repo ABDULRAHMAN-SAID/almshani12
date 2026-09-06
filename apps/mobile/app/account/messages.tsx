@@ -28,7 +28,7 @@ export default function Messages() {
 }
 const styles = StyleSheet.create({
   list: { gap: spacing[2], paddingTop: spacing[2] },
-  row: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], padding: spacing[3], borderRadius: radius.md, backgroundColor: colors.bg.card, borderWidth: 1, borderColor: colors.border.default },
+  row: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], padding: spacing[3], borderRadius: radius.md, backgroundColor: colors.bg.card, borderWidth: 1.5, borderColor: colors.border.default },
   flex: { flex: 1, minWidth: 0 },
   top: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
   badge: { minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6, backgroundColor: colors.brand.primary, alignItems: 'center', justifyContent: 'center' },

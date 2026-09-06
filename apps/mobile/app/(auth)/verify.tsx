@@ -77,7 +77,7 @@ const styles = StyleSheet.create({
   head: { gap: spacing[2] },
   targetRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' },
   boxes: { flexDirection: 'row', gap: spacing[2], justifyContent: 'center', direction: 'ltr' },
-  box: { width: 48, height: 58, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border.default, backgroundColor: colors.bg.card, alignItems: 'center', justifyContent: 'center' },
+  box: { width: 48, height: 58, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.border.default, backgroundColor: colors.bg.card, alignItems: 'center', justifyContent: 'center' },
   boxActive: { borderColor: colors.border.focus, borderWidth: 2 },
   boxError: { borderColor: colors.state.danger },
   hidden: { position: 'absolute', opacity: 0, width: 1, height: 1, fontFamily: fontFamily.regular },

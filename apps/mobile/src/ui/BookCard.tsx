@@ -1,14 +1,14 @@
 import { View, Pressable, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
+import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { colors, radius, spacing, subjectColors, type SubjectColorKey } from '@manassah/tokens';
+import { colors, radius, spacing, shadow, subjectColors, subjectIcons, type SubjectColorKey } from '@manassah/tokens';
 import type { BookCard as BookCardData } from '@manassah/shared';
 import { Text } from './Text';
 import { Badge } from './Badge';
 import { Rating } from './Rating';
 import { Price } from './Price';
 import { Icon } from './Icon';
-import { compactNumber } from '@/lib/format';
 
 export interface BookCardProps {
   book: BookCardData;
@@ -20,19 +20,23 @@ export interface BookCardProps {
 }
 
 const BADGE_TONE = { bestseller: 'brand', new: 'info', updated: 'success', verified: 'gold', free: 'success' } as const;
+const subj = (key: string | null | undefined) => {
+  const k = (key && key in subjectColors ? key : 'default') as SubjectColorKey;
+  return { ...subjectColors[k], icon: subjectIcons[k] as keyof typeof Ionicons.glyphMap };
+};
 
-/** غلاف افتراضي بلون المادة — بلا صور عشوائية */
-function Cover({ book, height }: { book: BookCardData; height: number }) {
+/** غلاف بلون المادة وأيقونتها — قوي وواضح بلا صور عشوائية */
+function Cover({ book, height, small }: { book: BookCardData; height: number; small?: boolean }) {
   const { t } = useTranslation();
-  const sc = subjectColors[(book.subject.colorKey as SubjectColorKey) ?? 'default'] ?? subjectColors.default;
+  const sc = subj(book.subject.colorKey);
   if (book.coverUrl) {
     return <Image source={{ uri: book.coverUrl }} style={[styles.cover, { height }]} contentFit="cover" transition={150} />;
   }
   return (
-    <View style={[styles.cover, styles.coverFallback, { height, backgroundColor: sc.soft, borderStartColor: sc.main }]}>
-      <Text role="caption" color={sc.main}>{t(`library.types.${book.type}`)}</Text>
-      <Text role="h3" color={sc.main} numberOfLines={3} style={styles.coverTitle}>{book.title}</Text>
-      <Text role="caption" color={sc.main}>{book.subject.name} · {book.grade.name}</Text>
+    <View style={[styles.cover, styles.coverFallback, { height, backgroundColor: sc.main }]}>
+      <Ionicons name={sc.icon} size={small ? 54 : 96} color="#FFFFFF" style={styles.watermark} />
+      {!small ? <View style={styles.typePill}><Text role="caption" color={sc.main}>{t(`library.types.${book.type}`)}</Text></View> : null}
+      <Text role={small ? 'caption' : 'h3'} tone="inverse" numberOfLines={small ? 2 : 3} style={styles.coverTitle}>{book.title}</Text>
     </View>
   );
 }
@@ -44,12 +48,12 @@ export function BookCard({ book, onPress, compact, width }: BookCardProps) {
   if (compact) {
     return (
       <Pressable onPress={onPress} accessibilityRole="button" style={({ pressed }) => [styles.rowCard, pressed && styles.pressed]}>
-        <View style={styles.rowCover}><Cover book={book} height={96} /></View>
+        <View style={styles.rowCover}><Cover book={book} height={100} small /></View>
         <View style={styles.rowBody}>
           <Text role="bodyMedium" numberOfLines={2}>{book.title}</Text>
-          <Text role="caption" tone="secondary" numberOfLines={1}>{book.subject.name} · {book.grade.name} · {book.author.name}</Text>
+          <Text role="caption" tone="secondary" numberOfLines={1}>{book.subject.name} · {book.grade.name}</Text>
           <View style={styles.rowFoot}>
-            {book.ratingCount > 0 ? <Rating value={book.ratingAvg} count={book.ratingCount} size={12} /> : <View />}
+            {book.ratingCount > 0 ? <Rating value={book.ratingAvg} count={book.ratingCount} size={13} /> : <View />}
             {book.owned ? <Badge label={t('library.owned')} tone="success" icon="check" /> : <Price value={book.price} size="sm" />}
           </View>
         </View>
@@ -61,20 +65,18 @@ export function BookCard({ book, onPress, compact, width }: BookCardProps) {
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={book.title}
       style={({ pressed }) => [styles.card, width ? { width } : styles.fluid, pressed && styles.pressed]}>
       <View>
-        <Cover book={book} height={150} />
+        <Cover book={book} height={156} />
         {badge ? <View style={styles.badgePos}><Badge label={t(`common.${badge}`)} tone={BADGE_TONE[badge]} /></View> : null}
         {book.favorited ? <View style={styles.heart}><Icon name="heartFilled" size={16} color={colors.brand.primary} /></View> : null}
       </View>
       <View style={styles.body}>
-        <Text role="bodyMedium" numberOfLines={2} style={styles.title}>{book.title}</Text>
-        <Text role="caption" tone="secondary" numberOfLines={1}>{book.subject.name} · {book.grade.name}</Text>
-        <Text role="caption" tone="tertiary" numberOfLines={1}>{book.author.name}</Text>
-        <View style={styles.meta}>
-          {book.ratingCount > 0 ? <Rating value={book.ratingAvg} count={book.ratingCount} size={12} /> : null}
-          {book.salesCount > 0 ? <Text role="caption" tone="tertiary" tabular>{t('library.sold', { n: compactNumber(book.salesCount) })}</Text> : null}
-        </View>
+        {book.coverUrl
+          ? <Text role="bodyMedium" numberOfLines={2} style={styles.title}>{book.title}</Text>
+          : <Text role="bodyMedium" numberOfLines={2} style={styles.title}>{book.subject.name} · {book.grade.name}</Text>}
+        <Text role="caption" tone="secondary" numberOfLines={1}>{book.author.name}</Text>
         <View style={styles.foot}>
           {book.owned ? <Badge label={t('library.owned')} tone="success" icon="check" /> : <Price value={book.price} />}
+          {book.ratingCount > 0 ? <Rating value={book.ratingAvg} size={13} /> : null}
         </View>
       </View>
     </Pressable>
@@ -82,20 +84,21 @@ export function BookCard({ book, onPress, compact, width }: BookCardProps) {
 }
 
 const styles = StyleSheet.create({
-  card: { backgroundColor: colors.bg.card, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border.default, overflow: 'hidden' },
+  card: { backgroundColor: colors.bg.card, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.border.default, overflow: 'hidden', ...shadow.card },
   fluid: { flex: 1 },
-  pressed: { opacity: 0.9 },
+  pressed: { opacity: 0.9, transform: [{ scale: 0.99 }] },
   cover: { width: '100%', backgroundColor: colors.bg.subtle },
-  coverFallback: { padding: spacing[3], justifyContent: 'flex-end', gap: 2, borderStartWidth: 4 },
-  coverTitle: { lineHeight: 22 },
+  coverFallback: { padding: spacing[3], justifyContent: 'flex-end', gap: spacing[1], overflow: 'hidden' },
+  watermark: { position: 'absolute', top: -14, end: -18, opacity: 0.22 },
+  typePill: { alignSelf: 'flex-start', backgroundColor: '#FFFFFF', borderRadius: radius.full, paddingHorizontal: spacing[2], height: 24, justifyContent: 'center' },
+  coverTitle: { lineHeight: 24 },
   badgePos: { position: 'absolute', top: spacing[2], start: spacing[2] },
-  heart: { position: 'absolute', top: spacing[2], end: spacing[2], backgroundColor: colors.bg.card, borderRadius: 12, padding: 4 },
+  heart: { position: 'absolute', top: spacing[2], end: spacing[2], backgroundColor: colors.bg.card, borderRadius: 14, padding: 5 },
   body: { padding: spacing[3], gap: 2 },
-  title: { minHeight: 44 },
-  meta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: spacing[1], minHeight: 18 },
-  foot: { marginTop: spacing[2], flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  rowCard: { flexDirection: 'row', gap: spacing[3], backgroundColor: colors.bg.card, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border.default, padding: spacing[2], overflow: 'hidden' },
-  rowCover: { width: 72, borderRadius: radius.sm, overflow: 'hidden' },
+  title: { minHeight: 52 },
+  foot: { marginTop: spacing[2], flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing[2] },
+  rowCard: { flexDirection: 'row', gap: spacing[3], backgroundColor: colors.bg.card, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.border.default, padding: spacing[2], overflow: 'hidden' },
+  rowCover: { width: 80, borderRadius: radius.md, overflow: 'hidden' },
   rowBody: { flex: 1, justifyContent: 'space-between', paddingVertical: 2, gap: 2 },
   rowFoot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing[1] },
 });

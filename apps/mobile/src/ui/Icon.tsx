@@ -22,6 +22,9 @@ export const ICONS = {
   edit: 'create-outline', plus: 'add', minus: 'remove', upload: 'cloud-upload-outline', download: 'download-outline',
   copy: 'copy-outline', card: 'card-outline', bank: 'business-outline', speed: 'speedometer-outline', replay: 'play-back-outline', forward10: 'play-forward-outline', send: 'send', camera: 'camera-outline', mute: 'volume-mute-outline', timer: 'timer-outline', screen: 'desktop-outline', end: 'stop-circle-outline', document: 'document-text-outline', attach: 'attach', reading: 'reader-outline', arrowUp: 'arrow-up',
   location: 'location-outline', phone: 'call-outline', mail: 'mail-outline', school: 'school-outline', grade: 'ribbon-outline',
+  // أيقونات المواد (مملوءة — تظهر بوضوح على الأغلفة الملوّنة)
+  calculator: 'calculator', planet: 'planet', flask: 'flask', leaf: 'leaf', bookSolid: 'book', moon: 'moon', earth: 'earth', schoolSolid: 'school',
+  sparkles: 'sparkles', trophy: 'trophy', flame: 'flame', rocket: 'rocket', gift: 'gift', bulb: 'bulb', pencil: 'pencil', videoSolid: 'videocam', playCircle: 'play-circle', chatSolid: 'chatbubble-ellipses',
 } as const;
 
 export type IconName = keyof typeof ICONS;

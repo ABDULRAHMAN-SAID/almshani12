@@ -2,18 +2,18 @@ import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import * as Clipboard from 'expo-clipboard';
-import { colors, spacing, radius } from '@manassah/tokens';
+import { colors, spacing, radius, shadow } from '@manassah/tokens';
 import type { z } from 'zod';
 import type { ContinueItem } from '@manassah/shared';
 import { Screen, Text, Icon, Button, Card, Avatar, SectionHeader, BookCard, TeacherCard, CourseCard, LessonCard, HeaderActions, type IconName } from '@/ui';
 import { useHome, useQuickQuiz } from '@/features/queries';
 import { useAuth } from '@/state/auth';
 
-const CARD_W = 168, TEACHER_W = 290, COURSE_W = 250;
+const CARD_W = 176, TEACHER_W = 300, COURSE_W = 260;
 
 /**
- * الرئيسية — الترتيب ملزم:
- * ترويسة → بطل + إجراءات سريعة → حصّتك القادمة → أكمل دراستك → ملخّصات صفّك → الدورات → المعلّمون المميّزون → الأكثر طلباً → حلّ مسائل → عروض
+ * الرئيسية — قليلة العناصر ومرتّبة، بالترتيب الملزم:
+ * ترويسة وبحث → حصّتك القادمة → أربع بلاطات كبيرة (احجز معلّماً / ملخّص / حلّ مسائل / اختبار) → أكمل دراستك → ملخّصات صفّك → الدورات → المعلّمون → عروض
  */
 export default function Home() {
   const { t } = useTranslation();
@@ -25,15 +25,15 @@ export default function Home() {
   const hour = new Date().getHours();
   const greeting = t(hour < 12 ? 'home.greetingMorning' : 'home.greetingEvening', { name: d?.greeting.name || user?.displayName || '' });
 
-  const actions: { key: string; icon: IconName; label: string; onPress: () => void }[] = [
-    { key: 'teacher', icon: 'teacher', label: t('home.quick.bookTeacher'), onPress: () => router.push('/teachers') },
-    { key: 'summary', icon: 'book', label: t('home.quick.buySummary'), onPress: () => router.push({ pathname: '/(tabs)/library', params: { type: 'summary' } }) },
-    { key: 'solve', icon: 'solve', label: t('home.quick.solve'), onPress: () => router.push({ pathname: '/(tabs)/library', params: { type: 'solved_problems' } }) },
-    { key: 'courses', icon: 'courses', label: t('home.quick.courses'), onPress: () => router.push('/(tabs)/courses') },
-    { key: 'quiz', icon: 'quiz', label: t('home.quick.quiz'), onPress: () => quick.mutate(undefined, { onSuccess: r => router.push(`/quiz/${r.quizId}`) }) },
+  const tiles: { key: string; icon: IconName; label: string; bg: string; fg: string; onPress: () => void }[] = [
+    { key: 'teacher', icon: 'schoolSolid', label: t('home.quick.bookTeacher'), bg: colors.brand.primarySoft, fg: colors.brand.primary, onPress: () => router.push('/teachers') },
+    { key: 'summary', icon: 'bookSolid', label: t('home.quick.buySummary'), bg: '#E6EEFF', fg: '#2F6FED', onPress: () => router.push({ pathname: '/(tabs)/library', params: { type: 'summary' } }) },
+    { key: 'solve', icon: 'calculator', label: t('home.quick.solve'), bg: '#E0F7F7', fg: '#0EA5A5', onPress: () => router.push({ pathname: '/(tabs)/library', params: { type: 'solved_problems' } }) },
+    { key: 'quiz', icon: 'sparkles', label: t('home.quick.quiz'), bg: colors.brand.goldSoft, fg: colors.brand.goldDark, onPress: () => quick.mutate(undefined, { onSuccess: r => router.push(`/quiz/${r.quizId}`) }) },
   ];
 
   const openContinue = (c: z.infer<typeof ContinueItem>) => router.push(c.type === 'book' ? `/book/${c.id}/read` : c.type === 'course' ? `/course/${c.id}` : `/quiz/${c.id}`);
+  const contColor = (type: string) => type === 'book' ? '#2F6FED' : type === 'course' ? '#159A5B' : '#B98C14';
 
   return (
     <Screen bare loading={home.isLoading} error={home.error} onRetry={() => home.refetch()} refreshing={home.isRefetching} onRefresh={() => home.refetch()} padded={false}>
@@ -42,72 +42,78 @@ export default function Home() {
         <Pressable onPress={() => router.push('/(tabs)/account')} style={styles.who} accessibilityRole="button">
           <Avatar name={user?.displayName ?? ''} url={user?.avatarUrl} size="md" />
           <View style={styles.whoText}>
-            <Text role="bodyMedium" numberOfLines={1}>{greeting}</Text>
+            <Text role="h3" numberOfLines={1}>{greeting}</Text>
             {d?.greeting.gradeName ? <Text role="caption" tone="secondary" numberOfLines={1}>{d.greeting.gradeName}</Text> : null}
           </View>
         </Pressable>
         <HeaderActions />
       </View>
-      <Pressable onPress={() => router.push('/search')} style={[styles.px, styles.search]} accessibilityRole="search">
+      <Pressable onPress={() => router.push('/search')} style={({ pressed }) => [styles.px, styles.search, pressed && styles.pressed]} accessibilityRole="search">
         <View style={styles.searchBox}>
-          <Icon name="search" size={20} color={colors.text.tertiary} />
-          <Text role="body" tone="tertiary">{t('home.searchPlaceholder')}</Text>
+          <Icon name="search" size={22} color={colors.text.tertiary} />
+          <Text role="body" tone="tertiary" numberOfLines={1}>{t('home.searchPlaceholder')}</Text>
         </View>
       </Pressable>
 
-      {/* البطل + الإجراءات السريعة */}
-      <View style={[styles.px, styles.hero]}>
-        <Text role="display" style={styles.heroTitle}>{t('home.heroTitle')}</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickRow}>
-          {actions.map(a => (
-            <Pressable key={a.key} onPress={a.onPress} style={({ pressed }) => [styles.quick, pressed && styles.pressed]} accessibilityRole="button">
-              <View style={styles.quickIcon}><Icon name={a.icon} size={22} color={colors.brand.primary} /></View>
-              <Text role="caption" center numberOfLines={2}>{a.label}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-      </View>
-
       {/* ١) حصّتك القادمة */}
-      <View style={styles.px}>
+      <View style={[styles.px, styles.section]}>
         <SectionHeader title={t('home.nextLesson')} onSeeAll={d?.nextLesson ? () => router.push('/(tabs)/lessons') : undefined} />
         {d?.nextLesson ? (
           <LessonCard booking={d.nextLesson} hero onPress={() => router.push(`/lesson/${d.nextLesson!.id}`)} onJoin={() => router.push(`/lesson/${d.nextLesson!.id}/precall`)} />
         ) : (
-          <Card accent>
+          <Card>
             <View style={styles.emptyLesson}>
-              <View style={styles.emptyIcon}><Icon name="video" size={26} color={colors.brand.primary} /></View>
+              <View style={styles.emptyIcon}><Icon name="videoSolid" size={30} color={colors.brand.primary} /></View>
               <View style={styles.flex}>
                 <Text role="h3">{t('home.noLesson')}</Text>
                 <Text role="small" tone="secondary">{t('home.noLessonHint')}</Text>
               </View>
             </View>
-            <Button label={t('home.quick.bookTeacher')} onPress={() => router.push('/teachers')} icon="teacher" style={styles.mt} />
+            <Button label={t('home.quick.bookTeacher')} onPress={() => router.push('/teachers')} icon="schoolSolid" full style={styles.mt} />
           </Card>
         )}
       </View>
 
-      {/* ٢) أكمل دراستك */}
+      {/* ٢) أربع بلاطات كبيرة — كل شيء يبدأ من هنا */}
+      <View style={[styles.px, styles.section]}>
+        <SectionHeader title={t('home.heroTitle')} />
+        <View style={styles.tiles}>
+          {tiles.map(a => (
+            <Pressable key={a.key} onPress={a.onPress} style={({ pressed }) => [styles.tile, { backgroundColor: a.bg }, pressed && styles.pressed]} accessibilityRole="button">
+              <View style={styles.tileIcon}><Icon name={a.icon} size={28} color={a.fg} /></View>
+              <Text role="h3" color={a.fg} numberOfLines={1}>{a.label}</Text>
+              <Icon name="forward" size={18} color={a.fg} />
+            </Pressable>
+          ))}
+        </View>
+      </View>
+
+      {/* ٣) أكمل دراستك */}
       {d?.continueItems.length ? (
-        <View>
+        <View style={styles.section}>
           <View style={styles.px}><SectionHeader title={t('home.continue')} /></View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hList}>
-            {d.continueItems.map(c => (
-              <Pressable key={`${c.type}-${c.id}`} onPress={() => openContinue(c)} style={({ pressed }) => [styles.cont, pressed && styles.pressed]} accessibilityRole="button">
-                <View style={styles.contIcon}><Icon name={c.type === 'book' ? 'book' : c.type === 'course' ? 'play' : 'quiz'} size={18} color={colors.state.info} /></View>
-                <Text role="bodyMedium" numberOfLines={2} style={styles.contTitle}>{c.title}</Text>
-                {c.subtitle ? <Text role="caption" tone="secondary" numberOfLines={1}>{c.subtitle}</Text> : null}
-                <View style={styles.track}><View style={[styles.fill, { width: `${c.progressPercent}%` }]} /></View>
-                <Text role="caption" tone="tertiary" tabular>{t('courses.progress', { p: c.progressPercent })}</Text>
-              </Pressable>
-            ))}
+            {d.continueItems.map(c => {
+              const cc = contColor(c.type);
+              return (
+                <Pressable key={`${c.type}-${c.id}`} onPress={() => openContinue(c)} style={({ pressed }) => [styles.cont, pressed && styles.pressed]} accessibilityRole="button">
+                  <View style={[styles.contIcon, { backgroundColor: `${cc}1F` }]}><Icon name={c.type === 'book' ? 'bookSolid' : c.type === 'course' ? 'playCircle' : 'sparkles'} size={22} color={cc} /></View>
+                  <Text role="bodyMedium" numberOfLines={2} style={styles.contTitle}>{c.title}</Text>
+                  {c.subtitle ? <Text role="caption" tone="secondary" numberOfLines={1}>{c.subtitle}</Text> : null}
+                  <View style={styles.contFoot}>
+                    <View style={styles.track}><View style={[styles.fill, { width: `${c.progressPercent}%`, backgroundColor: cc }]} /></View>
+                    <Text role="caption" color={cc} tabular>{c.progressPercent}%</Text>
+                  </View>
+                </Pressable>
+              );
+            })}
           </ScrollView>
         </View>
       ) : null}
 
-      {/* ٣) ملخّصات صفّك */}
+      {/* ٤) ملخّصات صفّك */}
       {d?.gradeSummaries.length ? (
-        <View>
+        <View style={styles.section}>
           <View style={styles.px}><SectionHeader title={d.greeting.gradeName ? t('home.gradeSummaries', { grade: d.greeting.gradeName }) : t('home.diplomaSummaries')} onSeeAll={() => router.push({ pathname: '/(tabs)/library', params: { type: 'summary' } })} /></View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hList}>
             {d.gradeSummaries.map(b => <BookCard key={b.id} book={b} width={CARD_W} onPress={() => router.push(`/book/${b.id}`)} />)}
@@ -115,9 +121,9 @@ export default function Home() {
         </View>
       ) : null}
 
-      {/* ٤) الدورات */}
+      {/* ٥) الدورات */}
       {d?.courses.length ? (
-        <View>
+        <View style={styles.section}>
           <View style={styles.px}><SectionHeader title={t('home.featuredCourses')} onSeeAll={() => router.push('/(tabs)/courses')} /></View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hList}>
             {d.courses.map(c => <CourseCard key={c.id} course={c} width={COURSE_W} onPress={() => router.push(`/course/${c.id}`)} />)}
@@ -125,9 +131,9 @@ export default function Home() {
         </View>
       ) : null}
 
-      {/* ٥) المعلّمون المميّزون */}
+      {/* ٦) المعلّمون المميّزون */}
       {d?.recommendedTeachers.length ? (
-        <View>
+        <View style={styles.section}>
           <View style={styles.px}><SectionHeader title={t('home.recommendedTeachers')} onSeeAll={() => router.push('/teachers')} /></View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hList}>
             {d.recommendedTeachers.map(tc => <TeacherCard key={tc.id} teacher={tc} width={TEACHER_W} compact onPress={() => router.push(`/teacher/${tc.id}`)} onBook={() => router.push(`/teacher/${tc.id}/book`)} />)}
@@ -135,35 +141,15 @@ export default function Home() {
         </View>
       ) : null}
 
-      {/* ٦) الأكثر طلباً */}
-      {d?.trending.length ? (
-        <View>
-          <View style={styles.px}><SectionHeader title={t('home.trending')} onSeeAll={() => router.push('/(tabs)/library')} /></View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hList}>
-            {d.trending.map(b => <BookCard key={b.id} book={b} width={CARD_W} onPress={() => router.push(`/book/${b.id}`)} />)}
-          </ScrollView>
-        </View>
-      ) : null}
-
-      {/* ٧) حلّ مسائل خطوة بخطوة */}
-      {d?.solvedProblems.length ? (
-        <View>
-          <View style={styles.px}><SectionHeader title={t('home.solvedProblems')} onSeeAll={() => router.push({ pathname: '/(tabs)/library', params: { type: 'solved_problems' } })} /></View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.hList}>
-            {d.solvedProblems.map(b => <BookCard key={b.id} book={b} width={CARD_W} onPress={() => router.push(`/book/${b.id}`)} />)}
-          </ScrollView>
-        </View>
-      ) : null}
-
-      {/* ٨) عروض */}
+      {/* ٧) عروض — بطاقة واحدة واضحة */}
       {d?.offers.length ? (
-        <View style={styles.px}>
-          <SectionHeader title={t('home.offers')} />
-          {d.offers.map(o => (
-            <Card key={o.id} style={styles.offer} accent>
+        <View style={[styles.px, styles.section]}>
+          {d.offers.slice(0, 1).map(o => (
+            <Card key={o.id} tint={colors.brand.goldSoft} style={styles.offer}>
+              <View style={styles.offerIcon}><Icon name="gift" size={26} color={colors.brand.goldDark} /></View>
               <View style={styles.flex}>
-                <Text role="bodyMedium">{o.title}</Text>
-                {o.subtitle ? <Text role="caption" tone="secondary">{o.subtitle}</Text> : null}
+                <Text role="h3" numberOfLines={1}>{o.title}</Text>
+                {o.subtitle ? <Text role="small" tone="secondary" numberOfLines={2}>{o.subtitle}</Text> : null}
               </View>
               {o.code ? <Button label={o.code} variant="secondary" size="sm" icon="copy" onPress={() => Clipboard.setStringAsync(o.code!)} /> : null}
             </Card>
@@ -177,27 +163,28 @@ export default function Home() {
 
 const styles = StyleSheet.create({
   px: { paddingHorizontal: spacing[4] },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: spacing[2], paddingBottom: spacing[2] },
+  section: { paddingTop: spacing[5] },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: spacing[3], paddingBottom: spacing[3] },
   who: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], flex: 1, minWidth: 0 },
   whoText: { flex: 1, minWidth: 0 },
-  search: { paddingBottom: spacing[2] },
-  searchBox: { height: 48, borderRadius: radius.md, backgroundColor: colors.bg.subtle, flexDirection: 'row', alignItems: 'center', gap: spacing[2], paddingHorizontal: spacing[3] },
-  hero: { paddingTop: spacing[3], paddingBottom: spacing[5], gap: spacing[4] },
-  heroTitle: { lineHeight: 40 },
-  quickRow: { flexDirection: 'row', gap: spacing[3] },
-  quick: { width: 84, alignItems: 'center', gap: spacing[2] },
-  quickIcon: { width: 60, height: 60, borderRadius: radius.lg, backgroundColor: colors.bg.card, borderWidth: 1, borderColor: colors.border.default, alignItems: 'center', justifyContent: 'center' },
-  pressed: { opacity: 0.8 },
+  search: { paddingBottom: spacing[1] },
+  searchBox: { height: 54, borderRadius: radius.full, backgroundColor: colors.bg.card, borderWidth: 1.5, borderColor: colors.border.default, flexDirection: 'row', alignItems: 'center', gap: spacing[3], paddingHorizontal: spacing[4], ...shadow.card },
+  pressed: { opacity: 0.85 },
   emptyLesson: { flexDirection: 'row', gap: spacing[3], alignItems: 'center' },
-  emptyIcon: { width: 52, height: 52, borderRadius: radius.md, backgroundColor: colors.brand.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  emptyIcon: { width: 60, height: 60, borderRadius: 30, backgroundColor: colors.brand.primarySoft, alignItems: 'center', justifyContent: 'center' },
   flex: { flex: 1, minWidth: 0 },
   mt: { marginTop: spacing[4] },
-  hList: { paddingHorizontal: spacing[4], gap: spacing[3], paddingBottom: spacing[6] },
-  cont: { width: 220, backgroundColor: colors.bg.card, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border.default, padding: spacing[3], gap: spacing[1] },
-  contIcon: { width: 32, height: 32, borderRadius: radius.sm, backgroundColor: colors.state.infoSoft, alignItems: 'center', justifyContent: 'center', marginBottom: spacing[1] },
-  contTitle: { minHeight: 44 },
-  track: { height: 4, borderRadius: 2, backgroundColor: colors.bg.subtle, overflow: 'hidden', marginTop: spacing[1] },
-  fill: { height: '100%', backgroundColor: colors.state.info, borderRadius: 2 },
-  offer: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], marginBottom: spacing[3] },
-  bottom: { height: spacing[6] },
+  tiles: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[3] },
+  tile: { width: '48%', flexGrow: 1, borderRadius: radius.lg, padding: spacing[3], gap: spacing[2], minHeight: 128, justifyContent: 'space-between' },
+  tileIcon: { width: 52, height: 52, borderRadius: 26, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
+  hList: { paddingHorizontal: spacing[4], gap: spacing[3], paddingBottom: spacing[2] },
+  cont: { width: 210, backgroundColor: colors.bg.card, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.border.default, padding: spacing[3], gap: spacing[1], ...shadow.card },
+  contIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', marginBottom: spacing[1] },
+  contTitle: { minHeight: 52 },
+  contFoot: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], marginTop: spacing[1] },
+  track: { flex: 1, height: 8, borderRadius: 4, backgroundColor: colors.bg.subtle, overflow: 'hidden' },
+  fill: { height: '100%', borderRadius: 4 },
+  offer: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
+  offerIcon: { width: 52, height: 52, borderRadius: 26, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
+  bottom: { height: spacing[8] },
 });

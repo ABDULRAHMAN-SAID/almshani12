@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
   total: { borderTopWidth: 1, borderTopColor: colors.border.default, marginTop: spacing[2], paddingTop: spacing[3] },
   couponRow: { flexDirection: 'row', gap: spacing[2], marginTop: spacing[3] },
   flex: { flex: 1, minWidth: 0 },
-  method: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], padding: spacing[3], borderRadius: radius.md, borderWidth: 1, borderColor: colors.border.default, backgroundColor: colors.bg.card, minHeight: 64 },
+  method: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], padding: spacing[3], borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.border.default, backgroundColor: colors.bg.card, minHeight: 64 },
   methodOn: { borderColor: colors.brand.primary },
   mIcon: { width: 40, height: 40, borderRadius: radius.md, backgroundColor: colors.bg.subtle, alignItems: 'center', justifyContent: 'center' },
   mIconOn: { backgroundColor: colors.brand.primarySoft },

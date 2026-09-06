@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { View, ScrollView, Pressable, RefreshControl, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, spacing, layout, hitTarget } from '@manassah/tokens';
+import { colors, spacing, layout, hitTarget, radius } from '@manassah/tokens';
 import { Text } from './Text';
 import { Icon } from './Icon';
 import { ErrorState, EmptyState, type EmptyStateProps } from './States';
@@ -50,12 +50,12 @@ export function Screen({
       {!bare && (title || onBack || right) && (
         <View style={styles.header}>
           {onBack ? (
-            <Pressable onPress={onBack} hitSlop={8} style={styles.headerBtn} accessibilityRole="button" accessibilityLabel="رجوع">
-              <Icon name="back" size={24} />
+            <Pressable onPress={onBack} hitSlop={8} style={({ pressed }) => [styles.headerBtn, styles.backBtn, pressed && styles.pressed]} accessibilityRole="button" accessibilityLabel="رجوع">
+              <Icon name="back" size={22} />
             </Pressable>
           ) : <View style={styles.headerBtn} />}
           <View style={styles.headerCenter}>
-            {title ? <Text role="h3" numberOfLines={1} center>{title}</Text> : null}
+            {title ? <Text role="h2" numberOfLines={1} center>{title}</Text> : null}
             {subtitle ? <Text role="caption" tone="secondary" numberOfLines={1} center>{subtitle}</Text> : null}
           </View>
           <View style={[styles.headerBtn, styles.headerRight]}>{right}</View>
@@ -82,10 +82,12 @@ export function Screen({
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg.base },
   header: {
-    flexDirection: 'row', alignItems: 'center', height: 56,
-    paddingHorizontal: spacing[2], backgroundColor: colors.bg.base,
+    flexDirection: 'row', alignItems: 'center', height: 64,
+    paddingHorizontal: spacing[3], backgroundColor: colors.bg.base,
   },
-  headerBtn: { width: hitTarget, height: hitTarget, alignItems: 'center', justifyContent: 'center' },
+  headerBtn: { width: hitTarget - 4, height: hitTarget - 4, alignItems: 'center', justifyContent: 'center' },
+  backBtn: { borderRadius: radius.full, backgroundColor: colors.bg.card, borderWidth: 1.5, borderColor: colors.border.default },
+  pressed: { opacity: 0.7 },
   headerRight: { width: undefined, minWidth: hitTarget, flexDirection: 'row', justifyContent: 'flex-end' },
   headerCenter: { flex: 1, alignItems: 'center' },
   scroll: { flex: 1 },
@@ -94,6 +96,7 @@ const styles = StyleSheet.create({
   padded: { paddingHorizontal: layout.screenPadding },
   footer: {
     paddingHorizontal: layout.screenPadding, paddingVertical: spacing[3],
-    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border.default, backgroundColor: colors.bg.card,
+    borderTopWidth: 1.5, borderTopColor: colors.border.default, backgroundColor: colors.bg.card,
+    borderTopStartRadius: radius.lg, borderTopEndRadius: radius.lg,
   },
 });

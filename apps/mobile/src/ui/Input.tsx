@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { View, TextInput, Pressable, StyleSheet, type TextInputProps } from 'react-native';
-import { colors, radius, spacing, hitTarget, typography } from '@manassah/tokens';
+import { View, TextInput, Pressable, StyleSheet, Platform, type TextInputProps } from 'react-native';
+import { colors, radius, spacing, typography } from '@manassah/tokens';
 import { Text } from './Text';
 import { Icon, type IconName } from './Icon';
 
@@ -18,7 +18,7 @@ export function Input({ label, error, helper, icon, numeric, secureTextEntry, ..
   const [hidden, setHidden] = useState(!!secureTextEntry);
   return (
     <View style={styles.wrap}>
-      {label ? <Text role="caption" tone="secondary" style={styles.label}>{label}</Text> : null}
+      {label ? <Text role="caption" tone="primary" style={styles.label}>{label}</Text> : null}
       <View style={[styles.field, focused && styles.focused, !!error && styles.errored]}>
         {icon ? <Icon name={icon} size={19} color={colors.text.tertiary} /> : null}
         <TextInput
@@ -80,26 +80,27 @@ export function SearchInput({ onClear, onFilter, activeFilters, value, ...rest }
 
 const styles = StyleSheet.create({
   wrap: { gap: spacing[1] },
-  label: { marginBottom: 2 },
+  label: { marginBottom: 2, fontSize: 14, lineHeight: 20 },
   field: {
     flexDirection: 'row', alignItems: 'center', gap: spacing[2],
-    minHeight: hitTarget + 4, paddingHorizontal: spacing[3],
-    backgroundColor: colors.bg.card, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border.default,
+    minHeight: 56, paddingHorizontal: spacing[4],
+    backgroundColor: colors.bg.card, borderRadius: radius.md, borderWidth: 2, borderColor: colors.border.default,
   },
   focused: { borderColor: colors.border.focus },
   errored: { borderColor: colors.state.danger },
   input: {
     flex: 1, minWidth: 0, paddingVertical: spacing[2],
+    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null),
     fontFamily: typography.body.family, fontSize: typography.body.size, color: colors.text.primary,
     textAlign: 'auto', writingDirection: 'auto',
   },
   numeric: { fontVariant: ['tabular-nums'], letterSpacing: 1 },
   helper: { marginTop: 2 },
   searchRow: { flexDirection: 'row', gap: spacing[2], alignItems: 'center' },
-  search: { flex: 1, backgroundColor: colors.bg.subtle, borderColor: 'transparent' },
+  search: { flex: 1, backgroundColor: colors.bg.card, borderColor: colors.border.default, borderRadius: radius.full, minHeight: 52 },
   filterBtn: {
-    width: hitTarget + 4, height: hitTarget + 4, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: colors.bg.card, borderWidth: 1, borderColor: colors.border.default,
+    width: 52, height: 52, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: colors.bg.card, borderWidth: 2, borderColor: colors.border.default,
   },
   filterDot: {
     position: 'absolute', top: -4, end: -4, minWidth: 18, height: 18, borderRadius: 9,

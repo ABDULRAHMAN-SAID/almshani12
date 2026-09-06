@@ -3,8 +3,9 @@ import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { colors, spacing, radius, subjectColors, type SubjectColorKey } from '@manassah/tokens';
-import { Screen, Text, Icon, Button, Chip, Badge, Avatar, Rating, Price, SectionHeader, BookCard, ReviewList, ReviewSheet, Expandable, VerifiedBadge } from '@/ui';
+import { Ionicons } from '@expo/vector-icons';
+import { colors, spacing, radius, subjectColors, subjectIcons, type SubjectColorKey } from '@manassah/tokens';
+import { Screen, Text, Icon, Button, IconButton, Chip, Badge, Avatar, Rating, Price, SectionHeader, BookCard, ReviewList, ReviewSheet, Expandable, VerifiedBadge } from '@/ui';
 import { useBook, useAddToCart, useCart, useToggleFavorite } from '@/features/queries';
 import { formatDayShort } from '@/lib/format';
 
@@ -23,18 +24,19 @@ export default function BookDetail() {
   const [review, setReview] = useState(false);
   const b = book.data;
   const inCart = !!cart.data?.items.some(i => i.itemType === 'book' && i.itemId === bookId);
-  const sc = subjectColors[(b?.subject.colorKey as SubjectColorKey) ?? 'default'] ?? subjectColors.default;
+  const sk = ((b?.subject.colorKey && b.subject.colorKey in subjectColors ? b.subject.colorKey : 'default') as SubjectColorKey);
+  const sc = subjectColors[sk];
 
   const footer = b ? (
     b.owned ? <Button label={t('library.read')} icon="book" size="lg" full onPress={() => router.push(`/book/${bookId}/read`)} />
       : (
         <View style={styles.footer}>
-          <View style={styles.footPrice}><Price value={b.price} size="lg" /><Text role="caption" tone="tertiary">{t('book.securePay')}</Text></View>
+          <View style={styles.footPrice}><Price value={b.price} /><Text role="caption" tone="tertiary" numberOfLines={1}>{t('book.securePay')}</Text></View>
           {b.price > 0 ? (
-            <Button label={inCart ? t('book.inCart') : t('book.addToCart')} variant="secondary" icon="cart" disabled={inCart} loading={add.isPending}
+            <IconButton icon={inCart ? 'check' : 'cart'} label={inCart ? t('book.inCart') : t('book.addToCart')} disabled={inCart} loading={add.isPending}
               onPress={() => add.mutate({ itemType: 'book', itemId: bookId })} />
           ) : null}
-          <Button label={b.price > 0 ? t('book.buyNow') : t('library.read')} size="lg"
+          <Button label={b.price > 0 ? t('book.buyNow') : t('library.read')} icon={b.price > 0 ? undefined : 'book'} style={styles.footBtn}
             onPress={() => b.price > 0 ? router.push({ pathname: '/checkout', params: { items: JSON.stringify([{ itemType: 'book', itemId: bookId }]) } }) : router.push(`/book/${bookId}/read`)} />
         </View>
       )
@@ -51,9 +53,10 @@ export default function BookDetail() {
           {/* الغلاف والعنوان */}
           <View style={[styles.hero, { backgroundColor: sc.soft }]}>
             {b.coverUrl ? <Image source={{ uri: b.coverUrl }} style={styles.cover} contentFit="cover" /> : (
-              <View style={[styles.cover, styles.coverFallback, { borderColor: sc.main }]}>
-                <Text role="caption" color={sc.main}>{t(`library.types.${b.type}`)}</Text>
-                <Text role="h3" color={sc.main} numberOfLines={4}>{b.title}</Text>
+              <View style={[styles.cover, styles.coverFallback, { backgroundColor: sc.main }]}>
+                <Ionicons name={subjectIcons[sk] as keyof typeof Ionicons.glyphMap} size={150} color="#FFFFFF" style={styles.watermark} />
+                <View style={styles.typePill}><Text role="caption" color={sc.main}>{t(`library.types.${b.type}`)}</Text></View>
+                <Text role="h2" tone="inverse" numberOfLines={4}>{b.title}</Text>
               </View>
             )}
             <View style={styles.badges}>{b.badges.map(x => <Badge key={x} label={t(`common.${x}`)} tone={BADGE_TONE[x]} />)}</View>
@@ -137,8 +140,10 @@ const styles = StyleSheet.create({
   px: { paddingHorizontal: spacing[4] },
   iconBtn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   hero: { alignItems: 'center', paddingVertical: spacing[5] },
-  cover: { width: 170, height: 230, borderRadius: radius.md, backgroundColor: colors.bg.card },
-  coverFallback: { borderStartWidth: 5, padding: spacing[3], justifyContent: 'flex-end', gap: spacing[1] },
+  cover: { width: 180, height: 240, borderRadius: radius.lg, backgroundColor: colors.bg.card, shadowColor: '#1E2430', shadowOpacity: 0.18, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 4 },
+  coverFallback: { padding: spacing[3], justifyContent: 'flex-end', gap: spacing[2], overflow: 'hidden' },
+  watermark: { position: 'absolute', top: -24, start: -34, opacity: 0.2, transform: [{ rotate: '-12deg' }] },
+  typePill: { alignSelf: 'flex-start', backgroundColor: '#FFFFFF', borderRadius: radius.full, paddingHorizontal: spacing[3], height: 26, justifyContent: 'center' },
   badges: { flexDirection: 'row', gap: spacing[1], position: 'absolute', top: spacing[3], start: spacing[4] },
   title: { marginTop: spacing[4] },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[1], marginTop: spacing[2] },
@@ -146,11 +151,11 @@ const styles = StyleSheet.create({
   flex: { flex: 1, minWidth: 0 },
   stats: { flexDirection: 'row', gap: spacing[3], alignItems: 'center', marginTop: spacing[2], flexWrap: 'wrap' },
   previewBtn: { marginTop: spacing[2] },
-  trust: { marginTop: spacing[4], backgroundColor: colors.bg.card, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border.default, padding: spacing[3], gap: spacing[2] },
+  trust: { marginTop: spacing[4], backgroundColor: colors.bg.card, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.border.default, padding: spacing[3], gap: spacing[2] },
   trustItem: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
   section: { marginTop: spacing[6] },
   point: { flexDirection: 'row', gap: spacing[2], alignItems: 'flex-start', marginBottom: spacing[2] },
-  toc: { backgroundColor: colors.bg.card, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border.default, paddingHorizontal: spacing[3] },
+  toc: { backgroundColor: colors.bg.card, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.border.default, paddingHorizontal: spacing[3] },
   tocRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], paddingVertical: spacing[3] },
   tocBorder: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: colors.border.default },
   meta: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[3] },
@@ -160,4 +165,5 @@ const styles = StyleSheet.create({
   hList: { paddingHorizontal: spacing[4], gap: spacing[3] },
   footer: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
   footPrice: { flex: 1, minWidth: 0 },
+  footBtn: { flex: 1.3 },
 });

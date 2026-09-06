@@ -88,6 +88,6 @@ const styles = StyleSheet.create({
   hint: { marginTop: spacing[6] },
   results: { gap: spacing[5] },
   list: { gap: spacing[3] },
-  lesson: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], backgroundColor: colors.bg.card, borderRadius: 12, borderWidth: 1, borderColor: colors.border.default, padding: spacing[3] },
+  lesson: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], backgroundColor: colors.bg.card, borderRadius: 12, borderWidth: 1.5, borderColor: colors.border.default, padding: spacing[3] },
   flex: { flex: 1, minWidth: 0 },
 });

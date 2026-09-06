@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
   track: { height: 4, borderRadius: 2, backgroundColor: colors.bg.subtle, overflow: 'hidden' },
   fill: { height: '100%', backgroundColor: colors.brand.primary },
   qText: { marginVertical: spacing[3], lineHeight: 28 },
-  opt: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], padding: spacing[3], borderRadius: radius.md, borderWidth: 1, borderColor: colors.border.default, marginBottom: spacing[2], minHeight: 52 },
+  opt: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], padding: spacing[3], borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.border.default, marginBottom: spacing[2], minHeight: 52 },
   optOn: { borderColor: colors.brand.primary, backgroundColor: colors.brand.primarySoft },
   radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: colors.border.strong, alignItems: 'center', justifyContent: 'center' },
   radioOn: { backgroundColor: colors.brand.primary, borderColor: colors.brand.primary },

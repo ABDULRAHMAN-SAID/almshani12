@@ -1,12 +1,12 @@
 import { Tabs } from 'expo-router';
-import { Platform } from 'react-native';
+import { Platform, View, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { colors, fontFamily } from '@manassah/tokens';
+import { colors, fontFamily, radius } from '@manassah/tokens';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
-/** خمسة تبويبات فقط — لا أكثر */
+/** خمسة تبويبات فقط — أيقونات كبيرة، والتبويب النشط داخل حبّة ملوّنة */
 const TABS: { name: string; key: string; icon: IconName; iconActive: IconName }[] = [
   { name: 'index', key: 'nav.home', icon: 'home-outline', iconActive: 'home' },
   { name: 'library', key: 'nav.library', icon: 'library-outline', iconActive: 'library' },
@@ -26,11 +26,11 @@ export default function TabsLayout() {
         tabBarStyle: {
           backgroundColor: colors.bg.card,
           borderTopColor: colors.border.default,
-          borderTopWidth: 1,
-          height: Platform.OS === 'web' ? 64 : 84,
-          paddingTop: 6,
+          borderTopWidth: 1.5,
+          height: Platform.OS === 'web' ? 74 : 92,
+          paddingTop: 8,
         },
-        tabBarLabelStyle: { fontFamily: fontFamily.medium, fontSize: 11, marginTop: 2 },
+        tabBarLabelStyle: { fontFamily: fontFamily.bold, fontSize: 12, marginTop: 4 },
         tabBarHideOnKeyboard: true,
       }}
     >
@@ -41,7 +41,9 @@ export default function TabsLayout() {
           options={{
             title: t(tab.key),
             tabBarIcon: ({ color, focused }) => (
-              <Ionicons name={focused ? tab.iconActive : tab.icon} size={23} color={color} />
+              <View style={[styles.pill, focused && styles.pillActive]}>
+                <Ionicons name={focused ? tab.iconActive : tab.icon} size={25} color={color} />
+              </View>
             ),
           }}
         />
@@ -49,3 +51,8 @@ export default function TabsLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  pill: { width: 58, height: 34, borderRadius: radius.full, alignItems: 'center', justifyContent: 'center' },
+  pillActive: { backgroundColor: colors.brand.primarySoft },
+});

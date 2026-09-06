@@ -1,36 +1,42 @@
 import { View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { colors, spacing, radius } from '@manassah/tokens';
+import { colors, spacing, radius, shadow } from '@manassah/tokens';
 import { brand } from '@manassah/shared';
-import { Screen, Text, Button, Icon } from '@/ui';
+import { Screen, Text, Button, Icon, type IconName } from '@/ui';
 
-/** الترحيب: جملة واحدة واضحة وفعل واحد — لا مهرجان تراثي */
+const FEATURES: { icon: IconName; key: string; bg: string; fg: string }[] = [
+  { icon: 'bookSolid', key: 'library.title', bg: '#E6EEFF', fg: '#2F6FED' },
+  { icon: 'videoSolid', key: 'lessons.title', bg: '#FDE9EC', fg: '#D7263D' },
+  { icon: 'playCircle', key: 'courses.title', bg: '#E3F5EB', fg: '#159A5B' },
+];
+
+/** الترحيب: شعار كبير، جملة واحدة، ثلاث بلاطات ملوّنة، وزر واحد كبير */
 export default function Welcome() {
   const { t } = useTranslation();
   const router = useRouter();
   return (
     <Screen bare scroll={false} contentStyle={styles.wrap}>
       <View style={styles.top}>
-        <View style={styles.logo}><Text role="display" tone="inverse">{brand.name.ar.slice(0, 1)}</Text></View>
-        <Text role="h2" tone="brand">{brand.name.ar}</Text>
-        <Text role="caption" tone="secondary">{brand.tagline.ar}</Text>
+        <View style={styles.logo}><Text role="display" tone="inverse" style={styles.logoText}>{brand.name.ar.slice(0, 1)}</Text></View>
+        <Text role="h1" tone="brand">{brand.name.ar}</Text>
+        <Text role="small" tone="secondary">{brand.tagline.ar}</Text>
       </View>
       <View style={styles.middle}>
-        <Text role="display" style={styles.title}>{t('onboarding.welcomeTitle')}</Text>
-        <Text role="body" tone="secondary" style={styles.body}>{t('onboarding.welcomeBody')}</Text>
-        <View style={styles.points}>
-          {[['book', 'library.title'], ['video', 'lessons.title'], ['courses', 'courses.title']].map(([icon, key]) => (
-            <View key={key} style={styles.point}>
-              <View style={styles.pointIcon}><Icon name={icon as never} size={18} color={colors.brand.primary} /></View>
-              <Text role="small">{t(key)}</Text>
+        <Text role="display" center style={styles.title}>{t('onboarding.welcomeTitle')}</Text>
+        <Text role="body" tone="secondary" center style={styles.body}>{t('onboarding.welcomeBody')}</Text>
+        <View style={styles.tiles}>
+          {FEATURES.map(f => (
+            <View key={f.key} style={[styles.tile, { backgroundColor: f.bg }]}>
+              <View style={styles.tileIcon}><Icon name={f.icon} size={26} color={f.fg} /></View>
+              <Text role="caption" color={f.fg} center>{t(f.key)}</Text>
             </View>
           ))}
         </View>
       </View>
       <View style={styles.actions}>
-        <Button label={t('onboarding.start')} onPress={() => router.push('/(auth)/login')} size="lg" full />
-        <Button label={t('onboarding.haveAccount')} onPress={() => router.push('/(auth)/login')} variant="ghost" full />
+        <Button label={t('onboarding.start')} onPress={() => router.push('/(auth)/login')} size="lg" full iconEnd="forward" />
+        <Button label={t('onboarding.haveAccount')} onPress={() => router.push('/(auth)/login')} variant="secondary" full />
         <Text role="caption" tone="tertiary" center>{t('onboarding.terms')}</Text>
       </View>
     </Screen>
@@ -39,13 +45,14 @@ export default function Welcome() {
 
 const styles = StyleSheet.create({
   wrap: { justifyContent: 'space-between', paddingTop: spacing[10], paddingBottom: spacing[6] },
-  top: { alignItems: 'center', gap: spacing[2] },
-  logo: { width: 72, height: 72, borderRadius: radius.lg, backgroundColor: colors.brand.primary, alignItems: 'center', justifyContent: 'center', marginBottom: spacing[2] },
-  middle: { gap: spacing[3] },
-  title: { lineHeight: 42 },
-  body: { lineHeight: 26 },
-  points: { flexDirection: 'row', gap: spacing[4], marginTop: spacing[2], flexWrap: 'wrap' },
-  point: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
-  pointIcon: { width: 32, height: 32, borderRadius: radius.sm, backgroundColor: colors.brand.primarySoft, alignItems: 'center', justifyContent: 'center' },
+  top: { alignItems: 'center', gap: spacing[1] },
+  logo: { width: 96, height: 96, borderRadius: radius.xl, backgroundColor: colors.brand.primary, alignItems: 'center', justifyContent: 'center', marginBottom: spacing[3], borderBottomWidth: 6, borderBottomColor: colors.brand.primaryDark, ...shadow.raised },
+  logoText: { fontSize: 52, lineHeight: 70 },
+  middle: { gap: spacing[3], alignItems: 'center' },
+  title: { lineHeight: 48 },
+  body: { maxWidth: 320 },
+  tiles: { flexDirection: 'row', gap: spacing[3], marginTop: spacing[3], alignSelf: 'stretch' },
+  tile: { flex: 1, alignItems: 'center', gap: spacing[2], paddingVertical: spacing[4], borderRadius: radius.lg },
+  tileIcon: { width: 52, height: 52, borderRadius: 26, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
   actions: { gap: spacing[3] },
 });

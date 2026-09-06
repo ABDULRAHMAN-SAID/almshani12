@@ -1,6 +1,6 @@
 import { View, Pressable, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { colors, radius, spacing, subjectColors, type SubjectColorKey } from '@manassah/tokens';
+import { colors, radius, spacing, shadow, subjectColors, type SubjectColorKey } from '@manassah/tokens';
 import type { Booking } from '@manassah/shared';
 import { Text } from './Text';
 import { Avatar } from './Avatar';
@@ -24,7 +24,7 @@ const STATUS_TONE: Record<Booking['status'], BadgeTone> = {
   cancelled_by_student: 'neutral', cancelled_by_teacher: 'danger', no_show: 'danger', disputed: 'warning', expired: 'neutral',
 };
 
-/** المادة بلونها، المعلّم، الوقت، المدة، النوع — والفعل واضح: دخول أو تفاصيل */
+/** شريط علوي بلون المادة، ثم المعلّم والوقت بخط كبير، وزر واحد واضح: دخول أو تفاصيل */
 export function LessonCard({ booking, onPress, onJoin, hero, asTeacher }: LessonCardProps) {
   const { t } = useTranslation();
   const sc = subjectColors[(booking.subject.colorKey as SubjectColorKey) ?? 'default'] ?? subjectColors.default;
@@ -35,43 +35,42 @@ export function LessonCard({ booking, onPress, onJoin, hero, asTeacher }: Lesson
 
   return (
     <Pressable onPress={onPress} accessibilityRole="button"
-      style={({ pressed }) => [styles.card, { borderStartColor: sc.main }, hero && styles.hero, pressed && styles.pressed]}>
-      <View style={styles.top}>
+      style={({ pressed }) => [styles.card, hero && styles.hero, pressed && styles.pressed]}>
+      <View style={[styles.band, { backgroundColor: sc.soft }]}>
         <View style={styles.subject}>
-          <Text role={hero ? 'h3' : 'bodyMedium'} color={sc.main}>{booking.subject.name}</Text>
-          <Badge label={t(`lessons.status.${booking.status}`)} tone={live ? 'live' : STATUS_TONE[booking.status]} />
+          <View style={[styles.dot, { backgroundColor: sc.main }]} />
+          <Text role={hero ? 'h2' : 'h3'} color={sc.main} numberOfLines={1}>{booking.subject.name}</Text>
         </View>
-        <View style={styles.mode}>
-          <Icon name={booking.mode === 'group' ? 'people' : 'teacher'} size={14} color={colors.text.tertiary} />
-          <Text role="caption" tone="tertiary">{t(`teachers.${booking.mode}`)}</Text>
-        </View>
+        <Badge label={t(`lessons.status.${booking.status}`)} tone={live ? 'live' : STATUS_TONE[booking.status]} />
       </View>
 
-      <View style={styles.person}>
-        <Avatar name={other.name} url={other.avatarUrl} size="sm" verified={other.verified} />
-        <Text role="small" tone="secondary" numberOfLines={1} style={styles.personName}>{other.name}</Text>
-      </View>
-
-      <View style={styles.timeRow}>
-        <View style={styles.time}>
-          <Icon name="calendar" size={15} color={colors.text.secondary} />
-          <Text role="small" tabular>{relativeDay(booking.startsAt)}</Text>
+      <View style={styles.body}>
+        <View style={styles.person}>
+          <Avatar name={other.name} url={other.avatarUrl} size={hero ? 'md' : 'sm'} verified={other.verified} />
+          <View style={styles.personText}>
+            <Text role="bodyMedium" numberOfLines={1}>{other.name}</Text>
+            <Text role="caption" tone="secondary">{t(`teachers.${booking.mode}`)} · {booking.durationMinutes} {t('common.minutes')}</Text>
+          </View>
         </View>
-        <View style={styles.time}>
-          <Icon name="clock" size={15} color={colors.text.secondary} />
-          <Text role="small" tabular>{formatTime(booking.startsAt)} · {booking.durationMinutes} {t('common.minutes')}</Text>
+
+        <View style={styles.timeRow}>
+          <View style={styles.time}>
+            <Icon name="calendar" size={18} color={colors.text.secondary} />
+            <Text role="bodyMedium" tabular>{relativeDay(booking.startsAt)}</Text>
+          </View>
+          <View style={styles.time}>
+            <Icon name="clock" size={18} color={colors.text.secondary} />
+            <Text role="bodyMedium" tabular>{formatTime(booking.startsAt)}</Text>
+          </View>
+          {hero && soon ? <Badge label={t('home.remaining', { m: mins })} tone="brand" icon="timer" /> : null}
         </View>
-      </View>
 
-      {hero && soon ? (
-        <Text role="caption" tone="brand" tabular>{t('home.remaining', { m: mins })}</Text>
-      ) : null}
-
-      <View style={styles.actions}>
-        {booking.canJoin && onJoin ? (
-          <Button label={live ? t('lessons.join') : t('home.join')} onPress={onJoin} variant={live ? 'primary' : 'info'} icon="video" size={hero ? 'md' : 'sm'} />
-        ) : null}
-        <Button label={t('lessons.details')} onPress={onPress} variant="ghost" size="sm" />
+        <View style={styles.actions}>
+          {booking.canJoin && onJoin ? (
+            <Button label={live ? t('lessons.join') : t('home.join')} onPress={onJoin} variant={live ? 'primary' : 'info'} icon="video" size={hero ? 'md' : 'sm'} full={hero} style={hero ? styles.flex : undefined} />
+          ) : null}
+          <Button label={t('lessons.details')} onPress={onPress} variant="ghost" size="sm" />
+        </View>
       </View>
     </Pressable>
   );
@@ -79,17 +78,18 @@ export function LessonCard({ booking, onPress, onJoin, hero, asTeacher }: Lesson
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.bg.card, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border.default,
-    borderStartWidth: 4, padding: spacing[3], gap: spacing[2],
+    backgroundColor: colors.bg.card, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.border.default, overflow: 'hidden', ...shadow.card,
   },
-  hero: { padding: spacing[4], gap: spacing[3], borderTopWidth: 2, borderTopColor: colors.brand.gold },
+  hero: { borderWidth: 2, borderColor: colors.brand.gold },
   pressed: { opacity: 0.92 },
-  top: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: spacing[2] },
-  subject: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], flexShrink: 1, flexWrap: 'wrap' },
-  mode: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  person: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
-  personName: { flexShrink: 1 },
-  timeRow: { flexDirection: 'row', gap: spacing[4], flexWrap: 'wrap' },
-  time: { flexDirection: 'row', alignItems: 'center', gap: spacing[1] },
-  actions: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], marginTop: spacing[1] },
+  band: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing[2], paddingHorizontal: spacing[4], paddingVertical: spacing[2] },
+  subject: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], flexShrink: 1 },
+  dot: { width: 12, height: 12, borderRadius: 6 },
+  body: { padding: spacing[4], gap: spacing[3] },
+  person: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
+  personText: { flex: 1, minWidth: 0 },
+  timeRow: { flexDirection: 'row', gap: spacing[4], flexWrap: 'wrap', alignItems: 'center' },
+  time: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
+  flex: { flex: 1 },
 });

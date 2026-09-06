@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { View, FlatList, ScrollView, StyleSheet } from 'react-native';
+import { View, FlatList, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { colors, spacing, subjectColors, type SubjectColorKey } from '@manassah/tokens';
+import { colors, spacing, radius, subjectColors, subjectIcons, type SubjectColorKey } from '@manassah/tokens';
 import { BookType, type BookCard as BookCardData } from '@manassah/shared';
-import { Screen, Text, Chip, Button, Tabs, SearchInput, BookCard, BottomSheet, CardSkeleton, EmptyState, ErrorState, HeaderActions } from '@/ui';
+import { Screen, Text, Chip, Button, Tabs, SearchInput, BookCard, BottomSheet, CardSkeleton, EmptyState, ErrorState, HeaderActions, Icon, type IconName } from '@/ui';
 import { useBooks, useCatalog, usePurchases } from '@/features/queries';
 import { useAuth } from '@/state/auth';
 import { useUi } from '@/state/ui';
@@ -12,8 +12,9 @@ import { useDebounced } from '@/lib/hooks';
 
 const TYPES = BookType.options;
 const SORTS = ['bestselling', 'newest', 'rating', 'price_asc', 'price_desc'] as const;
+const subjKey = (k?: string | null) => ((k && k in subjectColors ? k : 'default') as SubjectColorKey);
 
-/** المكتبة: بحث + فلاتر (النوع/المادة/الصف/السعر/الترتيب) + شبكة كتب — و«مكتبتي» لما اشتريته */
+/** المكتبة: بحث كبير → المواد كبلاطات ملوّنة → نوع الكتاب → شبكة كتب. الفلاتر الدقيقة في ورقة سفلية */
 export default function Library() {
   const { t } = useTranslation();
   const router = useRouter();
@@ -35,9 +36,10 @@ export default function Library() {
   const books = useBooks(filters);
   const purchases = usePurchases();
   const items = useMemo(() => books.data?.pages.flatMap(p => p.data) ?? [], [books.data]);
-  const activeCount = ['type', 'subjectId', 'semesterId', 'free', 'minRating'].filter(k => (bookFilters as Record<string, unknown>)[k] != null).length + (bookFilters.sort && bookFilters.sort !== 'bestselling' ? 1 : 0);
+  const activeCount = ['semesterId', 'free', 'minRating'].filter(k => (bookFilters as Record<string, unknown>)[k] != null).length + (bookFilters.sort && bookFilters.sort !== 'bestselling' ? 1 : 0);
   const grades = catalog.data?.grades ?? [], subjects = catalog.data?.subjects ?? [];
   const reset = () => setBookFilters({ gradeId: user?.student?.gradeId ?? undefined });
+  const gradeName = grades.find(g => g.id === bookFilters.gradeId)?.name;
 
   const explore = (
     <FlatList
@@ -47,17 +49,20 @@ export default function Library() {
       refreshing={books.isRefetching} onRefresh={() => books.refetch()}
       ListHeaderComponent={
         <View style={styles.head}>
+          {/* المواد — بلاطات ملوّنة كبيرة، أسهل من قائمة فلاتر */}
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.subjects} style={styles.subjectsWrap}>
+            <SubjectTile label={t('common.all')} icon="library" main={colors.text.primary} soft={colors.bg.subtle} selected={!bookFilters.subjectId} onPress={() => setBookFilters({ ...bookFilters, subjectId: undefined })} />
+            {subjects.map(s => { const k = subjKey(s.colorKey); const sc = subjectColors[k];
+              return <SubjectTile key={s.id} label={s.name} icon={subjectIcons[k] as IconName} main={sc.main} soft={sc.soft} selected={bookFilters.subjectId === s.id} onPress={() => setBookFilters({ ...bookFilters, subjectId: bookFilters.subjectId === s.id ? undefined : s.id })} />; })}
+          </ScrollView>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
             <Chip label={t('common.all')} selected={!bookFilters.type} onPress={() => setBookFilters({ ...bookFilters, type: undefined })} />
             {TYPES.map(ty => <Chip key={ty} label={t(`library.types.${ty}`)} selected={bookFilters.type === ty} onPress={() => setBookFilters({ ...bookFilters, type: ty })} />)}
           </ScrollView>
-          {(bookFilters.gradeId || bookFilters.subjectId) ? (
-            <View style={styles.active}>
-              {bookFilters.gradeId ? <Chip small label={grades.find(g => g.id === bookFilters.gradeId)?.name ?? ''} icon="close" onPress={() => setBookFilters({ ...bookFilters, gradeId: undefined })} /> : null}
-              {bookFilters.subjectId ? <Chip small label={subjects.find(s => s.id === bookFilters.subjectId)?.name ?? ''} icon="close" onPress={() => setBookFilters({ ...bookFilters, subjectId: undefined })} /> : null}
-            </View>
-          ) : null}
-          {books.data ? <Text role="caption" tone="tertiary" tabular>{books.data.pages[0].meta.total} {t('search.books')}</Text> : null}
+          <View style={styles.metaRow}>
+            {books.data ? <Text role="caption" tone="secondary" tabular>{books.data.pages[0].meta.total} {t('search.books')}</Text> : <View />}
+            {gradeName ? <Chip small label={gradeName} icon="close" onPress={() => setBookFilters({ ...bookFilters, gradeId: undefined })} /> : null}
+          </View>
         </View>
       }
       ListEmptyComponent={
@@ -81,12 +86,12 @@ export default function Library() {
           const card = mineBooks.find(x => x.id === b.id);
           return (
             <View key={b.id} style={styles.mineRow}>
+              <View style={styles.mineIcon}><Icon name="bookSolid" size={24} color={colors.brand.green} /></View>
               <View style={styles.flex}>
                 <Text role="bodyMedium" numberOfLines={2}>{b.title}</Text>
-                <Text role="caption" tone="tertiary" tabular>{b.purchasedAt.slice(0, 10)}</Text>
+                <Text role="caption" tone="secondary" tabular>{card ? `${card.subject.name} · ${card.grade.name}` : b.purchasedAt.slice(0, 10)}</Text>
               </View>
-              <Button label={t('library.read')} size="sm" icon="book" onPress={() => router.push(`/book/${b.id}/read`)} />
-              {card ? null : <Button label={t('common.details')} size="sm" variant="ghost" onPress={() => router.push(`/book/${b.id}`)} />}
+              <Button label={t('library.read')} icon="book" size="sm" variant="success" onPress={() => router.push(`/book/${b.id}/read`)} />
             </View>
           );
         })}
@@ -104,9 +109,6 @@ export default function Library() {
       <BottomSheet visible={sheet} onClose={() => setSheet(false)} title={t('common.filters')}
         footer={<View style={styles.sheetFoot}><Button label={t('common.reset')} variant="secondary" onPress={reset} /><Button label={t('common.apply')} onPress={() => setSheet(false)} style={styles.flex} full /></View>}>
         <View style={styles.sheetBody}>
-          <Text role="h3">{t('common.subject')}</Text>
-          <View style={styles.wrap}>{subjects.map(s => { const sc = subjectColors[(s.colorKey as SubjectColorKey)] ?? subjectColors.default; const on = bookFilters.subjectId === s.id;
-            return <Chip key={s.id} label={s.name} selected={on} color={on ? sc.main : undefined} softColor={on ? sc.soft : undefined} onPress={() => setBookFilters({ ...bookFilters, subjectId: on ? undefined : s.id })} />; })}</View>
           <Text role="h3">{t('common.grade')}</Text>
           <View style={styles.wrap}>{grades.map(g => <Chip key={g.id} label={g.name} selected={bookFilters.gradeId === g.id} onPress={() => setBookFilters({ ...bookFilters, gradeId: bookFilters.gradeId === g.id ? undefined : g.id })} />)}</View>
           <Text role="h3">{t('common.semester')}</Text>
@@ -124,18 +126,36 @@ export default function Library() {
   );
 }
 
+/** بلاطة مادة: دائرة ملوّنة كبيرة بأيقونة المادة واسمها تحتها */
+function SubjectTile({ label, icon, main, soft, selected, onPress }: { label: string; icon: IconName; main: string; soft: string; selected: boolean; onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityState={{ selected }} style={({ pressed }) => [styles.subject, pressed && styles.pressed]}>
+      <View style={[styles.subjectCircle, { backgroundColor: selected ? main : soft, borderColor: selected ? main : 'transparent' }]}>
+        <Icon name={icon} size={26} color={selected ? '#FFFFFF' : main} />
+      </View>
+      <Text role="caption" color={selected ? main : colors.text.secondary} numberOfLines={1} center>{label}</Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
-  search: { paddingHorizontal: spacing[4], paddingBottom: spacing[2] },
+  search: { paddingHorizontal: spacing[4], paddingBottom: spacing[3] },
   tabs: { paddingHorizontal: spacing[4] },
-  head: { gap: spacing[2], paddingTop: spacing[3], paddingBottom: spacing[2] },
+  head: { gap: spacing[3], paddingTop: spacing[3], paddingBottom: spacing[2] },
+  subjectsWrap: { marginHorizontal: -spacing[4] },
+  subjects: { flexDirection: 'row', gap: spacing[2], paddingHorizontal: spacing[4] },
+  subject: { width: 74, alignItems: 'center', gap: spacing[1] },
+  subjectCircle: { width: 60, height: 60, borderRadius: 30, alignItems: 'center', justifyContent: 'center', borderWidth: 2 },
+  pressed: { opacity: 0.8 },
   chips: { flexDirection: 'row', gap: spacing[2] },
-  active: { flexDirection: 'row', gap: spacing[2], flexWrap: 'wrap' },
+  metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 30 },
   grid: { paddingHorizontal: spacing[4], paddingBottom: spacing[8], gap: spacing[3] },
   cols: { gap: spacing[3] },
   skeletons: { flexDirection: 'row', gap: spacing[3], paddingVertical: spacing[3] },
   bottom: { height: spacing[4] },
   mine: { padding: spacing[4], gap: spacing[3] },
-  mineRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], backgroundColor: colors.bg.card, borderRadius: 16, borderWidth: 1, borderColor: colors.border.default, padding: spacing[3] },
+  mineRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], backgroundColor: colors.bg.card, borderRadius: radius.lg, borderWidth: 1.5, borderColor: colors.border.default, padding: spacing[3] },
+  mineIcon: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.brand.greenSoft, alignItems: 'center', justifyContent: 'center' },
   flex: { flex: 1, minWidth: 0 },
   sheetBody: { gap: spacing[3] },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[2], marginBottom: spacing[2] },

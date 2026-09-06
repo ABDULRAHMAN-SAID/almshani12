@@ -14,7 +14,7 @@ export interface ChipProps {
   small?: boolean;
 }
 
-/** شريحة فلتر/تصنيف — قابلة للاختيار */
+/** شريحة فلتر/تصنيف — حبّة مستديرة كبيرة، المختارة مملوءة بلونها */
 export function Chip({ label, selected, onPress, icon, color, softColor, small }: ChipProps) {
   const fg = selected ? colors.text.onPrimary : color ?? colors.text.primary;
   const bg = selected ? (color ?? colors.text.primary) : softColor ?? colors.bg.card;
@@ -30,8 +30,8 @@ export function Chip({ label, selected, onPress, icon, color, softColor, small }
         pressed && styles.pressed,
       ]}
     >
-      {icon ? <Icon name={icon} size={small ? 13 : 15} color={fg} /> : null}
-      <Text role={small ? 'caption' : 'small'} color={fg}>{label}</Text>
+      {icon ? <Icon name={icon} size={small ? 14 : 17} color={fg} /> : null}
+      <Text role="caption" color={fg} style={!small && styles.text}>{label}</Text>
     </Pressable>
   );
 }
@@ -39,8 +39,9 @@ export function Chip({ label, selected, onPress, icon, color, softColor, small }
 const styles = StyleSheet.create({
   chip: {
     flexDirection: 'row', alignItems: 'center', gap: spacing[1],
-    height: 34, paddingHorizontal: spacing[3], borderRadius: radius.sm, borderWidth: 1,
+    height: 40, paddingHorizontal: spacing[4], borderRadius: radius.full, borderWidth: 1.5,
   },
-  small: { height: 26, paddingHorizontal: spacing[2] },
+  text: { fontSize: 14, lineHeight: 20 },
+  small: { height: 30, paddingHorizontal: spacing[3] },
   pressed: { opacity: 0.8 },
 });

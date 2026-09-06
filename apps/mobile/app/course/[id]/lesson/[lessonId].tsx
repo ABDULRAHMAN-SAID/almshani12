@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
   fill: { height: '100%', backgroundColor: colors.brand.primary },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   btns: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
-  ctl: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg.card, borderWidth: 1, borderColor: colors.border.default },
+  ctl: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg.card, borderWidth: 1.5, borderColor: colors.border.default },
   play: { backgroundColor: colors.brand.primary, borderColor: colors.brand.primary, width: 52, height: 52, borderRadius: 26 },
   speeds: { flexDirection: 'row', alignItems: 'center', gap: spacing[1] },
   speedLabel: { marginEnd: spacing[1] },

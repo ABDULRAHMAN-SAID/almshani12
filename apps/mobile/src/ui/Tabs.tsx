@@ -1,5 +1,5 @@
 import { View, Pressable, ScrollView, StyleSheet } from 'react-native';
-import { colors, spacing, hitTarget } from '@manassah/tokens';
+import { colors, radius, spacing } from '@manassah/tokens';
 import { Text } from './Text';
 
 export interface TabItem<K extends string = string> { key: K; label: string; count?: number }
@@ -12,7 +12,7 @@ export interface TabsProps<K extends string> {
   scrollable?: boolean;
 }
 
-/** تبويبات بخطّ سفلي — الحالة النشطة بالخطّ والوزن معاً */
+/** تبويبات مقسّمة داخل حبّة — التبويب النشط أبيض بارز، والباقي رمادي */
 export function Tabs<K extends string>({ items, value, onChange, scrollable }: TabsProps<K>) {
   const content = items.map(item => {
     const active = item.key === value;
@@ -24,7 +24,7 @@ export function Tabs<K extends string>({ items, value, onChange, scrollable }: T
         accessibilityState={{ selected: active }}
         style={[styles.tab, scrollable ? styles.tabScroll : styles.tabFlex, active && styles.tabActive]}
       >
-        <Text role={active ? 'bodyMedium' : 'body'} tone={active ? 'primary' : 'secondary'}>
+        <Text role="caption" tone={active ? 'primary' : 'secondary'} style={styles.label} numberOfLines={1}>
           {item.label}{item.count != null ? ` (${item.count})` : ''}
         </Text>
       </Pressable>
@@ -33,7 +33,7 @@ export function Tabs<K extends string>({ items, value, onChange, scrollable }: T
 
   if (scrollable) {
     return (
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.scrollRow} style={styles.bar}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[styles.bar, styles.scrollRow]}>
         {content}
       </ScrollView>
     );
@@ -42,11 +42,12 @@ export function Tabs<K extends string>({ items, value, onChange, scrollable }: T
 }
 
 const styles = StyleSheet.create({
-  bar: { borderBottomWidth: 1, borderBottomColor: colors.border.default },
+  bar: { backgroundColor: colors.bg.subtle, borderRadius: radius.full, padding: 4 },
   row: { flexDirection: 'row' },
-  scrollRow: { flexDirection: 'row', paddingHorizontal: spacing[1] },
-  tab: { height: hitTarget, justifyContent: 'center', alignItems: 'center', borderBottomWidth: 2, borderBottomColor: 'transparent', marginBottom: -1 },
+  scrollRow: { flexDirection: 'row', alignSelf: 'flex-start' },
+  tab: { height: 42, justifyContent: 'center', alignItems: 'center', borderRadius: radius.full, paddingHorizontal: spacing[3] },
   tabFlex: { flex: 1 },
-  tabScroll: { paddingHorizontal: spacing[3] },
-  tabActive: { borderBottomColor: colors.brand.primary },
+  tabScroll: { paddingHorizontal: spacing[4] },
+  tabActive: { backgroundColor: colors.bg.card, shadowColor: '#5A4A2A', shadowOpacity: 0.1, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
+  label: { fontSize: 15, lineHeight: 22 },
 });

@@ -44,7 +44,7 @@ export default function Notifications() {
 }
 const styles = StyleSheet.create({
   list: { gap: spacing[2], paddingTop: spacing[2] },
-  row: { flexDirection: 'row', gap: spacing[3], alignItems: 'flex-start', padding: spacing[3], borderRadius: radius.md, backgroundColor: colors.bg.card, borderWidth: 1, borderColor: colors.border.default },
+  row: { flexDirection: 'row', gap: spacing[3], alignItems: 'flex-start', padding: spacing[3], borderRadius: radius.md, backgroundColor: colors.bg.card, borderWidth: 1.5, borderColor: colors.border.default },
   unread: { borderColor: colors.brand.primarySoft, backgroundColor: '#FFFBFB' },
   icon: { width: 38, height: 38, borderRadius: radius.md, backgroundColor: colors.brand.primarySoft, alignItems: 'center', justifyContent: 'center' },
   flex: { flex: 1, minWidth: 0, gap: 2 },

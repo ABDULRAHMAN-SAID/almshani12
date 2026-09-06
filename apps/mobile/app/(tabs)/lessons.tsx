@@ -27,7 +27,7 @@ export default function Lessons() {
   );
   const group = (key: string, list: Booking[]) => list.length ? (
     <View key={key} style={styles.group}>
-      <Text role="caption" tone="secondary" style={styles.groupTitle}>{t(`common.${key}`)}</Text>
+      <Text role="h3" style={styles.groupTitle}>{t(`common.${key}`)}</Text>
       <View style={styles.list}>{list.map(card)}</View>
     </View>
   ) : null;
@@ -37,8 +37,8 @@ export default function Lessons() {
       refreshing={feed.isRefetching} onRefresh={() => feed.refetch()} padded={false}>
       {canTeach ? (
         <View style={styles.roleRow}>
-          <Chip label={t('onboarding.student')} selected={!asTeacher} onPress={() => setAsTeacher(false)} small />
-          <Chip label={t('onboarding.teacher')} selected={asTeacher} onPress={() => setAsTeacher(true)} small icon="teacher" />
+          <Chip label={t('onboarding.student')} selected={!asTeacher} onPress={() => setAsTeacher(false)} />
+          <Chip label={t('onboarding.teacher')} selected={asTeacher} onPress={() => setAsTeacher(true)} icon="teacher" />
         </View>
       ) : null}
       <View style={styles.px}>
@@ -104,7 +104,7 @@ const styles = StyleSheet.create({
   rate: { alignSelf: 'flex-end' },
   pkgHead: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], marginBottom: spacing[3] },
   flex: { flex: 1, minWidth: 0 },
-  track: { height: 6, borderRadius: 3, backgroundColor: colors.bg.subtle, overflow: 'hidden' },
+  track: { height: 8, borderRadius: 4, backgroundColor: colors.bg.subtle, overflow: 'hidden' },
   fill: { height: '100%', backgroundColor: colors.brand.gold, borderRadius: radius.full },
   pkgFoot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing[3] },
 });

@@ -4,7 +4,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { colors, spacing, radius, subjectColors, type SubjectColorKey } from '@manassah/tokens';
 import { savePercent } from '@manassah/shared';
-import { Screen, Text, Icon, Button, Chip, Badge, Avatar, Rating, Price, Card, SectionHeader, BookCard, CourseCard, ReviewList, ReviewSheet, Expandable, VerifiedBadge } from '@/ui';
+import { Screen, IconButton, Text, Icon, Button, Chip, Badge, Avatar, Rating, Price, Card, SectionHeader, BookCard, CourseCard, ReviewList, ReviewSheet, Expandable, VerifiedBadge } from '@/ui';
 import { useTeacher, useToggleFavorite, useStartConversation } from '@/features/queries';
 import { useAuth } from '@/state/auth';
 import { money, weekdayShort } from '@/lib/format';
@@ -31,9 +31,9 @@ export default function TeacherProfile() {
       right={p ? <Pressable onPress={() => fav.mutate({ targetType: 'teacher', targetId: teacherId })} style={styles.iconBtn} accessibilityRole="button" accessibilityLabel={t('account.favorites')}><Icon name={p.favorited ? 'heartFilled' : 'heart'} size={22} color={p.favorited ? colors.brand.primary : colors.text.primary} /></Pressable> : undefined}
       footer={p && !isMe ? (
         <View style={styles.footer}>
-          <View style={styles.flex}><Price value={p.priceFrom} from size="md" /><Text role="caption" tone="tertiary">{t('teachers.lesson60')}</Text></View>
-          <Button label={t('messagesUi.withTeacher')} variant="secondary" icon="message" loading={start.isPending} onPress={() => start.mutate({ userId: teacherId }, { onSuccess: c => router.push(`/conversation/${c.id}`) })} />
-          <Button label={t('teachers.book')} size="lg" icon="calendar" onPress={() => router.push(`/teacher/${teacherId}/book`)} />
+          <View style={styles.flex}><Price value={p.priceFrom} from /><Text role="caption" tone="tertiary" numberOfLines={1}>{t('teachers.lesson60')}</Text></View>
+          <IconButton icon="message" label={t('messagesUi.withTeacher')} loading={start.isPending} onPress={() => start.mutate({ userId: teacherId }, { onSuccess: c => router.push(`/conversation/${c.id}`) })} />
+          <Button label={t('teachers.book')} icon="calendar" style={styles.footBtn} onPress={() => router.push(`/teacher/${teacherId}/book`)} />
         </View>
       ) : undefined}>
       {p ? (
@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
   name: { flexShrink: 1 },
   badges: { flexDirection: 'row', gap: spacing[1], marginTop: spacing[1], flexWrap: 'wrap' },
-  stats: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: colors.bg.card, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border.default, padding: spacing[3], marginTop: spacing[4] },
+  stats: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: colors.bg.card, borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.border.default, padding: spacing[3], marginTop: spacing[4] },
   stat: { alignItems: 'center', gap: 2, flex: 1 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing[1], marginTop: spacing[3] },
   section: { marginTop: spacing[6] },
@@ -151,8 +151,9 @@ const styles = StyleSheet.create({
   pkgRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
   pkgFoot: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: spacing[3] },
   days: { flexDirection: 'row', gap: spacing[1], justifyContent: 'space-between' },
-  day: { flex: 1, alignItems: 'center', paddingVertical: spacing[2], borderRadius: radius.md, backgroundColor: colors.bg.card, borderWidth: 1, borderColor: colors.border.default, gap: 2 },
+  day: { flex: 1, alignItems: 'center', paddingVertical: spacing[2], borderRadius: radius.md, backgroundColor: colors.bg.card, borderWidth: 1.5, borderColor: colors.border.default, gap: 2 },
   dayOff: { backgroundColor: colors.bg.subtle, borderStyle: 'dashed' },
   hList: { paddingHorizontal: spacing[4], gap: spacing[3] },
   footer: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
+  footBtn: { flex: 1.2 },
 });
