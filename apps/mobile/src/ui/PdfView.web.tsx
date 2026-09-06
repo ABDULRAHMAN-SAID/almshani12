@@ -1,6 +1,7 @@
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { api } from '@/api/client';
 import { viewerHtml, parseViewerMessage, type ViewerMessage } from '@/lib/pdfViewer';
+import { inlineAssets, inlineKey } from '@/lib/inline';
 import type { PdfViewProps, PdfViewHandle } from './PdfView';
 
 /** الويب: iframe معزول بمحتوى مضمَّن — لا رابط دائم يظهر في شريط العنوان */
@@ -9,7 +10,13 @@ export const PdfView = forwardRef<PdfViewHandle, PdfViewProps>(function PdfView(
   const [fallback, setFallback] = useState(false);
   // داخل iframe بـ srcdoc لا تُحلّ المسارات النسبية — نحوّلها إلى روابط مطلقة أولاً
   const abs = (u: string) => (typeof window !== 'undefined' ? new URL(u, window.location.href).href : u);
-  const html = useMemo(() => viewerHtml({ url: abs(url), startPage, maxPages, assetBase: abs(api.base || '/').replace(/\/$/, '') }), [url, startPage, maxPages]);
+  const html = useMemo(() => {
+    // النسخة أحادية الملف: الكتاب وpdf.js مضمَّنان في الصفحة — لا شبكة إطلاقاً
+    const inl = inlineAssets();
+    const data = inl?.[inlineKey(url)], pdfjs = inl?.['/static/pdfjs/pdf.min.js'], worker = inl?.['/static/pdfjs/pdf.worker.min.js'];
+    if (data && pdfjs && worker) return viewerHtml({ url: '', startPage, maxPages, assetBase: '', inline: { pdfjs, worker, data } });
+    return viewerHtml({ url: abs(url), startPage, maxPages, assetBase: abs(api.base || '/').replace(/\/$/, '') });
+  }, [url, startPage, maxPages]);
   useImperativeHandle(ref, () => ({ goto: (page) => frame.current?.contentWindow?.postMessage(JSON.stringify({ type: 'goto', page }), '*') }), []);
   useEffect(() => {
     const onMsg = (e: MessageEvent) => { if (e.source !== frame.current?.contentWindow) return; const m = parseViewerMessage(e.data); if (!m) return; if (m.type === 'error' && m.message === 'pdfjs' && !fallback) { setFallback(true); return; } onMessage?.(m); };

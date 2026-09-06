@@ -13,3 +13,6 @@ apps/api/uploads/*
 !apps/api/uploads/.gitkeep
 legacy/v1/data/
 legacy/v1/node_modules/
+
+# النسخة أحادية الملف (تُبنى بـ npm run web:single)
+apps/mobile/dist-single/

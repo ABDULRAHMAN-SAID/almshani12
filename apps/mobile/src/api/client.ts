@@ -56,6 +56,9 @@ interface RequestOptions { auth?: boolean; noRetry?: boolean; signal?: AbortSign
 
 /** وضع العرض: التطبيق كاملاً بلا خادم (EXPO_PUBLIC_DEMO=1) — انظر ./demo.ts */
 export const DEMO = process.env.EXPO_PUBLIC_DEMO === '1';
+// يُحمَّل بشكل متزامن كي تعمل النسخة أحادية الملف بلا جلب أجزاء إضافية؛ الشرط يُطوى وقت البناء فلا يدخل الإنتاج
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const demoModule: typeof import('./demo') | null = process.env.EXPO_PUBLIC_DEMO === '1' ? require('./demo') : null;
 
 function finish<T>(data: unknown, path: string, schema?: z.ZodType<T>): T {
   if (!schema) return data as T;
@@ -69,9 +72,8 @@ function finish<T>(data: unknown, path: string, schema?: z.ZodType<T>): T {
 }
 
 async function request<T>(method: string, path: string, body?: unknown, schema?: z.ZodType<T>, opts: RequestOptions = {}): Promise<T> {
-  if (DEMO) {
-    const demo = await import('./demo');
-    const r = await demo.handle(method, path, body instanceof FormData ? undefined : body);
+  if (DEMO && demoModule) {
+    const r = await demoModule.handle(method, path, body instanceof FormData ? undefined : body);
     if (r.status >= 400) { const e = r.body?.error ?? { code: 'server_error', message: `HTTP ${r.status}` }; throw new ApiError(e.code, e.message, r.status); }
     return finish<T>(r.body, path, schema);
   }

@@ -19,6 +19,7 @@
     "test": "npm run test --workspaces --if-present",
     "admin:build": "npm run build -w apps/admin",
     "web:export": "npm run export:web -w apps/mobile",
+    "web:single": "node apps/mobile/scripts/single-file.mjs",
     "test:api": "npm test -w apps/api"
   }
 }
