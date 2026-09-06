@@ -143,7 +143,7 @@ export function seedDemo() {
     const id = user(phone, name, ['student']);
     q.run('INSERT INTO student_profiles (user_id, curriculum_id, grade_id, semester_id, school) VALUES (?,?,?,?,?)', id, cat.curriculumId, grade, S1, 'مدرسة السلطان قابوس');
     for (const s of subjectSlugs) q.run('INSERT INTO student_subjects (user_id, subject_id) VALUES (?,?)', id, cat.subjects[s]);
-    wallet.credit(id, 60, { type: 'bonus', note: 'رصيد تجريبي (تطوير)' });
+    wallet.credit(id, 100, { type: 'bonus', note: 'رصيد تجريبي (تطوير)' });
     return id;
   };
   const demo = student('+96890000010', 'عبدالرحمن', G12, ['physics', 'chemistry', 'english', 'arabic']);
