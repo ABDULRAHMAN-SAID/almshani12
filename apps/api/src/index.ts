@@ -26,6 +26,7 @@ import { availableProviders } from './services/payments.ts';
 import { startBackupScheduler } from './services/backups.ts';
 import { initMonitoring } from './lib/monitoring.ts';
 import auth from './domains/auth.ts';
+import appRouter from './domains/app.ts';
 import users from './domains/users.ts';
 import pushRouter from './domains/push.ts';
 import catalog from './domains/catalog.ts';
@@ -92,6 +93,7 @@ export function createApp() {
   app.use('/static/pdfjs', express.static(path.join(pdfjsDir, 'build'), { maxAge: '7d', immutable: true }));
 
   app.use('/api/auth', auth);
+  app.use('/api', appRouter);
   app.use('/api', users);
   app.use('/api', pushRouter);
   app.use('/api/catalog', catalog);
@@ -117,6 +119,13 @@ export function createApp() {
   // تطبيق الويب المبنيّ (npm run web:build) يُخدَم من الجذر — خادم واحد للواجهة والـ API والغرف
   const webDist = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../mobile/dist');
   if (fs.existsSync(path.join(webDist, 'index.html'))) {
+    // ملف تطبيق أندرويد (إن وُضع في DATA_DIR/app) — قبل احتياطي الـ SPA حتى لا يُعاد index.html بدل الملف
+    app.get('/manassah.apk', (_req, res, next) => {
+      if (!fs.existsSync(config.app.apkPath)) return next();
+      res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+      res.setHeader('Content-Disposition', 'attachment; filename="manassah.apk"');
+      res.sendFile(config.app.apkPath);
+    });
     app.use(express.static(webDist, { index: 'index.html', maxAge: '1h' }));
     app.get(/^(?!\/api\/|\/admin|\/static\/|\/pay\/mock\/).*/, (_req, res) => res.sendFile(path.join(webDist, 'index.html')));
   }

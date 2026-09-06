@@ -238,6 +238,8 @@ export async function handle(method: string, fullPath: string, body: any, ctx?: 
   if (path === '/health') return ok({ ok: true });
   if (path === '/config') return ok({ paymentProviders: ['mock', 'wallet', 'manual'], roomProvider: 'webrtc', devOtp: true, mockPayments: true, auth: { google: null, apple: { servicesId: null, native: false } }, push: { web: null }, payments: { providers: ['mock', 'wallet', 'manual'], thawaniMode: null } });
   if (path === '/push/public-key') return ok({ key: null });
+  // صفحة تحميل أندرويد: لا ملف على خادم العرض — الرابط من إصدار GitHub فقط (بلا حجم ولا رقم إصدار ولا رمز QR)
+  if (path === '/app') return ok({ available: false, url: null, githubUrl: 'https://github.com/ABDULRAHMAN-SAID/almshani12/releases/download/android-latest/manassah.apk', size: null, versionCode: null, updatedAt: null, qrUrl: null });
   /* المصادقة */
   if (path === '/auth/methods') return ok({ phone: true, whatsapp: true, email: true, testCode: true, google: false, apple: false });
   /** دخول حساب العرض حسب الهدف: أرقام ثابتة للطالب/المعلّم/وليّ الأمر، وغيرها حساب جديد */

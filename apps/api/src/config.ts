@@ -214,6 +214,13 @@ export const config = {
 
   deploy: { domain: process.env.DOMAIN || '', image: process.env.GHCR_IMAGE || '' },
 
+  /** تطبيق أندرويد: ملف APK يخدمه الخادم من DATA_DIR/app (يضعه live-server من آخر إصدار) ورابط GitHub الثابت */
+  app: {
+    apkPath: process.env.APK_PATH || path.join(DATA_DIR, 'app', 'manassah.apk'),
+    githubApkUrl: process.env.APK_GITHUB_URL || `https://github.com/${process.env.GITHUB_REPOSITORY || 'ABDULRAHMAN-SAID/almshani12'}/releases/download/android-latest/manassah.apk`,
+    versionCode: process.env.APK_VERSION_CODE ? Number(process.env.APK_VERSION_CODE) : null,
+  },
+
   rateLimit: {
     enabled: bool(process.env.RATE_LIMIT_ENABLED, !isTest),
     apiPerMinute: num(process.env.RATE_LIMIT_API, 300),

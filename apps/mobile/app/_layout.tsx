@@ -33,8 +33,8 @@ function AuthGate() {
   useSessionSocket();
   useEffect(() => {
     if (!ready) return;
-    // شاشة الاتصال بخادم تُفتح من رابط عميق (manassah://connect?url=…) قبل الدخول أو بعده — لا يُعاد توجيهها
-    if (segments[0] === 'connect') return;
+    // شاشة الاتصال بخادم (رابط عميق manassah://connect?url=…) وصفحة تحميل التطبيق (/get-app) عامّتان قبل الدخول أو بعده — لا يُعاد توجيههما
+    if (segments[0] === 'connect' || segments[0] === 'get-app') return;
     const inAuth = segments[0] === '(auth)';
     const onSetup = inAuth && segments[1] === 'setup';
     if (!user && !inAuth) router.replace('/(auth)/welcome');

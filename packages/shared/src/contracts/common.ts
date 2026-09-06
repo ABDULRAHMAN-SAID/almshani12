@@ -63,3 +63,18 @@ export const PublicConfig = z.object({
   payments: z.object({ providers: z.array(z.string()), thawaniMode: z.enum(['uat', 'live']).nullable() }),
 });
 export type PublicConfig = z.infer<typeof PublicConfig>;
+
+/** GET /app — معلومات تحميل تطبيق أندرويد (عام بلا دخول): الملف على هذا الخادم إن وُجد، ورابط إصدار GitHub دائماً، ورمز QR للرابط */
+export const AppDownloadInfo = z.object({
+  /** هل الملف موجود على هذا الخادم؟ عندها url هو التحميل المباشر */
+  available: z.boolean(),
+  url: z.string().nullable(),
+  githubUrl: z.string(),
+  /** الحجم بالبايت ورقم الإصدار الداخلي وتاريخ آخر تحديث — تُعرف فقط حين يكون الملف على الخادم */
+  size: z.number().int().nonnegative().nullable(),
+  versionCode: z.number().int().nullable(),
+  updatedAt: z.string().nullable(),
+  /** صورة SVG لرمز QR يحمل رابط التحميل */
+  qrUrl: z.string().nullable(),
+});
+export type AppDownloadInfo = z.infer<typeof AppDownloadInfo>;

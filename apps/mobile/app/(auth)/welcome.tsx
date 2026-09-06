@@ -1,4 +1,4 @@
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Platform, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { colors, spacing, radius, shadow, subjectColors, themed } from '@manassah/tokens';
@@ -38,6 +38,12 @@ export default function Welcome() {
         <Button label={t('onboarding.start')} onPress={() => router.push('/(auth)/login')} size="lg" full iconEnd="forward" />
         <Button label={t('onboarding.haveAccount')} onPress={() => router.push('/(auth)/login')} variant="secondary" full />
         <Text role="caption" tone="tertiary" center>{t('onboarding.terms')}</Text>
+        {/* رابط تحميل تطبيق أندرويد — على الويب فقط؛ داخل التطبيق لا معنى له */}
+        {Platform.OS === 'web' ? (
+          <Pressable onPress={() => router.push('/get-app')} hitSlop={8} accessibilityRole="link" style={styles.getApp}>
+            <Text role="caption" tone="link" center>{t('getApp.link')}</Text>
+          </Pressable>
+        ) : null}
       </View>
     </Screen>
   );
@@ -55,4 +61,5 @@ const styles = themed((c) => StyleSheet.create({
   tile: { flex: 1, alignItems: 'center', gap: spacing[2], paddingVertical: spacing[4], borderRadius: radius.lg },
   tileIcon: { width: 52, height: 52, borderRadius: 26, backgroundColor: c.bg.card, alignItems: 'center', justifyContent: 'center' },
   actions: { gap: spacing[3] },
+  getApp: { alignSelf: 'center', marginTop: -spacing[1] },
 }));
