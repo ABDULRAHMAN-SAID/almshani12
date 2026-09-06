@@ -54,7 +54,27 @@ async function refreshSession(): Promise<boolean> {
 
 interface RequestOptions { auth?: boolean; noRetry?: boolean; signal?: AbortSignal }
 
+/** وضع العرض: التطبيق كاملاً بلا خادم (EXPO_PUBLIC_DEMO=1) — انظر ./demo.ts */
+export const DEMO = process.env.EXPO_PUBLIC_DEMO === '1';
+
+function finish<T>(data: unknown, path: string, schema?: z.ZodType<T>): T {
+  if (!schema) return data as T;
+  const parsed = schema.safeParse(data);
+  if (!parsed.success) {
+    if (__DEV__) console.warn('[api] contract mismatch', path, parsed.error.issues.slice(0, 3));
+    // لا نُسقط الشاشة بسبب حقل إضافي — نمرّر البيانات كما وصلت
+    return data as T;
+  }
+  return parsed.data;
+}
+
 async function request<T>(method: string, path: string, body?: unknown, schema?: z.ZodType<T>, opts: RequestOptions = {}): Promise<T> {
+  if (DEMO) {
+    const demo = await import('./demo');
+    const r = await demo.handle(method, path, body instanceof FormData ? undefined : body);
+    if (r.status >= 400) { const e = r.body?.error ?? { code: 'server_error', message: `HTTP ${r.status}` }; throw new ApiError(e.code, e.message, r.status); }
+    return finish<T>(r.body, path, schema);
+  }
   const send = async () => {
     const headers: Record<string, string> = { Accept: 'application/json' };
     if (body !== undefined && !(body instanceof FormData)) headers['Content-Type'] = 'application/json';
@@ -86,16 +106,7 @@ async function request<T>(method: string, path: string, body?: unknown, schema?:
     throw new ApiError(err.code, err.message, res.status, (err as { details?: { field: string; message: string }[] }).details);
   }
 
-  if (schema) {
-    const parsed = schema.safeParse(data);
-    if (!parsed.success) {
-      if (__DEV__) console.warn('[api] contract mismatch', path, parsed.error.issues.slice(0, 3));
-      // لا نُسقط الشاشة بسبب حقل إضافي — نمرّر البيانات كما وصلت
-      return data as T;
-    }
-    return parsed.data;
-  }
-  return data as T;
+  return finish<T>(data, path, schema);
 }
 
 const qs = (params?: Record<string, unknown>) => {

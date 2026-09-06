@@ -14,7 +14,8 @@ import { colors } from '@manassah/tokens';
 import '@/i18n';
 import { useAuth } from '@/state/auth';
 import { bootstrapAuth, homeFor } from '@/lib/session';
-import { OfflineBar } from '@/ui';
+import { OfflineBar, Text } from '@/ui';
+import { DEMO } from '@/api/client';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -71,6 +72,7 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
           <StatusBar style="dark" />
+          {DEMO ? <View style={{ backgroundColor: colors.brand.goldSoft, paddingVertical: 4, paddingHorizontal: 12, alignItems: 'center' }}><Text role="caption" tone="gold">نسخة عرض بلا خادم — بيانات تجريبية · رمز الدخول 000000</Text></View> : null}
           {!online ? <OfflineBar /> : null}
           <AuthGate />
           <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg.base }, animation: 'fade_from_bottom', animationDuration: 200 }}>

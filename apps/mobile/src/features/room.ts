@@ -7,7 +7,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { io, type Socket } from 'socket.io-client';
 import { RoomAccess } from '@manassah/shared';
-import { api } from '@/api/client';
+import { api, DEMO } from '@/api/client';
+import { createDemoSocket } from '@/api/demo';
 import { tokens } from '@/state/auth';
 import { useRoom, type Participant, type RoomMessage } from '@/state/room';
 
@@ -88,10 +89,13 @@ export function useLiveRoom(bookingId: number) {
   useEffect(() => {
     if (!access) return;
     const set = useRoom.getState().set;
-    const s = io(`${api.base}${access.realtimeNamespace}`, {
-      auth: access.provider === 'internal' ? { roomToken: access.token } : { token: tokens.access, bookingId },
-      transports: ['websocket', 'polling'], reconnection: true, reconnectionDelay: 800, reconnectionDelayMax: 5000, timeout: 8000,
-    });
+    const b = access.booking;
+    const s: Socket = DEMO
+      ? (createDemoSocket(access.isHost, access.isHost ? b.student.name : b.teacher.name, access.isHost ? b.teacher.name : b.student.name) as unknown as Socket)
+      : io(`${api.base}${access.realtimeNamespace}`, {
+        auth: access.provider === 'internal' ? { roomToken: access.token } : { token: tokens.access, bookingId },
+        transports: ['websocket', 'polling'], reconnection: true, reconnectionDelay: 800, reconnectionDelayMax: 5000, timeout: 8000,
+      });
     socket.current = s;
     s.on('connect', () => set({ connection: 'connected' }));
     s.on('disconnect', () => set({ connection: 'reconnecting' }));
@@ -101,14 +105,14 @@ export function useLiveRoom(bookingId: number) {
       emit('media:state', { mic: useRoom.getState().mic, cam: useRoom.getState().cam });
       // المضيف يبدأ الاتصال المرئي مع الطرف الآخر إن كان حاضراً
       const other = w.participants.find(p => p.userId !== w.you.userId);
-      if (w.you.isHost && other && hasWebRtc()) setTimeout(() => offerTo(other.userId), 300);
+      if (w.you.isHost && other && hasWebRtc() && !DEMO) setTimeout(() => offerTo(other.userId), 300);
     });
     s.on('presence', (list: Participant[]) => {
       const me = useRoom.getState().me;
       set({ participants: list });
       const other = list.find(p => p.userId !== me?.userId);
       if (!other) closePeer();
-      else if (me?.isHost && hasWebRtc() && peer.current !== other.userId) setTimeout(() => offerTo(other.userId), 300);
+      else if (me?.isHost && hasWebRtc() && !DEMO && peer.current !== other.userId) setTimeout(() => offerTo(other.userId), 300);
     });
     s.on('chat:message', (m: RoomMessage) => useRoom.getState().addMessage(m, m.userId === useRoom.getState().me?.userId));
     s.on('room:ended', () => { set({ connection: 'ended' }); closePeer(); });
