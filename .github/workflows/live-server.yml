@@ -64,6 +64,9 @@ jobs:
           ALLOW_DEMO_SEED: "1"
           PAYMENT_PROVIDERS: mock,wallet,manual
           ROOM_PROVIDER: internal
+          # خادم تجربة: حدود أوسع لرموز التحقّق حتى لا تُحجب المحاولات المتكرّرة
+          RATE_LIMIT_OTP: "100"
+          RATE_LIMIT_API: "1000"
           TURN_URL: ${{ secrets.TURN_URL }}
           TURN_USERNAME: ${{ secrets.TURN_USERNAME }}
           TURN_CREDENTIAL: ${{ secrets.TURN_CREDENTIAL }}
