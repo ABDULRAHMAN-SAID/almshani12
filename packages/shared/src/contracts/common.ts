@@ -38,6 +38,8 @@ export const ErrorCode = z.enum([
   /* المتعلّمون وإدارة الأشخاص */
   'learner_required', 'learner_forbidden', 'learner_limit', 'learner_has_upcoming', 'last_learner',
   'last_super_admin', 'teacher_verified', 'phone_taken', 'email_taken', 'self_target',
+  /* إيصال رموز التحقّق */
+  'otp_delivery_unavailable', 'otp_send_failed', 'otp_country_not_allowed',
 ]);
 export type ErrorCode = z.infer<typeof ErrorCode>;
 

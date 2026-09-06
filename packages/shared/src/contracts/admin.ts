@@ -59,6 +59,20 @@ export type TeacherPatch = z.infer<typeof TeacherPatch>;
 export const AdminLearnerUpsert = LearnerUpsert;
 export const AdminLearnerPatch = LearnerPatch;
 
+/** حالة النظام (GET /admin/system) — قراءة فقط، بلا أسرار */
+export const SystemInfo = z.object({
+  publicUrl: z.string(), env: z.string(), schemaVersion: z.number().int(),
+  otp: z.object({
+    phone: z.boolean(), whatsapp: z.boolean(), email: z.boolean(), testCode: z.boolean(),
+    smsProvider: z.enum(['twilio_verify', 'twilio', 'http', 'log']), emailProvider: z.enum(['smtp', 'resend', 'log']),
+    allowedCountries: z.array(z.string()), testTargets: z.number().int(),
+  }),
+  payments: z.object({ providers: z.array(z.string()) }),
+  rooms: z.object({ provider: z.string(), turn: z.boolean() }),
+  bootstrap: z.object({ allowDemoSeed: z.boolean(), adminPhone: z.boolean() }),
+});
+export type SystemInfo = z.infer<typeof SystemInfo>;
+
 export const OverviewQuery = z.object({ days: z.coerce.number().int().refine(d => [7, 14, 30, 90].includes(d), 'المدى ٧ أو ١٤ أو ٣٠ أو ٩٠ يوماً').default(14) });
 export type OverviewQuery = z.infer<typeof OverviewQuery>;
 

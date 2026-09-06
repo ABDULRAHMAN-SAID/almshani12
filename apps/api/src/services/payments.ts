@@ -72,7 +72,11 @@ async function thawaniRequest(pathname: string, body: unknown) {
     body: JSON.stringify(body),
   });
   const data: any = await res.json().catch(() => ({}));
-  if (!res.ok || data?.success === false) throw new AppError('payment_failed', data?.description || 'فشل الاتصال ببوابة الدفع', 502);
+  if (!res.ok || data?.success === false) {
+    // نصّ البوابة يُسجَّل للمشغّل فقط — لا يصل إلى العميل
+    console.error('[payments] thawani', res.status, String(data?.description ?? data?.code ?? '').slice(0, 200));
+    throw new AppError('payment_failed', 'فشل الاتصال ببوابة الدفع', 502);
+  }
   return data;
 }
 const thawani: PaymentProvider = {
@@ -105,7 +109,10 @@ async function stripeRequest(pathname: string, params: Record<string, string>) {
     body: new URLSearchParams(params).toString(),
   });
   const data: any = await res.json();
-  if (!res.ok) throw new AppError('payment_failed', data?.error?.message || 'فشل الاتصال ببوابة الدفع', 502);
+  if (!res.ok) {
+    console.error('[payments] stripe', res.status, String(data?.error?.message ?? data?.error?.type ?? '').slice(0, 200));
+    throw new AppError('payment_failed', 'فشل الاتصال ببوابة الدفع', 502);
+  }
   return data;
 }
 const stripe: PaymentProvider = {

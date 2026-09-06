@@ -21,7 +21,48 @@ services:
       - key: ALLOW_DEMO_SEED
         value: "1"
       - key: OTP_FIXED_CODE
-        value: "000000"
+        value: "000000"   # رمز ثابت حتى ربط مزوّد — اجعله none بعدها
+      # رموز تحقّق حقيقية (اختيارية — تُملأ من لوحة Render؛ راجع README «رموز تحقّق حقيقية»)
+      - key: EMAIL_FROM
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_SECURE
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_VERIFY_SERVICE_SID
+        sync: false
+      - key: TWILIO_FROM
+        sync: false
+      - key: TWILIO_MESSAGING_SERVICE_SID
+        sync: false
+      - key: TWILIO_WHATSAPP_FROM
+        sync: false
+      - key: SMS_HTTP_URL
+        sync: false
+      - key: SMS_HTTP_METHOD
+        sync: false
+      - key: SMS_HTTP_HEADERS
+        sync: false
+      - key: SMS_HTTP_BODY
+        sync: false
+      - key: SMS_HTTP_OK
+        sync: false
+      - key: SMS_ALLOWED_COUNTRIES
+        value: "+968"
+      - key: OTP_TEST_TARGETS
+        sync: false
       - key: PAYMENT_PROVIDERS
         value: mock,wallet,manual
       - key: ROOM_PROVIDER

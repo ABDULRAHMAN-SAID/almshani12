@@ -38,6 +38,7 @@ export function errorMessageKey(err: unknown): string {
       forbidden: 'errors.forbidden', not_found: 'errors.notFound', rate_limited: 'errors.rateLimited', insufficient_funds: 'errors.insufficientFunds',
       learner_forbidden: 'errors.learnerForbidden', learner_required: 'errors.learnerRequired', learner_limit: 'learners.limit',
       learner_has_upcoming: 'learners.hasUpcoming', last_learner: 'learners.lastLearner',
+      otp_delivery_unavailable: 'errors.otpDeliveryUnavailable', otp_send_failed: 'errors.otpSendFailed', otp_country_not_allowed: 'errors.otpCountryNotAllowed',
     };
     return map[err.code] ?? 'errors.generic';
   }

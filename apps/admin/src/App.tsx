@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Routes, Route, NavLink, Navigate, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, session } from './api';
-import type { Overview as OverviewT } from '@manassah/shared';
+import type { Overview as OverviewT, AuthMethods, OtpVia, OtpDelivery, OtpRequestResult } from '@manassah/shared';
 import { useMe, can, Field, errMsg, STAFF } from './ui';
 import Overview from './pages/Overview';
 import Teachers from './pages/Teachers';
@@ -19,16 +19,34 @@ import Audit from './pages/Audit';
 import Person from './pages/Person';
 import TeacherPage from './pages/Teacher';
 
+/** ما يُفترض قبل معرفة طرق الخادم (أثناء التحميل أو عند تعذّر الجلب) */
+const METHODS_FALLBACK: AuthMethods = { phone: true, whatsapp: false, email: true, testCode: true };
+const SENT: Record<OtpDelivery, string> = { sms: 'أرسلنا رسالة نصية إلى', whatsapp: 'أرسلنا رسالة واتساب إلى', email: 'أرسلنا بريداً إلى', test: 'حساب تجريبي — رمز ثابت لـ' };
+
 /** الدخول برمز تحقّق — الحساب يجب أن يحمل دور طاقم */
 function Login({ onDone }: { onDone: () => void }) {
+  const methodsQ = useQuery({ queryKey: ['auth-methods'], queryFn: () => api.get<AuthMethods>('/auth/methods'), staleTime: 5 * 60_000, retry: 1 });
+  const methods = methodsQ.data ?? METHODS_FALLBACK;
   const [step, setStep] = useState<'target' | 'code'>('target');
   const [channel, setChannel] = useState<'phone' | 'email'>('phone');
+  const [via, setVia] = useState<OtpVia>('sms');
   const [target, setTarget] = useState('');
   const [code, setCode] = useState('');
   const [dev, setDev] = useState<string | null>(null);
+  const [delivery, setDelivery] = useState<OtpDelivery>('sms');
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const send = async () => { setBusy(true); setErr(null); try { const r = await api.post<{ target: string; devCode?: string }>('/auth/otp/request', { channel, target }); setTarget(r.target); setDev(r.devCode ?? null); setStep('code'); } catch (e) { setErr(errMsg(e)); } finally { setBusy(false); } };
+  // قناة واحدة فقط متاحة → تُختار تلقائياً ولا شرائح
+  const enabled = (['phone', 'email'] as const).filter(ch => methods[ch]);
+  const single = enabled.length === 1 ? enabled[0] : null;
+  useEffect(() => { if (single && channel !== single) { setChannel(single); setTarget(''); setErr(null); } }, [single, channel]);
+  const send = async () => {
+    setBusy(true); setErr(null);
+    try {
+      const r = await api.post<OtpRequestResult>('/auth/otp/request', channel === 'phone' ? { channel, target, via } : { channel, target });
+      setTarget(r.target); setDev(r.devCode ?? null); setDelivery(r.delivery); setStep('code');
+    } catch (e) { setErr(errMsg(e)); } finally { setBusy(false); }
+  };
   const verify = async () => {
     setBusy(true); setErr(null);
     try {
@@ -37,18 +55,31 @@ function Login({ onDone }: { onDone: () => void }) {
       session.set(r.accessToken, r.refreshToken); onDone();
     } catch (e) { setErr(errMsg(e)); } finally { setBusy(false); }
   };
+  const pick = (ch: 'phone' | 'email') => { setChannel(ch); setTarget(''); setErr(null); };
   return (
     <div className="login"><div className="card">
       <div className="brand"><span className="mark">م</span>لوحة الإدارة</div>
-      {step === 'target' ? (<>
-        <div className="row" style={{ marginBottom: 12 }}><button className={`chip ${channel === 'phone' ? 'on' : ''}`} onClick={() => setChannel('phone')}>الهاتف</button><button className={`chip ${channel === 'email' ? 'on' : ''}`} onClick={() => setChannel('email')}>البريد</button></div>
+      {step === 'target' && enabled.length === 0 ? (
+        // الخادم لم يفعّل أي طريقة دخول بعد (لا مزوّد ولا رمز ثابت)
+        <p className="muted">الدخول بالهاتف أو البريد غير متاح على هذا الخادم بعد — اضبط مزوّد رموز التحقّق (راجع README).</p>
+      ) : step === 'target' ? (<>
+        {enabled.length > 1 ? <div className="row" style={{ marginBottom: 12 }}>
+          {methods.phone ? <button className={`chip ${channel === 'phone' ? 'on' : ''}`} onClick={() => pick('phone')}>الهاتف</button> : null}
+          {methods.email ? <button className={`chip ${channel === 'email' ? 'on' : ''}`} onClick={() => pick('email')}>البريد</button> : null}
+        </div> : null}
         <Field label={channel === 'phone' ? 'رقم الهاتف' : 'البريد'}><input value={target} onChange={e => setTarget(e.target.value)} placeholder={channel === 'phone' ? '9XXXXXXX' : 'name@example.com'} onKeyDown={e => e.key === 'Enter' && send()} autoFocus /></Field>
+        {channel === 'phone' && methods.whatsapp ? <div className="row" style={{ marginBottom: 12 }}>
+          <span className="muted small">أرسل الرمز عبر</span>
+          <button className={`chip ${via === 'sms' ? 'on' : ''}`} onClick={() => setVia('sms')}>رسالة نصية</button>
+          <button className={`chip ${via === 'whatsapp' ? 'on' : ''}`} onClick={() => setVia('whatsapp')}>واتساب</button>
+        </div> : null}
         <button className="btn" onClick={send} disabled={busy || target.length < 5} style={{ width: '100%', justifyContent: 'center' }}>أرسل رمز التحقّق</button>
       </>) : (<>
-        <p className="muted">أرسلنا رمزاً إلى <b className="num">{target}</b>{dev ? <span className="small"> — وضع التطوير: {dev}</span> : null}</p>
+        <p className="muted">{SENT[delivery]} <b className="num">{target}</b>{dev ? <span className="small"> — {delivery === 'test' ? 'رمز الحساب التجريبي' : 'وضع التطوير'}: <b className="num">{dev}</b></span> : null}</p>
+        {delivery === 'email' ? <p className="muted small">لم تصلك؟ تحقّق من مجلد الرسائل غير المرغوبة</p> : null}
         <Field label="الرمز"><input value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} inputMode="numeric" onKeyDown={e => e.key === 'Enter' && verify()} autoFocus /></Field>
         <button className="btn" onClick={verify} disabled={busy || code.length < 6} style={{ width: '100%', justifyContent: 'center' }}>دخول</button>
-        <button className="btn ghost" onClick={() => setStep('target')} style={{ marginTop: 8 }}>تغيير</button>
+        <button className="btn ghost" onClick={() => { setStep('target'); setCode(''); setErr(null); }} style={{ marginTop: 8 }}>تغيير</button>
       </>)}
       {err ? <p className="error">{err}</p> : null}
     </div></div>

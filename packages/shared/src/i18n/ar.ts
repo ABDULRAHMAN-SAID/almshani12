@@ -31,6 +31,9 @@ export const ar = {
     rateLimited: 'محاولات كثيرة. انتظر قليلاً ثم حاول.',
     insufficientFunds: 'الرصيد غير كافٍ.',
     learnerForbidden: 'هذا المتعلّم ليس في حسابك', learnerRequired: 'اختر متعلّماً أولاً',
+    otpDeliveryUnavailable: 'تعذّر إرسال الرمز عبر هذه الطريقة الآن. جرّب طريقة أخرى.',
+    otpSendFailed: 'لم نتمكّن من إرسال الرمز. تأكّد من الرقم وحاول مجدداً.',
+    otpCountryNotAllowed: 'الخدمة متاحة حالياً لأرقام سلطنة عُمان (+968).',
   },
   nav: { home: 'الرئيسية', library: 'المكتبة', lessons: 'الحصص', courses: 'الدورات', account: 'حسابي' },
   onboarding: {
@@ -196,6 +199,10 @@ export const ar = {
     devCode: 'وضع التطوير — الرمز: {{code}}', changeTarget: 'تغيير', apple: 'المتابعة بحساب Apple', google: 'المتابعة بحساب Google',
     socialUnavailable: 'يتطلّب ضبط مفاتيح المتاجر — يُفعَّل عند النشر', invalidTarget: 'أدخل رقماً عُمانياً (8 أرقام) أو بريداً صحيحاً',
     welcomeBack: 'أهلاً بعودتك', setupLater: 'يمكنك تعديل صفّك لاحقاً من حسابي',
+    sendVia: 'أرسل الرمز عبر', viaSms: 'رسالة نصية', viaWhatsapp: 'واتساب',
+    sentSms: 'أرسلنا رسالة نصية إلى', sentWhatsapp: 'أرسلنا رسالة واتساب إلى', sentEmail: 'أرسلنا رسالة إلى بريدك', sentTest: 'حساب تجريبي — رمز ثابت لـ',
+    checkSpam: 'لم تصلك؟ تحقّق من مجلد الرسائل غير المرغوبة', testCode: 'رمز الحساب التجريبي: {{code}}',
+    phoneUnavailable: 'الدخول بالهاتف غير متاح على هذا الخادم بعد', emailUnavailable: 'الدخول بالبريد غير متاح على هذا الخادم بعد',
   },
   search: {
     title: 'البحث', placeholder: 'ابحث عن كتاب، معلّم، دورة، درس…', recent: 'عمليات بحث سابقة', clear: 'مسح',

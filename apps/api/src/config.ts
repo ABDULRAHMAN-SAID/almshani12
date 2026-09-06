@@ -21,7 +21,8 @@ function persistentSecret(name: string): string {
 }
 
 const num = (v: string | undefined, d: number) => (v === undefined || v === '' || Number.isNaN(Number(v)) ? d : Number(v));
-const bool = (v: string | undefined, d = false) => (v === undefined ? d : ['1', 'true', 'yes', 'on'].includes(v.toLowerCase()));
+/** فارغ = غير مضبوط (القيمة الافتراضية) — ملفات البيئة وأسرار CI تمرّر '' لا undefined */
+const bool = (v: string | undefined, d = false) => (v === undefined || v === '' ? d : ['1', 'true', 'yes', 'on'].includes(v.toLowerCase()));
 const list = (v: string | undefined, d: string[]) => (v ? v.split(',').map(s => s.trim()).filter(Boolean) : d);
 
 const isTest = process.env.NODE_ENV === 'test';
@@ -34,6 +35,40 @@ function iceServers(): IceServer[] {
   else if (process.env.NODE_ENV !== 'production') list.push({ urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443', 'turns:openrelay.metered.ca:443?transport=tcp'], username: 'openrelayproject', credential: 'openrelayproject' });
   return list;
 }
+
+/* ---------- رموز التحقّق: المزوّدات تُستنتج من المتغيّرات مرة واحدة عند الإقلاع ---------- */
+export type SmsProvider = 'twilio_verify' | 'twilio' | 'http' | 'log';
+export type EmailProvider = 'smtp' | 'resend' | 'log';
+const jsonRecord = (v: string | undefined): Record<string, string> => {
+  if (!v) return {};
+  try { const o = JSON.parse(v); return o && typeof o === 'object' ? Object.fromEntries(Object.entries(o).map(([k, x]) => [k, String(x)])) : {}; } catch { return {}; }
+};
+const fixedCode: string | null = process.env.OTP_FIXED_CODE === 'none' ? null
+  : process.env.OTP_FIXED_CODE || (isTest || process.env.NODE_ENV !== 'production' ? '000000' : null);
+const twilio = {
+  accountSid: process.env.TWILIO_ACCOUNT_SID || '', authToken: process.env.TWILIO_AUTH_TOKEN || '',
+  verifyServiceSid: process.env.TWILIO_VERIFY_SERVICE_SID || '', from: process.env.TWILIO_FROM || '',
+  messagingServiceSid: process.env.TWILIO_MESSAGING_SERVICE_SID || '', whatsappFrom: process.env.TWILIO_WHATSAPP_FROM || '',
+};
+/** SMS_PROVIDER الصريح يفوز (auto افتراضياً): Verify ← Twilio ← بوابة HTTP ← سجلّ */
+const smsProvider: SmsProvider = (() => {
+  const explicit = (process.env.SMS_PROVIDER || 'auto').toLowerCase();
+  if (['twilio_verify', 'twilio', 'http', 'log'].includes(explicit)) return explicit as SmsProvider;
+  if (twilio.accountSid && twilio.authToken && twilio.verifyServiceSid) return 'twilio_verify';
+  if (twilio.accountSid && twilio.authToken && (twilio.from || twilio.messagingServiceSid)) return 'twilio';
+  if (process.env.SMS_HTTP_URL) return 'http';
+  return 'log';
+})();
+const smtpPort = num(process.env.SMTP_PORT, 587);
+const smtp = { host: process.env.SMTP_HOST || '', port: smtpPort, secure: bool(process.env.SMTP_SECURE, smtpPort === 465), user: process.env.SMTP_USER || '', pass: process.env.SMTP_PASS || '' };
+/** EMAIL_PROVIDER الصريح يفوز: SMTP عند SMTP_HOST، وإلا Resend عند RESEND_API_KEY، وإلا سجلّ */
+const emailProvider: EmailProvider = (() => {
+  const explicit = (process.env.EMAIL_PROVIDER || 'auto').toLowerCase();
+  if (['smtp', 'resend', 'log'].includes(explicit)) return explicit as EmailProvider;
+  if (smtp.host) return 'smtp';
+  if (process.env.RESEND_API_KEY) return 'resend';
+  return 'log';
+})();
 
 export const config = {
   env: process.env.NODE_ENV || 'development',
@@ -65,11 +100,35 @@ export const config = {
   otp: {
     ttlSeconds: num(process.env.OTP_TTL, 300),
     maxAttempts: 5,
-    /**
-     * في التطوير يُطبَع الرمز في السجلّ ويُقبل 000000.
-     * في الإنتاج بلا مزوّد رسائل بعد: OTP_FIXED_CODE يثبّت رمزاً للتجربة (أزله فور ربط مزوّد SMS).
-     */
-    devCode: process.env.OTP_FIXED_CODE || (isTest || process.env.NODE_ENV !== 'production' ? '000000' : null),
+    /** رمز ثابت: OTP_FIXED_CODE، وإلا 000000 خارج الإنتاج (وفي الاختبار). OTP_FIXED_CODE=none يعطّله في أي بيئة */
+    fixedCode,
+    /** أهداف اختبار تقبل الرمز الثابت دائماً (حتى مع مزوّد حقيقي): OTP_TEST_TARGETS (قائمة بفواصل، يسمح بـ * في النهاية كبادئة) + أنماط حسابات العرض عند ALLOW_DEMO_SEED=1: '+96890000*', '+96891000*' */
+    testTargets: [...list(process.env.OTP_TEST_TARGETS, []), ...(bool(process.env.ALLOW_DEMO_SEED, false) ? ['+96890000*', '+96891000*'] : [])],
+    sendPerTargetPerHour: num(process.env.OTP_SEND_PER_TARGET_HOUR, 5),
+    /** سقف يومي عام للإرسال الحقيقي (حماية الرصيد) */
+    sendPerDay: num(process.env.OTP_SEND_PER_DAY, 300),
+    resendCooldownSeconds: num(process.env.OTP_RESEND_COOLDOWN, 30),
+    sms: {
+      provider: smsProvider,
+      /** الدول المسموح بالإرسال إليها (بادئات E.164) — '*' = الكل */
+      allowedCountries: list(process.env.SMS_ALLOWED_COUNTRIES, ['+968']),
+      /** واتساب: متاح مع twilio_verify (مرسل Twilio المشترك) أو twilio مع TWILIO_WHATSAPP_FROM؛ OTP_WHATSAPP=0 يعطّله */
+      whatsapp: bool(process.env.OTP_WHATSAPP, true) && (smsProvider === 'twilio_verify' || (smsProvider === 'twilio' && !!twilio.whatsappFrom)),
+      twilio,
+      http: {
+        url: process.env.SMS_HTTP_URL || '',
+        method: (process.env.SMS_HTTP_METHOD || 'POST').toUpperCase() === 'GET' ? 'GET' : 'POST',
+        headers: jsonRecord(process.env.SMS_HTTP_HEADERS),
+        body: process.env.SMS_HTTP_BODY || '',
+        okMatch: process.env.SMS_HTTP_OK || '',
+      },
+    },
+    email: {
+      provider: emailProvider,
+      from: process.env.EMAIL_FROM || process.env.SMTP_USER || 'no-reply@localhost',
+      smtp,
+      resend: { apiKey: process.env.RESEND_API_KEY || '' },
+    },
   },
 
   money: {

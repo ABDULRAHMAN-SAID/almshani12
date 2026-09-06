@@ -49,9 +49,12 @@ CREATE TABLE IF NOT EXISTS otp_codes (
   attempts   INTEGER NOT NULL DEFAULT 0,
   expires_at INTEGER NOT NULL,
   consumed_at TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  provider   TEXT NOT NULL DEFAULT 'local',   -- local (الرمز محلي مهشّر) | twilio_verify (الرمز عند Twilio)
+  via        TEXT                             -- sms | whatsapp | email | test
 );
 CREATE INDEX IF NOT EXISTS idx_otp_target ON otp_codes(target, channel);
+CREATE INDEX IF NOT EXISTS idx_otp_created ON otp_codes(created_at);
 
 CREATE TABLE IF NOT EXISTS refresh_tokens (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,

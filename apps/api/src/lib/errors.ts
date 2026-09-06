@@ -26,16 +26,21 @@ export function notFoundHandler(req: Request, res: Response, next: NextFunction)
   next();
 }
 
+/** أخطاء 5xx التي تصل رسالتها كما هي إلى العميل */
+const USER_FACING_5XX = new Set<string>(['otp_send_failed', 'otp_delivery_unavailable']);
+
 export function errorHandler(err: unknown, _req: Request, res: Response, _next: NextFunction) {
   const e = err as AppError & { statusCode?: number; type?: string };
   // أخطاء تحليل الجسم من express
   if (e.type === 'entity.parse.failed') return res.status(400).json({ error: { code: 'validation_error', message: 'صيغة الطلب غير صحيحة' } });
   const status = e.status || e.statusCode || 500;
-  if (status >= 500) console.error('[error]', err);
+  // رسائل 5xx المقصودة للمستخدم هي رموز التحقّق فقط (نصّها ثابت من عندنا)؛ غيرها يُخفى ويُسجَّل كاملاً حتى لا يتسرّب نصّ بوابة خارجية
+  const intended = err instanceof AppError && USER_FACING_5XX.has(e.code);
+  if (status >= 500) console.error('[error]', intended ? `${e.code}: ${e.message}` : err);
   res.status(status).json({
     error: {
       code: e.code || 'server_error',
-      message: status >= 500 ? 'تعذّر إكمال العملية. حاول مرة أخرى.' : e.message,
+      message: status >= 500 && !intended ? 'تعذّر إكمال العملية. حاول مرة أخرى.' : e.message,
       ...(e.details ? { details: e.details } : {}),
     },
   });

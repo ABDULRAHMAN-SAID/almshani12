@@ -53,7 +53,7 @@ npm run typecheck               # كل الحزم
 
 ## ما يحتاج ضبطاً قبل الإنتاج
 
-- مزوّد SMS للرموز (`SMS_PROVIDER`) ومفاتيح Thawani، ومفاتيح Apple/Google للدخول الاجتماعي.
+- مزوّد رموز التحقّق (SMS/واتساب/بريد — راجع «رموز تحقّق حقيقية» أدناه) ومفاتيح Thawani، ومفاتيح Apple/Google للدخول الاجتماعي.
 - LiveKit (أو بديله) لفيديو الجوال — المزوّد الداخلي يقدّم الدردشة والحضور والإشارات فقط على الجوال.
 - إشعارات الدفع (push) عبر `device_tokens` — الإشعارات داخل التطبيق تعمل فورياً عبر Socket.IO.
 - واجهة إنشاء الدورات للمعلّم (الـ API جاهز: أقسام، دروس، رفع فيديو، اختبارات، إرسال للمراجعة) — رفع الكتب يعمل من التطبيق.
@@ -98,9 +98,60 @@ PUBLIC_URL=https://manassah.example.om docker compose up -d --build
 | --- | --- | --- |
 | `ALLOW_DEMO_SEED=1` | افتراضي في القوالب | بيانات عرض كاملة: طالب `90000010`، معلّم `91000001`، فريق `90000001`–`04` |
 | `ALLOW_DEMO_SEED=0` + `ADMIN_PHONE=9xxxxxxx` | للإنتاج | المنهج العُماني فقط + حساب مدير أوّل برقمك |
-| `OTP_FIXED_CODE=000000` | مؤقّت | رمز دخول ثابت حتى ربط مزوّد SMS — احذفه بعد الربط |
+| `OTP_FIXED_CODE=000000` | مؤقّت | رمز دخول ثابت حتى ربط مزوّد — اجعله `none` بعد الربط |
 
 القيم كلها في `apps/api/.env.production.example`.
+
+### رموز تحقّق حقيقية (SMS / واتساب / بريد)
+بلا أي مزوّد يعمل الخادم في الوضع التجريبي: الرمز `000000` ويُعاد في الاستجابة. بمجرد وضع مفاتيح مزوّد واحد (في المتغيّرات أو الأسرار) يصبح الدخول حقيقياً لتلك القناة:
+الشخص يكتب رقمه أو بريده ويصله رمز حقيقي. المزوّد يُكتشف تلقائياً من المفاتيح الموجودة (`SMS_PROVIDER`/`EMAIL_PROVIDER` اختياريان لتثبيته). كل المتغيّرات موثّقة في `apps/api/.env.example`.
+
+**1) البريد عبر Gmail (مجاني، ٥ دقائق)**
+1. حساب Google ← **الأمان** ← فعّل **التحقق بخطوتين**.
+2. ابحث في صفحة الأمان عن **App passwords** (كلمات مرور التطبيقات) ← أنشئ واحدة باسم `manassah` ← انسخ الكلمة المكوّنة من 16 حرفاً.
+3. ضع القيم:
+```env
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=you@gmail.com
+SMTP_PASS=xxxx xxxx xxxx xxxx
+EMAIL_FROM=منصّة <you@gmail.com>
+```
+(بديل بلا Gmail: أنشئ مفتاحاً في resend.com وضع `RESEND_API_KEY=re_...` مع `EMAIL_FROM` لدومين موثّق هناك.)
+
+**2) الرسائل النصية وواتساب عبر Twilio Verify (الأنسب لعُمان)**
+1. أنشئ حساباً في https://www.twilio.com/try-twilio ← من الـ Console انسخ **Account SID** و**Auth Token**.
+2. القائمة ← **Verify** ← **Services** ← **Create new** (اسم الخدمة هو ما يظهر في الرسالة) ← انسخ **Service SID** (يبدأ بـ `VA`). فعّل قناة **WhatsApp** من إعدادات الخدمة إن أردتها.
+3. ضع القيم:
+```env
+TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+TWILIO_AUTH_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+TWILIO_VERIFY_SERVICE_SID=VAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+- واتساب عبر Verify يُرسَل من مرسل Twilio المشترك — **لا تحتاج رقم واتساب خاصاً بك** ولا موافقة Meta؛ يظهر خيار «واتساب» في شاشة الدخول تلقائياً. (`OTP_WHATSAPP=0` يخفيه.)
+- **الحساب التجريبي (Trial) في Twilio يرسل فقط إلى الأرقام التي تتحقّق منها أنت في الـ Console** (Phone Numbers ← Verified Caller IDs)؛ أي رقم آخر يعطي «حساب Twilio تجريبي…». بعد شحن الرصيد (Upgrade) يُرسَل لأي رقم في الدول المسموحة.
+- بديل بدون Verify (رقم/خدمة رسائل خاصة بك): `TWILIO_FROM=+1415…` أو `TWILIO_MESSAGING_SERVICE_SID=MG…`، ولواتساب رقم معتمد في `TWILIO_WHATSAPP_FROM`.
+
+**3) بوابة SMS محلية (Unifonic / Omantel / Ooredoo) عبر HTTP**
+أي بوابة تقبل طلب HTTP تعمل عبر `SMS_HTTP_URL` مع قالب جسم. العناصر `{to}` (E.164)، `{to_digits}` (أرقام فقط بلا +)، `{text}` (نص الرسالة كاملاً)، `{code}` تُستبدل تلقائياً. مثال Unifonic:
+```env
+SMS_HTTP_URL=https://el.cloud.unifonic.com/rest/SMS/messages
+SMS_HTTP_METHOD=POST
+SMS_HTTP_HEADERS={"Accept":"application/json"}
+SMS_HTTP_BODY={"AppSid":"YOUR_APP_SID","SenderID":"MANASSAH","Recipient":"{to_digits}","Body":"{text}"}
+SMS_HTTP_OK='"success":true'
+```
+إن كان جسم القالب JSON يُرسَل كـ `application/json`، وإلا كـ `application/x-www-form-urlencoded` مع ترميز القيم (فيبقى `+` في الرقم سليماً). `SMS_HTTP_OK` نص يجب أن يظهر في الاستجابة لاعتبار الإرسال ناجحاً (اختياري؛ بدونه يكفي 2xx) — ضعه بين علامتي اقتباس مفردتين في `.env` كما في المثال حتى تقرأه dotenv وdocker compose وfly بالشكل نفسه، وفي أسرار GitHub اكتب القيمة نفسها بلا العلامتين المفردتين. مثال GET: `SMS_HTTP_URL=https://gw.example.om/send?user=U&pass=P&to={to_digits}&msg={text}` مع `SMS_HTTP_METHOD=GET`.
+
+**أين تضع القيم**
+- **الخادم التجريبي الحيّ (GitHub Actions):** المستودع ← **Settings ← Secrets and variables ← Actions ← New repository secret**، سرّ لكل متغيّر بنفس الاسم (مثل `TWILIO_ACCOUNT_SID`، وكذلك `SMS_HTTP_OK` و`OTP_WHATSAPP` و`SMS_PROVIDER` و`EMAIL_PROVIDER` إن احتجتها). عند التشغيل التالي يظهر في التعليق والملخّص سطر «رموز حقيقية — هاتف/واتساب/بريد».
+- **Docker / Render / Fly:** في `.env` بجانب `docker-compose.yml` (أو `docker compose` مع المتغيّرات)، أو من لوحة Render (Environment)، أو `fly secrets set KEY=VALUE`. القالب الكامل في `apps/api/.env.production.example`.
+
+**القواعد**
+- حسابات العرض (`9000000x`، `9100000x`) وأهداف `OTP_TEST_TARGETS` تبقى على الرمز `000000` حتى مع مزوّد حقيقي؛ الأرقام والبرائد الحقيقية تصلها رموز حقيقية ولا يُقبل لها الرمز الثابت أبداً ولا يُعاد في الاستجابة.
+- في الإنتاج بعد ربط مزوّد: `OTP_FIXED_CODE=none` (يلغي الرمز الثابت لغير حسابات العرض). تجربة على رقمك أنت قبل ذلك؟ أضفه إلى `OTP_TEST_TARGETS`.
+- الحماية من الإرسال المفرط (SMS pumping): `SMS_ALLOWED_COUNTRIES=+968` (`*` = الكل)، `OTP_SEND_PER_TARGET_HOUR=5`، `OTP_SEND_PER_DAY=300`، `OTP_RESEND_COOLDOWN=30` ثانية. الرموز تنتهي بعد `OTP_TTL` (٥ دقائق) وبعد ٥ محاولات خاطئة.
+- حالة الربط بلا أسرار: `/api/health` (`otp`) أو لوحة الإدارة ← الإعدادات ← **الاتصال والإرسال**.
 
 ### خادم تجريبي حيّ بنقرة (لتجربة الكاميرا والمايك)
 لا يحتاج أي حساب استضافة: `.github/workflows/live-server.yml` يبني المشروع على GitHub Actions ويشغّل الخادم ببيانات العرض

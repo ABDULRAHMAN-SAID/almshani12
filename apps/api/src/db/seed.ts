@@ -367,7 +367,7 @@ export function seedDemo() {
     JSON.stringify({ featured: true, title: 'خصم ١٠٪ على أول طلب' }), new Date(Date.now() + 60 * 86_400_000).toISOString());
   q.run("INSERT OR IGNORE INTO coupons (code, type, value, user_limit, scope, active) VALUES ('PHYS20','percentage',20,1,?,1)", JSON.stringify({ teacherId: teachers.physics }));
 
-  return { skipped: false, demoStudent: '+96890000010', demoParent: '+96890000020', admin: DEMO_MARK, otp: config.otp.devCode };
+  return { skipped: false, demoStudent: '+96890000010', demoParent: '+96890000020', admin: DEMO_MARK, otp: config.otp.fixedCode };
 }
 
 /**

@@ -238,7 +238,8 @@ export async function handle(method: string, fullPath: string, body: any, ctx?: 
   if (path === '/health') return ok({ ok: true });
   if (path === '/config') return ok({ paymentProviders: ['mock', 'wallet', 'manual'], devOtp: true, mockPayments: true });
   /* المصادقة */
-  if (path === '/auth/otp/request') return ok({ ok: true, target: String(body?.target ?? ''), ttlSeconds: 300, devCode: '000000' });
+  if (path === '/auth/methods') return ok({ phone: true, whatsapp: true, email: true, testCode: true });
+  if (path === '/auth/otp/request') return ok({ ok: true, target: String(body?.target ?? ''), ttlSeconds: 300, delivery: 'test', devCode: '000000' });
   if (path === '/auth/otp/verify') {
     if (String(body?.code) !== '000000') return err(400, 'otp_invalid', 'رمز التحقّق غير صحيح');
     const t = String(body?.target ?? ''); const prev = S.who;

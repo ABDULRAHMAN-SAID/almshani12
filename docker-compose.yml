@@ -10,7 +10,30 @@ services:
       CORS_ORIGINS: ${CORS_ORIGINS:-}                    # فارغ = الكل؛ في الإنتاج حدّد الدومينات
       ALLOW_DEMO_SEED: ${ALLOW_DEMO_SEED:-1}             # 1 = بيانات عرض عند أول تشغيل (خادم تجريبي)
       ADMIN_PHONE: ${ADMIN_PHONE:-}                      # بديل البذر التجريبي: مدير أوّل بهذا الرقم
-      OTP_FIXED_CODE: ${OTP_FIXED_CODE:-000000}          # رمز دخول ثابت حتى ربط مزوّد SMS — أزله بعدها
+      OTP_FIXED_CODE: ${OTP_FIXED_CODE:-000000}          # رمز دخول ثابت حتى ربط مزوّد — اجعله none بعدها
+      # رموز تحقّق حقيقية (اختيارية؛ راجع README «رموز تحقّق حقيقية») — البريد: SMTP أو Resend
+      EMAIL_FROM: ${EMAIL_FROM:-}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      # الرسائل النصية/واتساب: Twilio Verify أو Twilio Messages أو بوابة HTTP محلية
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_VERIFY_SERVICE_SID: ${TWILIO_VERIFY_SERVICE_SID:-}
+      TWILIO_FROM: ${TWILIO_FROM:-}
+      TWILIO_MESSAGING_SERVICE_SID: ${TWILIO_MESSAGING_SERVICE_SID:-}
+      TWILIO_WHATSAPP_FROM: ${TWILIO_WHATSAPP_FROM:-}
+      SMS_HTTP_URL: ${SMS_HTTP_URL:-}
+      SMS_HTTP_METHOD: ${SMS_HTTP_METHOD:-POST}
+      SMS_HTTP_HEADERS: ${SMS_HTTP_HEADERS:-}
+      SMS_HTTP_BODY: ${SMS_HTTP_BODY:-}
+      SMS_HTTP_OK: ${SMS_HTTP_OK:-}
+      # الحماية: الدول المسموحة وأهداف الاختبار
+      SMS_ALLOWED_COUNTRIES: ${SMS_ALLOWED_COUNTRIES:-+968}
+      OTP_TEST_TARGETS: ${OTP_TEST_TARGETS:-}
       PAYMENT_PROVIDERS: ${PAYMENT_PROVIDERS:-mock,wallet,manual}
       ROOM_PROVIDER: ${ROOM_PROVIDER:-internal}
     volumes:

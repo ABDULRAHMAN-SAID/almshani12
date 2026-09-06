@@ -3,17 +3,21 @@ import { View, TextInput, Pressable, StyleSheet } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { colors, spacing, radius, fontFamily, themed } from '@manassah/tokens';
-import { AuthSession } from '@manassah/shared';
+import { AuthSession, OtpRequestResult, OtpDelivery } from '@manassah/shared';
 import { Screen, Text, Button } from '@/ui';
 import { api, errorMessageKey } from '@/api/client';
 import { signIn, homeFor } from '@/lib/session';
 
 /** ستّ خانات، إدخال واحد مخفيّ خلفها — لصق الرمز يعمل، والتحقّق تلقائي عند اكتمال ٦ أرقام */
 export default function Verify() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const locale = i18n.language === 'en' ? 'en' : 'ar';
   const router = useRouter();
-  const p = useLocalSearchParams<{ channel: string; target: string; ttl: string; dev: string }>();
+  const p = useLocalSearchParams<{ channel: string; target: string; ttl: string; dev: string; delivery: string; via: string }>();
   const [code, setCode] = useState('');
+  // الرمز التجريبي وطريقة الإرسال يتحدّثان عند إعادة الإرسال
+  const [dev, setDev] = useState(p.dev ?? '');
+  const [delivery, setDelivery] = useState<OtpDelivery>(OtpDelivery.catch(p.channel === 'email' ? 'email' : 'sms').parse(p.delivery));
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [left, setLeft] = useState(45);
@@ -38,20 +42,25 @@ export default function Verify() {
     if (digits.length === 6) verify(digits);
   };
 
+  /** إعادة الإرسال بنفس الطريقة (رسالة نصية/واتساب) — النتيجة قد تغيّر الرمز التجريبي أو طريقة الوصول */
   const resend = async () => {
-    try { await api.post('/auth/otp/request', { channel: p.channel, target: p.target }, undefined, { auth: false }); setLeft(45); setCode(''); }
-    catch (e) { setError(t(errorMessageKey(e))); }
+    try {
+      const r = await api.post('/auth/otp/request', p.channel === 'phone' && p.via ? { channel: p.channel, target: p.target, via: p.via, locale } : { channel: p.channel, target: p.target, locale }, OtpRequestResult, { auth: false });
+      setDev(r.devCode ?? ''); setDelivery(r.delivery); setLeft(45); setCode(''); setError(null);
+    } catch (e) { setError(t(errorMessageKey(e))); }
   };
+  const sentKey = ({ sms: 'auth.sentSms', whatsapp: 'auth.sentWhatsapp', email: 'auth.sentEmail', test: 'auth.sentTest' } as const)[delivery];
 
   return (
     <Screen onBack={() => router.back()} contentStyle={styles.wrap}>
       <View style={styles.head}>
         <Text role="h1">{t('onboarding.enterCode')}</Text>
         <View style={styles.targetRow}>
-          <Text role="body" tone="secondary">{t('onboarding.codeSent')} </Text>
+          <Text role="body" tone="secondary">{t(sentKey)} </Text>
           <Text role="bodyMedium" tabular>{p.target}</Text>
           <Pressable onPress={() => router.back()} hitSlop={8}><Text role="small" tone="link"> · {t('auth.changeTarget')}</Text></Pressable>
         </View>
+        {delivery === 'email' ? <Text role="caption" tone="tertiary">{t('auth.checkSpam')}</Text> : null}
       </View>
 
       <Pressable onPress={() => input.current?.focus()} style={styles.boxes} accessibilityLabel={t('onboarding.enterCode')}>
@@ -64,7 +73,7 @@ export default function Verify() {
           autoFocus maxLength={6} style={styles.hidden} caretHidden />
       </Pressable>
       {error ? <Text role="small" tone="danger" center>{error}</Text> : null}
-      {p.dev ? <Text role="caption" tone="info" center>{t('auth.devCode', { code: p.dev })}</Text> : null}
+      {dev ? <Text role="caption" tone="info" center>{t(delivery === 'test' ? 'auth.testCode' : 'auth.devCode', { code: dev })}</Text> : null}
 
       <Button label={t('onboarding.verify')} onPress={() => verify(code)} loading={loading} disabled={code.length < 6} size="lg" full />
       <Button label={left > 0 ? t('onboarding.resendIn', { s: left }) : t('onboarding.resend')} onPress={resend} disabled={left > 0} variant="ghost" full />

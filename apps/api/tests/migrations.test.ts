@@ -14,7 +14,7 @@ before(async () => { c = await boot(); dir = fs.mkdtempSync(path.join(os.tmpdir(
 after(() => { c.close(); fs.rmSync(dir, { recursive: true, force: true }); });
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const TOUCHED = ['users', 'learners', 'learner_subjects', 'bookings', 'orders', 'package_purchases', 'teacher_documents', 'reviews', 'audit_logs'];
+const TOUCHED = ['users', 'learners', 'learner_subjects', 'bookings', 'orders', 'package_purchases', 'teacher_documents', 'reviews', 'audit_logs', 'otp_codes'];
 const open = (file: string) => { const d = new Database(file); d.pragma('journal_mode = WAL'); d.pragma('foreign_keys = ON'); return d; };
 const tableInfo = (d: Database.Database, t: string) =>
   (d.pragma(`table_info(${t})`) as any[]).map(x => ({ cid: x.cid, name: x.name, type: x.type, notnull: x.notnull, dflt: x.dflt_value, pk: x.pk }));
@@ -70,7 +70,8 @@ test('قاعدة v0: نسخة احتياطية، متعلّم لكل student_pro
   assert.equal(d.prepare('SELECT active_learner_id FROM users WHERE id = 2').pluck().get(), null);
   assert.deepEqual(d.prepare('SELECT status_reason, suspended_at, suspended_by FROM users WHERE id = 3').get(), { status_reason: 'بلاغات متكرّرة', suspended_at: '2026-02-01 10:00:00', suspended_by: 2 });
   assert.equal(d.prepare("SELECT target_user_id FROM audit_logs WHERE action = 'user.suspended'").pluck().get(), 3);
-  for (const [t, col] of [['package_purchases', 'learner_id'], ['teacher_documents', 'reviewed_by'], ['teacher_documents', 'reviewed_at'], ['reviews', 'hidden_reason'], ['reviews', 'hidden_by']]) assert.equal(mig.hasColumn(d, t, col), true, `${t}.${col}`);
+  for (const [t, col] of [['package_purchases', 'learner_id'], ['teacher_documents', 'reviewed_by'], ['teacher_documents', 'reviewed_at'], ['reviews', 'hidden_reason'], ['reviews', 'hidden_by'], ['otp_codes', 'provider'], ['otp_codes', 'via']]) assert.equal(mig.hasColumn(d, t, col), true, `${t}.${col}`);
+  assert.ok(indexNames(d).includes('idx_otp_created'));
   assert.deepEqual(d.pragma('foreign_key_check'), []);
 
   // التشغيل الثاني: لا تغيير في الشكل ولا في الصفوف ولا نسخة احتياطية جديدة
@@ -92,9 +93,33 @@ test('قاعدة v0: نسخة احتياطية، متعلّم لكل student_pro
 test('قاعدة جديدة: user_version نهائي والترحيلات لا تفعل شيئاً و/api/health يعلن الإصدار', async () => {
   const mig = await import('../src/db/migrations.ts');
   assert.equal(c.db.pragma('user_version', { simple: true }), mig.SCHEMA_VERSION);
-  assert.equal(mig.SCHEMA_VERSION, 2);
+  assert.equal(mig.SCHEMA_VERSION, 3);
   const h = await c.api('/api/health');
   assert.equal(h.status, 200); assert.equal(h.json.schemaVersion, mig.SCHEMA_VERSION);
   assert.equal(c.q.val('SELECT COUNT(*) FROM sqlite_master WHERE type = ? AND name IN (?, ?)', 'table', 'learners', 'learner_subjects'), 2);
   assert.deepEqual(c.db.pragma('foreign_key_check'), []);
+});
+
+test('قاعدة v2 → v3: عمودا provider/via وفهرس created_at على otp_codes، والصفوف القديمة تصبح local/test', async () => {
+  const dbm = await import('../src/db/index.ts');
+  const mig = await import('../src/db/migrations.ts');
+  const file = path.join(dir, 'v2.db');
+  const d = open(file);
+  // قاعدة v2 حقيقية: v0 + الترحيلان ١ و٢ يدوياً، كي لا يعمل إلا 003
+  d.exec(fs.readFileSync(path.join(here, 'fixtures', 'schema-v0.sql'), 'utf8'));
+  d.pragma('foreign_keys = OFF');
+  for (const m of mig.MIGRATIONS.filter(m => m.version <= 2)) m.up(d);
+  d.pragma('foreign_keys = ON');
+  d.pragma('user_version = 2');
+  d.exec("INSERT INTO otp_codes (channel, target, code_hash, expires_at) VALUES ('phone','+96890000001','h',0)");
+  assert.equal(mig.hasColumn(d, 'otp_codes', 'provider'), false);
+  dbm.migrateDb(d, file, { backup: false });
+  assert.equal(d.pragma('user_version', { simple: true }), 3);
+  assert.equal(mig.hasColumn(d, 'otp_codes', 'provider'), true); assert.equal(mig.hasColumn(d, 'otp_codes', 'via'), true);
+  assert.ok(indexNames(d).includes('idx_otp_created'));
+  assert.deepEqual(d.prepare('SELECT provider, via FROM otp_codes').get(), { provider: 'local', via: 'test' }, 'الصفوف القديمة لا تُحتسب إرسالاً حقيقياً');
+  const fresh = new Database(':memory:');
+  dbm.migrateDb(fresh, ':memory:');
+  assert.deepEqual(tableInfo(d, 'otp_codes'), tableInfo(fresh, 'otp_codes'));
+  fresh.close(); d.close();
 });

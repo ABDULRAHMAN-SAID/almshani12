@@ -94,6 +94,14 @@ export const MIGRATIONS: Migration[] = [
     db.exec(`UPDATE audit_logs SET target_user_id = entity_id WHERE target_user_id IS NULL AND entity IN ('user','users','teacher','teachers')
              AND EXISTS (SELECT 1 FROM users u WHERE u.id = audit_logs.entity_id)`);
   } },
+  { version: 3, name: '003_otp_delivery', up: (db) => {
+    // إرسال حقيقي لرموز التحقّق: المزوّد الذي يحمل الرمز وطريقة الوصول (sms/whatsapp/email/test) + فهرس لسقوف الإرسال
+    addColumn(db, 'otp_codes', 'provider', "TEXT NOT NULL DEFAULT 'local'");
+    addColumn(db, 'otp_codes', 'via', 'TEXT');
+    // الصفوف السابقة كلها رموز ثابتة/سجلّ (لم يُرسَل شيء حقيقي) — تُعلَّم test كي لا تُحتسب في سقوف الإرسال بعد الترقية
+    db.exec("UPDATE otp_codes SET via = 'test' WHERE via IS NULL");
+    db.exec('CREATE INDEX IF NOT EXISTS idx_otp_created ON otp_codes(created_at)');
+  } },
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

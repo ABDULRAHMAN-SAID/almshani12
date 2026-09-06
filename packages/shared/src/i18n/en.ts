@@ -33,6 +33,9 @@ export const en: Dictionary = {
     rateLimited: 'Too many attempts. Wait a moment and try again.',
     insufficientFunds: 'Insufficient balance.',
     learnerForbidden: 'This learner is not in your account', learnerRequired: 'Pick a learner first',
+    otpDeliveryUnavailable: "We can't send the code this way right now. Try another method.",
+    otpSendFailed: "We couldn't send the code. Check the number and try again.",
+    otpCountryNotAllowed: 'The service is currently available for Oman numbers (+968).',
   },
   nav: { home: 'Home', library: 'Library', lessons: 'Lessons', courses: 'Courses', account: 'Account' },
   onboarding: {
@@ -198,6 +201,10 @@ export const en: Dictionary = {
     devCode: 'Dev mode — code: {{code}}', changeTarget: 'Change', apple: 'Continue with Apple', google: 'Continue with Google',
     socialUnavailable: 'Requires store credentials — enabled at release', invalidTarget: 'Enter an Omani number (8 digits) or a valid email',
     welcomeBack: 'Welcome back', setupLater: 'You can change your grade later from Account',
+    sendVia: 'Send the code via', viaSms: 'SMS', viaWhatsapp: 'WhatsApp',
+    sentSms: 'We sent an SMS to', sentWhatsapp: 'We sent a WhatsApp message to', sentEmail: 'We sent an email to', sentTest: 'Demo account — fixed code for',
+    checkSpam: "Didn't get it? Check your spam folder", testCode: 'Demo account code: {{code}}',
+    phoneUnavailable: 'Phone sign-in is not available on this server yet', emailUnavailable: 'Email sign-in is not available on this server yet',
   },
   search: {
     title: 'Search', placeholder: 'Search books, teachers, courses, lessons…', recent: 'Recent searches', clear: 'Clear',

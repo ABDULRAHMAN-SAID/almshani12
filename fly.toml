@@ -11,9 +11,17 @@ primary_region = "fra"
   DATA_DIR = "/data"
   TRUST_PROXY = "true"
   ALLOW_DEMO_SEED = "1"
-  OTP_FIXED_CODE = "000000"
+  OTP_FIXED_CODE = "000000"   # رمز ثابت حتى ربط مزوّد — اجعله none بعدها
   PAYMENT_PROVIDERS = "mock,wallet,manual"
   ROOM_PROVIDER = "internal"
+  SMS_ALLOWED_COUNTRIES = "+968"
+  # رموز تحقّق حقيقية (اختيارية): الأسرار تُضبط بـ fly secrets set لا هنا — راجع README «رموز تحقّق حقيقية»
+  #   fly secrets set SMTP_HOST=smtp.gmail.com SMTP_PORT=587 SMTP_USER=... SMTP_PASS=... EMAIL_FROM=...
+  #   fly secrets set RESEND_API_KEY=...
+  #   fly secrets set TWILIO_ACCOUNT_SID=... TWILIO_AUTH_TOKEN=... TWILIO_VERIFY_SERVICE_SID=...
+  #   fly secrets set TWILIO_FROM=... TWILIO_MESSAGING_SERVICE_SID=... TWILIO_WHATSAPP_FROM=...
+  #   fly secrets set SMS_HTTP_URL=... SMS_HTTP_METHOD=POST SMS_HTTP_HEADERS='{...}' SMS_HTTP_BODY='{...}' SMS_HTTP_OK=...
+  #   fly secrets set OTP_TEST_TARGETS=+96899000000 OTP_FIXED_CODE=none
 
 [http_service]
   internal_port = 4000

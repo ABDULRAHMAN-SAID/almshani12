@@ -21,6 +21,9 @@ import type { BookingRow } from '../services/bookings.ts';
 import { listLearners, learnerRefById, createLearner, updateLearner, archiveLearner, activateLearner, projectSelfLearner } from '../services/learners.ts';
 import { emitToUser, connectedSockets } from '../realtime/index.ts';
 import { audit } from '../lib/audit.ts';
+import { config } from '../config.ts';
+import { SCHEMA_VERSION } from '../db/migrations.ts';
+import { otpMethods } from '../services/otp.ts';
 
 /**
  * لوحة الإدارة — كل مسار يفرض دوره في الخادم.
@@ -576,6 +579,19 @@ router.post('/payouts/:id/decision', requireRole('finance'), validate(PayoutDeci
   notify(p.teacher_id, { type: 'payout_processed', title: d.decision === 'paid' ? 'تم تحويل أرباحك' : d.decision === 'approved' ? 'تمت الموافقة على السحب' : 'رُفض طلب السحب', body: d.note ?? null, data: { payoutId: id } });
   audit(req, `payout.${d.decision}`, 'teacher_payouts', id, { amount: p.amount }, p.teacher_id);
   res.json({ ok: true });
+});
+
+/* ---------- حالة النظام (قراءة فقط — لا أسرار أبداً) ---------- */
+router.get('/system', requireRole('admin'), (_req, res) => {
+  const { otp, payments, rooms, bootstrap } = config;
+  const turn = rooms.iceServers.some(s => (Array.isArray(s.urls) ? s.urls : [s.urls]).some(u => u.startsWith('turn')));
+  res.json({
+    publicUrl: config.publicUrl, env: config.env, schemaVersion: SCHEMA_VERSION,
+    otp: { ...otpMethods(), smsProvider: otp.sms.provider, emailProvider: otp.email.provider, allowedCountries: otp.sms.allowedCountries, testTargets: otp.testTargets.length },
+    payments: { providers: payments.providers },
+    rooms: { provider: rooms.provider, turn },
+    bootstrap: { allowDemoSeed: bootstrap.allowDemoSeed, adminPhone: !!bootstrap.adminPhone },
+  });
 });
 
 /* ---------- الإعدادات (السياسات) ---------- */

@@ -20,6 +20,7 @@ import { releaseEarnings } from './services/earnings.ts';
 import { sendLessonReminders } from './services/reminders.ts';
 import { attachRealtime } from './realtime/index.ts';
 import { bootstrapIfEmpty } from './db/seed.ts';
+import { otpMethods } from './services/otp.ts';
 import auth from './domains/auth.ts';
 import users from './domains/users.ts';
 import catalog from './domains/catalog.ts';
@@ -54,10 +55,10 @@ export function createApp() {
   }));
   app.use(attachUser);
 
-  app.get('/api/health', (_req, res) => res.json({ ok: true, name: config.brand.name.ar, env: config.env, time: new Date().toISOString(), schemaVersion: SCHEMA_VERSION }));
+  app.get('/api/health', (_req, res) => res.json({ ok: true, name: config.brand.name.ar, env: config.env, time: new Date().toISOString(), schemaVersion: SCHEMA_VERSION, otp: otpMethods() }));
   app.get('/api/config', (_req, res) => res.json({
     brand: config.brand, paymentProviders: config.payments.providers, roomProvider: config.rooms.provider,
-    devOtp: !!config.otp.devCode, mockPayments: config.env !== 'production' && config.payments.providers.includes('mock'),
+    devOtp: !!config.otp.fixedCode, mockPayments: config.env !== 'production' && config.payments.providers.includes('mock'),
   }));
 
   /* ---------- الملفات: عامة بلا توقيع، وخاصة بتوقيع قصير العمر ---------- */

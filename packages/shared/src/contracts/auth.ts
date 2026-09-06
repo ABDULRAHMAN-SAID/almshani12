@@ -8,14 +8,30 @@ export type Role = z.infer<typeof Role>;
 
 export const SignupRole = z.enum(['student', 'teacher', 'parent']);
 export const OtpChannel = z.enum(['phone', 'email']);
+/** وسيلة إيصال رمز الهاتف */
+export const OtpVia = z.enum(['sms', 'whatsapp']);
+export type OtpVia = z.infer<typeof OtpVia>;
 
 export const OtpRequest = z.object({
   channel: OtpChannel,
   /** رقم بصيغة دولية (+968…) أو بريد */
   target: z.string().trim().min(5).max(120),
+  via: OtpVia.optional(),
   role: SignupRole.optional(),
   locale: z.enum(['ar', 'en']).default('ar'),
 });
+
+/** كيف وصل الرمز فعلاً — test = رمز ثابت (تطوير أو حساب تجريبي) يُعاد في devCode */
+export const OtpDelivery = z.enum(['sms', 'whatsapp', 'email', 'test']);
+export type OtpDelivery = z.infer<typeof OtpDelivery>;
+export const OtpRequestResult = z.object({
+  ok: z.literal(true), target: z.string(), ttlSeconds: z.number(), delivery: OtpDelivery, devCode: z.string().optional(),
+});
+export type OtpRequestResult = z.infer<typeof OtpRequestResult>;
+
+/** طرق الدخول المتاحة على الخادم (GET /auth/methods) */
+export const AuthMethods = z.object({ phone: z.boolean(), whatsapp: z.boolean(), email: z.boolean(), testCode: z.boolean() });
+export type AuthMethods = z.infer<typeof AuthMethods>;
 
 export const OtpVerify = z.object({
   channel: OtpChannel,

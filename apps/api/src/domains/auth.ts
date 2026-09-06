@@ -6,9 +6,9 @@ import { db, q, nowIso } from '../db/index.ts';
 import { AppError, asyncHandler, badRequest, unauthorized } from '../lib/errors.ts';
 import { validate, body } from '../lib/validate.ts';
 import { signAccessToken, requireAuth } from '../lib/auth.ts';
-import { sha256, safeEqual, randomDigits, randomToken } from '../lib/helpers.ts';
+import { sha256, randomToken } from '../lib/helpers.ts';
 import { userView } from '../lib/views.ts';
-import { sendOtp } from '../services/messaging.ts';
+import { otpMethods, startOtp, checkOtp } from '../services/otp.ts';
 import { audit } from '../lib/audit.ts';
 
 /**
@@ -20,7 +20,13 @@ const router = Router();
 const otpLimiter = rateLimit({
   windowMs: 15 * 60_000, limit: config.rateLimit.otpPer15Min, standardHeaders: 'draft-7', legacyHeaders: false,
   skip: () => !config.rateLimit.enabled,
-  keyGenerator: req => `${req.ip}:${String(req.body?.target ?? '').toLowerCase()}`,
+  // المفتاح على الهدف المطبَّع (لا النص الخام) كي لا تمنح إعادة صياغة الرقم نفسه حصّة جديدة
+  keyGenerator: req => {
+    const ch = req.body?.channel === 'email' ? 'email' : 'phone';
+    let t = String(req.body?.target ?? '');
+    try { t = normalizeTarget(ch, t); } catch { t = t.trim().toLowerCase(); }
+    return `${req.ip}:${t}`;
+  },
   handler: (_req, res) => res.status(429).json({ error: { code: 'rate_limited', message: 'محاولات كثيرة. انتظر قليلاً ثم حاول.' } }),
 });
 
@@ -69,29 +75,20 @@ function findOrCreateUser(channel: 'phone' | 'email', target: string): { id: num
 }
 
 /* ---------- OTP ---------- */
+/** طرق الدخول المتاحة على هذا الخادم (عام، بلا محدّد) — العميل يخفي ما هو غير متاح */
+router.get('/methods', (_req, res) => { res.json(otpMethods()); });
+
 router.post('/otp/request', otpLimiter, validate(OtpRequest), asyncHandler(async (req, res) => {
-  const { channel, target: raw } = body<typeof OtpRequest>(req);
+  const { channel, target: raw, via, locale } = body<typeof OtpRequest>(req);
   const target = normalizeTarget(channel, raw);
-  const code = config.otp.devCode ?? randomDigits(6);
-  q.run('UPDATE otp_codes SET consumed_at = ? WHERE target = ? AND channel = ? AND consumed_at IS NULL', nowIso(), target, channel);
-  q.run('INSERT INTO otp_codes (channel, target, code_hash, expires_at) VALUES (?,?,?,?)',
-    channel, target, sha256(code), Math.floor(Date.now() / 1000) + config.otp.ttlSeconds);
-  await sendOtp(channel, target, code);
-  res.json({ ok: true, target, ttlSeconds: config.otp.ttlSeconds, ...(config.otp.devCode ? { devCode: code } : {}) });
+  const r = await startOtp({ channel, target, via, ip: req.ip, locale });
+  res.json({ ok: true, target, ttlSeconds: r.ttlSeconds, delivery: r.delivery, ...(r.devCode ? { devCode: r.devCode } : {}) });
 }));
 
 router.post('/otp/verify', otpLimiter, validate(OtpVerify), asyncHandler(async (req, res) => {
   const { channel, target: raw, code } = body<typeof OtpVerify>(req);
   const target = normalizeTarget(channel, raw);
-  const row = q.get<any>('SELECT * FROM otp_codes WHERE target = ? AND channel = ? AND consumed_at IS NULL ORDER BY id DESC LIMIT 1', target, channel);
-  if (!row) throw new AppError('otp_expired', 'اطلب رمزاً جديداً', 400);
-  if (row.expires_at < Math.floor(Date.now() / 1000)) throw new AppError('otp_expired', 'انتهت صلاحية الرمز', 400);
-  if (row.attempts >= config.otp.maxAttempts) throw new AppError('otp_expired', 'تجاوزت عدد المحاولات. اطلب رمزاً جديداً', 400);
-  if (!safeEqual(row.code_hash, sha256(code))) {
-    q.run('UPDATE otp_codes SET attempts = attempts + 1 WHERE id = ?', row.id);
-    throw new AppError('otp_invalid', 'رمز التحقّق غير صحيح', 400);
-  }
-  q.run('UPDATE otp_codes SET consumed_at = ? WHERE id = ?', nowIso(), row.id);
+  await checkOtp({ channel, target, code });
   const { id, isNew } = findOrCreateUser(channel, target);
   res.json(issueSession(id, req, isNew));
 }));
