@@ -239,9 +239,16 @@ export const en: Dictionary = {
     server: 'Server & connection', serverUrl: 'Server address', serverHint: 'Enter your server address after deploying it (e.g. https://manassah.onrender.com), test, then save',
     testConnection: 'Test connection', connected: 'Connected', connectionFailed: 'Connection failed', serverInvalid: 'Address must start with http:// or https://', serverTimeout: 'Connection timed out',
     demoMode: 'Demo', liveMode: 'Live server', demoHint: 'Local data, no server — set your server address to go live', useDemo: 'Back to demo',
+    connectLinkHint: 'Or open the connection link from the server page',
     learners: 'Learners & grades',
     notifications: 'Notifications', pushToggle: 'Browser/device notifications', pushHint: 'Lesson reminders and messages reach you even when the app is closed',
     pushOn: 'Enabled', pushOff: 'Disabled', pushUnsupported: 'Not supported on this device', pushUnconfigured: 'Not configured in this build', pushDenied: 'Blocked — allow notifications in your browser or device settings', pushChecking: 'Checking…',
+  },
+  connect: {
+    title: 'Connect to a server', intro: 'The app will use this address instead of the current server, and you will sign in again',
+    test: 'Try connection', connect: 'Connect', missing: 'The link has no server address',
+    invalid: 'Invalid address — it must start with http:// or https:// and include a host name',
+    openInApp: 'Open in the app', openInAppHint: 'If it does not open, install the app first',
   },
   purchases: { sharedNote: 'Purchases are available to every learner in your account' },
   teacherUi: {

@@ -237,9 +237,17 @@ export const ar = {
     server: 'الخادم والاتصال', serverUrl: 'عنوان الخادم', serverHint: 'اكتب عنوان خادمك بعد نشره (مثال: https://manassah.onrender.com) ثم اختبر الاتصال واحفظ',
     testConnection: 'اختبار الاتصال', connected: 'الاتصال ناجح', connectionFailed: 'تعذّر الاتصال', serverInvalid: 'العنوان يجب أن يبدأ بـ http:// أو https://', serverTimeout: 'انتهت مهلة الاتصال',
     demoMode: 'نسخة تجريبية', liveMode: 'متصل بخادم', demoHint: 'بيانات محلية بلا خادم — اضبط عنوان خادمك للاتصال الحقيقي', useDemo: 'العودة للنسخة التجريبية',
+    connectLinkHint: 'أو افتح رابط الاتصال من صفحة الخادم',
     learners: 'المتعلّمون والصفوف',
     notifications: 'التنبيهات', pushToggle: 'تنبيهات المتصفح/الجهاز', pushHint: 'تذكيرات الحصص والرسائل تصلك حتى والتطبيق مغلق',
     pushOn: 'مفعّلة', pushOff: 'غير مفعّلة', pushUnsupported: 'غير مدعومة على هذا الجهاز', pushUnconfigured: 'غير مضبوطة في هذا الإصدار من التطبيق', pushDenied: 'مرفوضة — اسمح بالتنبيهات من إعدادات المتصفح أو الجهاز', pushChecking: 'جارٍ التحقّق…',
+  },
+  /** شاشة الاتصال بخادم — تُفتح من رابط (…/connect?url=) أو من الرابط العميق manassah://connect */
+  connect: {
+    title: 'الاتصال بخادم', intro: 'سيستخدم التطبيق هذا العنوان بدل الخادم الحالي، وستسجّل الدخول من جديد',
+    test: 'تجربة الاتصال', connect: 'اتصال', missing: 'لا يحتوي الرابط على عنوان خادم',
+    invalid: 'العنوان غير صالح — يجب أن يبدأ بـ http:// أو https:// ويحتوي اسم خادم',
+    openInApp: 'افتح في التطبيق', openInAppHint: 'إذا لم يفتح، ثبّت التطبيق أولاً',
   },
   purchases: { sharedNote: 'المشتريات متاحة لكل المتعلّمين في حسابك' },
   teacherUi: {

@@ -1,0 +1,131 @@
+# يبني تطبيق أندرويد حقيقياً (APK) من الشيفرة بلا أي حساب خارجي، ويرفعه كإصدار على GitHub ويعلّق الرابط في PR #1.
+# التشغيل: Actions ← android-apk ← Run workflow. اختياري: server_url لربط التطبيق بخادمك مباشرة (وإلا يعمل بالنسخة التجريبية حتى تدخل الرابط من الإعدادات).
+# توقيع مستقر للتحديثات: أضف الأسرار ANDROID_KEYSTORE_BASE64 / ANDROID_KEYSTORE_PASSWORD / ANDROID_KEY_ALIAS / ANDROID_KEY_PASSWORD؛ بدونها يُستعمل مفتاح التطوير الثابت من قالب Expo (صالح للتجربة، لا للمتجر).
+name: android-apk
+on:
+  workflow_dispatch:
+    inputs:
+      server_url:
+        description: "رابط الخادم الذي يتصل به التطبيق افتراضياً (فارغ = النسخة التجريبية حتى تضبطه من الإعدادات)"
+        required: false
+        default: ""
+      version_code:
+        description: "رقم الإصدار الداخلي (يزيد مع كل تحديث؛ فارغ = رقم التشغيل)"
+        required: false
+        default: ""
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+concurrency:
+  group: android-apk
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      SERVER_URL: ${{ github.event.inputs.server_url || vars.APP_SERVER_URL || '' }}
+      VERSION_CODE: ${{ github.event.inputs.version_code || github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: "platform-tools"   # بقية مكوّنات SDK يحمّلها Gradle تلقائياً بالإصدار الذي يطلبه المشروع
+      - uses: gradle/actions/setup-gradle@v4
+      - name: تثبيت الحزم
+        run: npm ci --legacy-peer-deps
+      - name: توليد مشروع أندرويد (prebuild)
+        working-directory: apps/mobile
+        env:
+          EXPO_PUBLIC_DEMO: "1"
+          EXPO_PUBLIC_API_URL: ${{ env.SERVER_URL }}
+          EXPO_NO_TELEMETRY: "1"
+          CI: "1"
+        run: |
+          echo "الخادم المضمَّن: ${SERVER_URL:-<لا شيء — نسخة تجريبية>}"
+          # رقم الإصدار الداخلي يُضبط من CI حتى يقبل أندرويد التحديث فوق النسخة السابقة
+          node -e "
+            const fs = require('fs'); const p = 'app.json'; const j = JSON.parse(fs.readFileSync(p, 'utf8'));
+            j.expo.android = j.expo.android || {}; j.expo.android.versionCode = Number(process.env.VERSION_CODE) || 1;
+            j.expo.extra = j.expo.extra || {}; if (process.env.SERVER_URL) j.expo.extra.apiUrl = process.env.SERVER_URL;
+            fs.writeFileSync(p, JSON.stringify(j, null, 2));
+          "
+          npx expo prebuild --platform android --no-install --clean
+          ls android/app
+      - name: مفتاح التوقيع (اختياري من الأسرار)
+        working-directory: apps/mobile/android
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KS_B64" ]; then
+            echo "$KS_B64" | base64 -d > app/release.keystore
+            cat >> gradle.properties <<PROPS
+          MANASSAH_UPLOAD_STORE_FILE=release.keystore
+          MANASSAH_UPLOAD_STORE_PASSWORD=$KS_PASS
+          MANASSAH_UPLOAD_KEY_ALIAS=$KEY_ALIAS
+          MANASSAH_UPLOAD_KEY_PASSWORD=$KEY_PASS
+          PROPS
+            # إدراج إعداد توقيع الإصدار في build.gradle الذي ولّده Expo
+            node -e "
+              const fs = require('fs'); const p = 'app/build.gradle'; let s = fs.readFileSync(p, 'utf8');
+              s = s.replace(/signingConfigs \{\n\s*debug \{/, m => m.replace('debug {', 'release {\n            storeFile file(MANASSAH_UPLOAD_STORE_FILE)\n            storePassword MANASSAH_UPLOAD_STORE_PASSWORD\n            keyAlias MANASSAH_UPLOAD_KEY_ALIAS\n            keyPassword MANASSAH_UPLOAD_KEY_PASSWORD\n        }\n        debug {'));
+              s = s.replace(/release \{\n(\s*)\/\/ Caution![^\n]*\n\s*signingConfig signingConfigs\.debug/, 'release {\n\$1signingConfig signingConfigs.release');
+              fs.writeFileSync(p, s);
+            "
+            grep -n "signingConfigs.release" app/build.gradle && echo "توقيع بالمفتاح الخاص"
+          else
+            echo "لا مفتاح في الأسرار — توقيع بمفتاح التطوير الثابت (للتجربة)"
+          fi
+      - name: بناء APK
+        working-directory: apps/mobile/android
+        env:
+          EXPO_PUBLIC_DEMO: "1"
+          EXPO_PUBLIC_API_URL: ${{ env.SERVER_URL }}
+          GRADLE_OPTS: -Dorg.gradle.jvmargs=-Xmx4g
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleRelease --no-daemon --stacktrace
+          ls -la app/build/outputs/apk/release/
+          cp app/build/outputs/apk/release/app-release.apk ../../../manassah.apk
+          du -h ../../../manassah.apk
+      - name: رفع كمخرجات التشغيل
+        uses: actions/upload-artifact@v4
+        with:
+          name: manassah-android-apk
+          path: manassah.apk
+          retention-days: 30
+      - name: نشر كإصدار (رابط تحميل ثابت)
+        id: release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-latest
+          name: "تطبيق أندرويد — آخر بناء"
+          prerelease: true
+          body: |
+            ملف APK للتجربة على أندرويد. ثبّته من الهاتف (اسمح بالتثبيت من مصادر غير معروفة).
+            الخادم المضمَّن: ${{ env.SERVER_URL || 'لا شيء — النسخة التجريبية؛ اضبط الرابط من الإعدادات ← الخادم والاتصال' }}
+            رقم الإصدار الداخلي: ${{ env.VERSION_CODE }}
+          files: manassah.apk
+      - name: تعليق الرابط في PR #1
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APK_URL: https://github.com/${{ github.repository }}/releases/download/android-latest/manassah.apk
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          SERVER_LINE="${SERVER_URL:+الخادم المضمَّن: $SERVER_URL}"
+          SERVER_LINE="${SERVER_LINE:-بلا خادم مضمَّن: يعمل بالنسخة التجريبية، ولربطه بخادم افتح رابط الخادم ثم /connect على الهاتف أو أدخله من الإعدادات ← الخادم والاتصال}"
+          BODY="$(printf '📱 **تطبيق أندرويد جاهز للتثبيت**\n\n## %s\n\nثبّته من الهاتف (اسمح بالتثبيت من مصادر غير معروفة عند السؤال). الحجم كبير نسبياً لأنه يحوي النسخة التجريبية كاملة.\n\n%s\n\nرقم الإصدار الداخلي: %s · [سجلّ البناء](%s)\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_' "$APK_URL" "$SERVER_LINE" "$VERSION_CODE" "$RUN_URL")"
+          gh api "repos/${GITHUB_REPOSITORY}/issues/1/comments" -f body="$BODY" > /dev/null && echo "نُشر التعليق" || echo "تعذّر نشر التعليق"
+          { echo "# 📱 APK"; echo; echo "$APK_URL"; echo; echo "$SERVER_LINE"; } >> "$GITHUB_STEP_SUMMARY"

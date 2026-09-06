@@ -166,6 +166,33 @@ npm run web:single            # → apps/mobile/dist-single/index.html (نحو 7
 فتحه من القرص مباشرة (file://) لا يعمل لأن الموجّه يحتاج عنوان http. يستعمل `EXPO_PUBLIC_DEMO=1` مثل `docs/app` تماماً،
 والحسابات التجريبية نفسها.
 
+## التطبيق الحقيقي على الهاتف (Android APK · iOS)
+
+### أندرويد بلا أي حساب خارجي (الأسرع)
+1. GitHub → **Actions** → **android-apk** → **Run workflow**. اختياري: `server_url` = رابط خادمك (مثل رابط الخادم التجريبي أو دومينك) ليتّصل به التطبيق مباشرةً؛ اتركه فارغاً فيعمل بالنسخة التجريبية.
+2. بعد نحو ١٥ دقيقة يظهر تعليق في PR #1 برابط التحميل الثابت:
+   `https://github.com/<المالك>/<المستودع>/releases/download/android-latest/manassah.apk`
+3. افتح الرابط من الهاتف (سجّل دخولك إلى GitHub إن كان المستودع خاصاً) → ثبّت → اسمح بالتثبيت من مصادر غير معروفة.
+4. لربط التطبيق بخادم لاحقاً: افتح `<رابط-الخادم>/connect` من متصفح الهاتف واضغط **افتح في التطبيق**، أو من داخل التطبيق: الحساب ← الإعدادات ← الخادم والاتصال.
+
+التوقيع: بلا أسرار يُوقَّع التطبيق بمفتاح التطوير الثابت من قالب Expo (كافٍ للتجربة والتحديث فوق النسخة السابقة، غير مقبول في Google Play). للمتجر أنشئ مفتاحاً مرة واحدة وأضفه كأسرار:
+```bash
+keytool -genkeypair -v -keystore release.keystore -alias manassah -keyalg RSA -keysize 2048 -validity 10000
+base64 -w0 release.keystore   # → السرّ ANDROID_KEYSTORE_BASE64
+```
+والأسرار: `ANDROID_KEYSTORE_BASE64`، `ANDROID_KEYSTORE_PASSWORD`، `ANDROID_KEY_ALIAS` (manassah)، `ANDROID_KEY_PASSWORD`. احتفظ بالملف؛ ضياعه يعني تعذّر تحديث التطبيق في المتجر.
+
+### iOS (وأندرويد) عبر Expo EAS
+1. حساب مجاني على https://expo.dev → Account settings → Access tokens → أنشئ رمزاً وأضفه كسرّ `EXPO_TOKEN`.
+2. `npx eas init` مرة واحدة محلياً (يكتب `extra.eas.projectId` في `app.json`) — أو دع EAS ينشئه عند أول بناء.
+3. Actions → **eas-build** → Run workflow (android / ios / all، preview أو production). الروابط في https://expo.dev.
+4. iOS يتطلّب حساب Apple Developer (99$ سنوياً) مربوطاً بـ EAS؛ التوزيع للتجربة عبر TestFlight.
+
+### الخادم الذي يتصل به التطبيق
+- المتغيّر `APP_SERVER_URL` في GitHub → Settings → Variables يصبح الافتراضي لكل بناء.
+- بلا خادم مضمَّن يعمل التطبيق بالنسخة التجريبية كاملة دون إنترنت، وتبديل الخادم من الإعدادات أو رابط `/connect`.
+- الإشعارات الفورية على أندرويد تحتاج `extra.eas.projectId` (من EAS)؛ بدونه يعمل كل شيء عدا إشعارات النظام.
+
 ## النشر على الإنترنت (خادم حقيقي)
 
 خادم واحد يشغّل كل شيء: الـ API، الغرف المباشرة (Socket.IO)، تطبيق الويب من الجذر `/`، ولوحة الإدارة من `/admin`.

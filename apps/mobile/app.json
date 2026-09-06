@@ -30,9 +30,12 @@
     "android": {
       "package": "om.manassah.app",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png",
         "backgroundColor": "#FBF7F0"
       },
+      "versionCode": 1,
       "permissions": [
         "CAMERA",
         "RECORD_AUDIO"

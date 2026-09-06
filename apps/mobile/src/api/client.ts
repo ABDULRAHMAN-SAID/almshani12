@@ -72,8 +72,13 @@ interface RequestOptions { auth?: boolean; noRetry?: boolean; signal?: AbortSign
 export const DEMO = process.env.EXPO_PUBLIC_DEMO === '1';
 /** علامة البناء تُضمَّن في الحزمة كسلسلة ثابتة كي يتحقّق scripts/check-web-build.mjs أن حزمة الويب الحقيقية ليست نسخة عرض */
 export const BUILD_MARK = process.env.EXPO_PUBLIC_DEMO === '1' ? 'manassah-build:demo' : 'manassah-build:api';
-/** وضع العرض يعمل ما لم يضبط المستخدم خادماً حقيقياً من الإعدادات */
-export const isDemo = (): boolean => DEMO && !useUi.getState().serverUrl;
+/**
+ * وضع العرض يعمل ما لم يُعرَف خادم حقيقي من أي مصدر: ما ضبطه المستخدم من الإعدادات/رابط الاتصال،
+ * أو الخادم المضمَّن وقت البناء (EXPO_PUBLIC_API_URL أو extra.apiUrl) — نسخة APK قد تحمل حزمة العرض وعنوان الخادم معاً.
+ */
+export const isDemo = (): boolean => DEMO && !useUi.getState().serverUrl && !ENV_BASE;
+/** هل تعود النسخة إلى العرض عند مسح عنوان المستخدم؟ فقط حين تُوجد حزمة العرض ولا خادم مضمَّن وقت البناء يحلّ محلّه */
+export const DEMO_FALLBACK = DEMO && !ENV_BASE;
 // يُحمَّل بشكل متزامن كي تعمل النسخة أحادية الملف بلا جلب أجزاء إضافية؛ الشرط يُطوى وقت البناء فلا يدخل الإنتاج
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const demoModule: typeof import('./demo') | null = process.env.EXPO_PUBLIC_DEMO === '1' ? require('./demo') : null;

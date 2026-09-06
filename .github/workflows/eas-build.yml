@@ -1,0 +1,51 @@
+# بناء عبر Expo (EAS): أندرويد وiOS (يتطلّب حساب Expo مجاني وسرّ EXPO_TOKEN؛ iOS يتطلّب حساب مطوّر Apple مربوطاً بـ EAS).
+# التشغيل: Actions ← eas-build ← Run workflow. الرابط يظهر في لوحة expo.dev وفي ملخّص التشغيل.
+name: eas-build
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: "المنصّة"
+        type: choice
+        options: [android, ios, all]
+        default: android
+      profile:
+        description: "الملف الشخصي في eas.json"
+        type: choice
+        options: [preview, production]
+        default: preview
+      server_url:
+        description: "رابط الخادم المضمَّن (فارغ = النسخة التجريبية)"
+        required: false
+        default: ""
+jobs:
+  eas:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: التحقّق من السرّ
+        env:
+          TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::error::أضف السرّ EXPO_TOKEN (expo.dev ← Account settings ← Access tokens) ثم أعد التشغيل. بديل بلا حساب: android-apk."
+            exit 1
+          fi
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - run: npm ci --legacy-peer-deps
+      - name: بناء
+        working-directory: apps/mobile
+        env:
+          EXPO_PUBLIC_DEMO: "1"
+          EXPO_PUBLIC_API_URL: ${{ github.event.inputs.server_url || vars.APP_SERVER_URL || '' }}
+        run: |
+          eas build --platform ${{ github.event.inputs.platform }} --profile ${{ github.event.inputs.profile }} --non-interactive --no-wait
+          echo "تابع البناء والرابط في https://expo.dev" >> "$GITHUB_STEP_SUMMARY"

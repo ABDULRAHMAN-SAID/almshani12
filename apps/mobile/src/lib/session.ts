@@ -35,7 +35,14 @@ export async function signIn(session: AuthSession): Promise<void> {
   void registerPush(false); // الجوال يطلب الإذن هنا؛ الويب يسجّل فقط إن كان الإذن ممنوحاً (المفتاح في الإعدادات)
 }
 
-export async function signOut(): Promise<void> {
+/** خروج واحد مهما تعدّدت الاستدعاءات المتزامنة (شاشة الاتصال بخادم تخرج صراحةً، والتخطيط الجذري يخرج عند تغيّر الخادم) */
+let signingOut: Promise<void> | null = null;
+export function signOut(): Promise<void> {
+  if (!signingOut) signingOut = doSignOut().finally(() => { signingOut = null; });
+  return signingOut;
+}
+
+async function doSignOut(): Promise<void> {
   await unregisterPush(); // قبل مسح الرموز — يفكّ ارتباط الجهاز بالحساب
   try { if (tokens.refresh) await api.post('/auth/logout', { refreshToken: tokens.refresh }); } catch { /* يكفي مسح الرموز محلياً */ }
   await useAuth.getState().signOut();

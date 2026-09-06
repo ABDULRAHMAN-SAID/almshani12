@@ -9,7 +9,7 @@ import { useAuth, useActiveLearner } from '@/state/auth';
 import { useUi, type ThemePref, type TextScale } from '@/state/ui';
 import { signOut } from '@/lib/session';
 import i18n from '@/i18n';
-import { errorMessageKey, resolveBase, DEMO, isDemo } from '@/api/client';
+import { errorMessageKey, resolveBase, DEMO_FALLBACK, isDemo } from '@/api/client';
 import { getPushState, enablePush, disablePush, type PushState } from '@/lib/push';
 
 /** الإعدادات: الملف، المظهر (فاتح/داكن/تلقائي + حجم الخط)، اللغة، التنبيهات، الخادم والاتصال، الصف، حذف الحساب */
@@ -101,10 +101,13 @@ export default function Settings() {
             <Text role="caption" tone="secondary" numberOfLines={1} style={styles.flex}>{isDemo() ? t('settings.demoHint') : resolveBase()}</Text>
           </View>
           <Input label={t('settings.serverUrl')} value={url} onChangeText={setUrl} placeholder="https://manassah.example.om" autoCapitalize="none" autoCorrect={false} keyboardType="url" icon="linkIcon" helper={t('settings.serverHint')} />
+          {/* على الجوال يكفي فتح رابط الاتصال (manassah://connect?url=…) من صفحة الخادم بدل الكتابة */}
+          {Platform.OS !== 'web' ? <Text role="caption" tone="tertiary">{t('settings.connectLinkHint')}</Text> : null}
           <View style={[styles.chips, styles.mt]}>
             <Button label={t('settings.testConnection')} variant="secondary" icon="wifi" loading={probe.state === 'testing'} disabled={!url.trim()} onPress={test} />
             <Button label={t('common.save')} disabled={url.trim() === serverUrl} onPress={save} />
-            {DEMO && serverUrl ? <Button label={t('settings.useDemo')} variant="ghost" onPress={useDemo} /> : null}
+            {/* العودة للعرض لها معنى فقط حين يُوجد عرض يُعاد إليه: حزمة عرض بلا خادم مضمَّن، والمستخدم هو من ضبط الخادم */}
+            {DEMO_FALLBACK && serverUrl ? <Button label={t('settings.useDemo')} variant="ghost" onPress={useDemo} /> : null}
           </View>
           {probe.state === 'ok' ? <View style={styles.probe}><Icon name="checkCircle" size={18} color={colors.state.success} /><Text role="small" tone="success">{t('settings.connected')} · {probe.info}</Text></View> : null}
           {probe.state === 'fail' ? <View style={styles.probe}><Icon name="warning" size={18} color={colors.state.danger} /><Text role="small" tone="danger">{t('settings.connectionFailed')} · {probe.info}</Text></View> : null}
