@@ -9,14 +9,14 @@ import { db, q, json, settings, nowIso } from '../db/index.ts';
 import { AppError, notFound, badRequest, forbidden, conflict, asyncHandler } from '../lib/errors.ts';
 import { validate, body, idParam } from '../lib/validate.ts';
 import { requireAuth, requireRole, requireExactRole, hasRole } from '../lib/auth.ts';
-import { money, slugify, paginate, pageMeta } from '../lib/helpers.ts';
+import { money, slugify, paginate, pageMeta, iso } from '../lib/helpers.ts';
 import { orderView } from '../lib/views.ts';
 import { signedUrl } from '../services/storage.ts';
-import { fulfillOrder, refundOrder } from '../services/checkout.ts';
+import { fulfillOrder, refundOrder, paidForBooking, refundableRemaining } from '../services/checkout.ts';
 import { grantAccess, revokeAccess } from '../services/access.ts';
 import { notify } from '../services/notifications.ts';
 import * as wallet from '../services/wallet.ts';
-import { bookingView, publicUrlFromPath } from '../services/mappers.ts';
+import { bookingView, publicUrlFromPath, clearCatalogCache } from '../services/mappers.ts';
 import type { BookingRow } from '../services/bookings.ts';
 import { listLearners, learnerRefById, createLearner, updateLearner, archiveLearner, activateLearner, projectSelfLearner } from '../services/learners.ts';
 import { emitToUser, connectedSockets } from '../realtime/index.ts';
@@ -306,7 +306,8 @@ router.get('/teachers/:id', requireRole('support', 'finance'), (req, res) => {
     packages: q.all<any>('SELECT * FROM lesson_packages WHERE teacher_id = ? ORDER BY lessons_count', id).map(p => ({ id: p.id, lessonsCount: p.lessons_count, durationMinutes: p.duration_minutes, mode: p.mode, price: money(p.price), active: !!p.active })),
     availability: q.all<any>('SELECT id, weekday, start_time AS startTime, end_time AS endTime, slot_minutes AS slotMinutes, break_minutes AS breakMinutes FROM teacher_availability WHERE teacher_id = ? ORDER BY weekday, start_time', id),
     timeOff: q.all<any>('SELECT id, starts_at, ends_at, reason FROM teacher_time_off WHERE teacher_id = ? ORDER BY starts_at DESC LIMIT 100', id).map(x => ({ id: x.id, from: x.starts_at, to: x.ends_at, reason: x.reason ?? null })),
-    documents: q.all<any>('SELECT d.*, f.mime, f.original_name FROM teacher_documents d JOIN files f ON f.id = d.file_id WHERE d.teacher_id = ? ORDER BY d.id', id).map(d => documentView(d, req)),
+    // مستندات الهوية بيانات حسّاسة: للدعم والإدارة (أصحاب قرار التحقّق) لا للمالية
+    documents: hasRole(req.user, 'support') ? q.all<any>('SELECT d.*, f.mime, f.original_name FROM teacher_documents d JOIN files f ON f.id = d.file_id WHERE d.teacher_id = ? ORDER BY d.id', id).map(d => documentView(d, req)) : [],
     history: q.all<any>('SELECT v.decision, v.reason, v.decided_at, p.display_name AS reviewer FROM teacher_verifications v LEFT JOIN profiles p ON p.user_id = v.reviewer_id WHERE v.teacher_id = ? ORDER BY v.id DESC', id),
     content: {
       books: q.all<any>('SELECT id, title, status, price, updated_at FROM books WHERE author_id = ? ORDER BY updated_at DESC', id).map(contentRow),
@@ -340,7 +341,10 @@ router.post('/teachers/:id/decision', requireRole('admin'), validate(TeacherVeri
         q.run("UPDATE bookings SET status = 'cancelled_by_teacher', cancelled_at = ?, cancel_reason = 'إيقاف المعلّم', refund_percent = 100 WHERE id = ?", nowIso(), b.id);
         const bk = q.get<any>('SELECT order_id, price, package_purchase_id FROM bookings WHERE id = ?', b.id);
         if (bk.package_purchase_id) q.run('UPDATE package_purchases SET remaining = remaining + 1 WHERE id = ?', bk.package_purchase_id);
-        else if (bk.order_id && q.val<string>('SELECT status FROM orders WHERE id = ?', bk.order_id) === 'paid') refundOrder(bk.order_id, { amount: money(bk.price), reason: 'إيقاف المعلّم', bookingId: b.id, processedBy: req.user!.id });
+        else if (bk.order_id && q.val<string>('SELECT status FROM orders WHERE id = ?', bk.order_id) === 'paid') {
+          const paid = paidForBooking(bk.order_id, b.id);
+          if (paid > 0) refundOrder(bk.order_id, { amount: paid, reason: 'إيقاف المعلّم', bookingId: b.id, processedBy: req.user!.id, clamp: true });
+        }
       }
     }
   })();
@@ -355,7 +359,7 @@ router.post('/teachers/:id/documents/:docId/decision', requireRole('admin'), val
   const doc = q.get<any>('SELECT * FROM teacher_documents WHERE id = ? AND teacher_id = ?', docId, id);
   if (!doc) throw notFound('المستند غير موجود');
   q.run('UPDATE teacher_documents SET status = ?, note = ?, reviewed_by = ?, reviewed_at = ? WHERE id = ?', d.decision, d.note ?? null, req.user!.id, nowIso(), docId);
-  if (d.decision === 'rejected') notify(id, { type: 'teacher.document_rejected', title: 'مستند بحاجة إلى إعادة رفع', body: d.note ?? null, data: { documentId: docId } });
+  if (d.decision === 'rejected') notify(id, { type: 'teacher_document_rejected', title: 'مستند بحاجة إلى إعادة رفع', body: d.note ?? null, data: { documentId: docId } });
   audit(req, `teacher.document_${d.decision}`, 'teacher_documents', docId, { type: doc.type, note: d.note ?? null }, id);
   res.json(documentView(q.get<any>('SELECT d.*, f.mime, f.original_name FROM teacher_documents d JOIN files f ON f.id = d.file_id WHERE d.id = ?', docId), req));
 });
@@ -448,6 +452,8 @@ router.post('/content/:type/:id/decision', requireRole('content_reviewer'), vali
   const table = type === 'book' ? 'books' : 'courses';
   const row = q.get<any>(`SELECT * FROM ${table} WHERE id = ?`, id);
   if (!row) throw notFound();
+  // القرار للمراجعة وحدها — سحب محتوى منشور يمرّ بالأرشفة (admin) لا برفض مراجع المحتوى
+  if (row.status !== 'pending_review') throw conflict('القرار متاح لما هو «بانتظار المراجعة» فقط — استخدم الأرشفة لسحب المنشور');
   const ownerId = type === 'book' ? row.author_id : row.teacher_id;
   db.transaction(() => {
     if (d.decision === 'approved') q.run(`UPDATE ${table} SET status = 'published', published_at = COALESCE(published_at, ?), reject_reason = NULL, updated_at = ? WHERE id = ?`, nowIso(), nowIso(), id);
@@ -491,14 +497,19 @@ router.get('/bookings', requireRole('support', 'finance'), validate(BookingsQuer
   res.json({ data: rows.map(b => adminBookingView(b, req.user!.id)), meta: pageMeta(total, f.page, f.limit) });
 });
 const DisputeBody = z.object({ resolution: z.enum(['refund_student', 'pay_teacher', 'split']), reason: z.string().max(500) });
+/** حلّ النزاع يُطبَّق مرة واحدة على حجز في نزاع فقط — الحالة نفسها هي حارس التكرار (بعد الحلّ يصير completed) */
 router.post('/bookings/:id/resolve', requireRole('support'), validate(DisputeBody), (req, res) => {
   const id = idParam(req);
   const d = body<typeof DisputeBody>(req);
   const b = q.get<any>('SELECT * FROM bookings WHERE id = ?', id);
   if (!b) throw notFound();
+  if (b.status !== 'disputed') throw conflict(b.cancel_reason?.startsWith('نزاع:') ? 'حُلّ هذا النزاع من قبل' : 'الحجز ليس في نزاع');
   db.transaction(() => {
     if (d.resolution !== 'pay_teacher' && b.order_id && q.val<string>('SELECT status FROM orders WHERE id = ?', b.order_id) === 'paid') {
-      refundOrder(b.order_id, { amount: money(d.resolution === 'split' ? b.price / 2 : b.price), reason: d.reason, bookingId: id, processedBy: req.user!.id });
+      // الأساس ما دُفع فعلاً عن الحصة (بعد الكوبون) لا سعر المعلّم
+      const paid = paidForBooking(b.order_id, id);
+      const amount = money(d.resolution === 'split' ? paid / 2 : paid);
+      if (amount > 0) refundOrder(b.order_id, { amount, reason: d.reason, bookingId: id, processedBy: req.user!.id, clamp: true });
     }
     if (d.resolution !== 'pay_teacher' && b.package_purchase_id) q.run('UPDATE package_purchases SET remaining = remaining + 1 WHERE id = ?', b.package_purchase_id);
     q.run("UPDATE bookings SET status = 'completed', cancel_reason = ? WHERE id = ?", `نزاع: ${d.resolution} — ${d.reason}`, id);
@@ -522,7 +533,9 @@ router.get('/orders', requireRole('finance', 'support'), validate(OrdersQuery, '
     data: rows.map(o => ({
       ...orderView(o), userName: o.display_name, userId: o.user_id, providerRef: o.provider_ref,
       payments: q.all<any>('SELECT provider, status, amount, provider_ref, created_at FROM payments WHERE order_id = ? ORDER BY id', o.id).map(p => ({ provider: p.provider, status: p.status, amount: money(p.amount), providerRef: p.provider_ref ?? null, createdAt: p.created_at })),
-      refunds: q.all<any>('SELECT amount, reason, created_at FROM refunds WHERE order_id = ? ORDER BY id', o.id).map(r => ({ amount: money(r.amount), reason: r.reason ?? null, createdAt: r.created_at })),
+      refunds: q.all<any>('SELECT amount, reason, created_at FROM refunds WHERE order_id = ? ORDER BY id', o.id).map(r => ({ amount: money(r.amount), reason: r.reason ?? null, createdAt: iso(r.created_at) })),
+      // المتبقّي القابل للاسترجاع — سقف أي استرجاع لاحق (الواجهة تعرضه بدل إجمالي الطلب)
+      refundable: o.status === 'paid' || o.status === 'partially_refunded' ? refundableRemaining(o) : 0,
     })),
     meta: pageMeta(total, f.page, f.limit),
   });
@@ -636,55 +649,110 @@ router.put('/settings', requireRole('admin'), validate(SettingsBody), (req, res)
 const Named = z.object({ name: z.string().trim().min(1).max(120), order: z.number().int().optional() });
 router.post('/catalog/countries', requireRole('admin'), validate(z.object({ code: z.string().length(2), name: z.string().min(1) })), (req, res) => {
   const b = req.body; const id = Number(q.run('INSERT INTO countries (code, name) VALUES (?,?)', b.code.toUpperCase(), b.name).lastInsertRowid);
-  audit(req, 'catalog.create', 'countries', id, b); res.status(201).json({ id });
+  clearCatalogCache(); audit(req, 'catalog.create', 'countries', id, b); res.status(201).json({ id });
 });
 router.post('/catalog/curriculums', requireRole('admin'), validate(Named.extend({ countryId: z.number().int() })), (req, res) => {
   const id = Number(q.run('INSERT INTO curriculums (country_id, name) VALUES (?,?)', req.body.countryId, req.body.name).lastInsertRowid);
-  audit(req, 'catalog.create', 'curriculums', id, req.body); res.status(201).json({ id });
+  clearCatalogCache(); audit(req, 'catalog.create', 'curriculums', id, req.body); res.status(201).json({ id });
 });
 router.post('/catalog/grades', requireRole('admin'), validate(Named.extend({ curriculumId: z.number().int() })), (req, res) => {
   const id = Number(q.run('INSERT INTO grades (curriculum_id, name, "order") VALUES (?,?,?)', req.body.curriculumId, req.body.name, req.body.order ?? 0).lastInsertRowid);
-  audit(req, 'catalog.create', 'grades', id, req.body); res.status(201).json({ id });
+  clearCatalogCache(); audit(req, 'catalog.create', 'grades', id, req.body); res.status(201).json({ id });
 });
 router.post('/catalog/semesters', requireRole('admin'), validate(Named.extend({ curriculumId: z.number().int() })), (req, res) => {
   const id = Number(q.run('INSERT INTO semesters (curriculum_id, name, "order") VALUES (?,?,?)', req.body.curriculumId, req.body.name, req.body.order ?? 0).lastInsertRowid);
-  audit(req, 'catalog.create', 'semesters', id, req.body); res.status(201).json({ id });
+  clearCatalogCache(); audit(req, 'catalog.create', 'semesters', id, req.body); res.status(201).json({ id });
 });
 router.post('/catalog/subjects', requireRole('admin'), validate(Named.extend({ curriculumId: z.number().int(), colorKey: z.string().max(20).default('default'), slug: z.string().max(40).optional() })), (req, res) => {
   const b = req.body; const id = Number(q.run('INSERT INTO subjects (curriculum_id, name, slug, color_key, "order") VALUES (?,?,?,?,?)', b.curriculumId, b.name, b.slug ?? slugify(b.name), b.colorKey, b.order ?? 0).lastInsertRowid);
-  audit(req, 'catalog.create', 'subjects', id, b); res.status(201).json({ id });
+  clearCatalogCache(); audit(req, 'catalog.create', 'subjects', id, b); res.status(201).json({ id });
 });
 router.post('/catalog/units', requireRole('admin', 'content_reviewer'), validate(z.object({ subjectId: z.number().int(), gradeId: z.number().int(), semesterId: z.number().int(), title: z.string().min(1).max(160), order: z.number().int().optional() })), (req, res) => {
   const b = req.body; const id = Number(q.run('INSERT INTO units (subject_id, grade_id, semester_id, title, "order") VALUES (?,?,?,?,?)', b.subjectId, b.gradeId, b.semesterId, b.title, b.order ?? 0).lastInsertRowid);
-  audit(req, 'catalog.create', 'units', id, b); res.status(201).json({ id });
+  clearCatalogCache(); audit(req, 'catalog.create', 'units', id, b); res.status(201).json({ id });
 });
 router.post('/catalog/lessons', requireRole('admin', 'content_reviewer'), validate(z.object({ unitId: z.number().int(), title: z.string().min(1).max(160), order: z.number().int().optional() })), (req, res) => {
   const b = req.body; const id = Number(q.run('INSERT INTO curriculum_lessons (unit_id, title, "order") VALUES (?,?,?)', b.unitId, b.title, b.order ?? 0).lastInsertRowid);
-  audit(req, 'catalog.create', 'curriculum_lessons', id, b); res.status(201).json({ id });
+  clearCatalogCache(); audit(req, 'catalog.create', 'curriculum_lessons', id, b); res.status(201).json({ id });
 });
 const CATALOG_TABLES: Record<string, string> = { countries: 'countries', curriculums: 'curriculums', grades: 'grades', semesters: 'semesters', subjects: 'subjects', units: 'units', lessons: 'curriculum_lessons' };
-router.patch('/catalog/:kind/:id', requireRole('admin'), (req, res) => {
+/** الأعمدة المسموح تعديلها لكل نوع — «active» ليس عموداً في كل الجداول (كان يرمي 500) */
+const CATALOG_COLUMNS: Record<string, string[]> = {
+  countries: ['name'], curriculums: ['name', 'active'], grades: ['name', 'order'], semesters: ['name', 'order'],
+  subjects: ['name', 'order', 'colorKey'], units: ['title', 'order'], lessons: ['title', 'order'],
+};
+const CatalogPatch = z.object({
+  name: z.string().trim().min(1).max(120).optional(), title: z.string().trim().min(1).max(160).optional(),
+  order: z.number().int().min(0).max(9999).optional(), colorKey: z.string().trim().min(1).max(20).optional(), active: z.boolean().optional(),
+}).strict();
+router.patch('/catalog/:kind/:id', requireRole('admin'), validate(CatalogPatch), (req, res) => {
   const table = CATALOG_TABLES[req.params.kind]; if (!table) throw notFound();
   const id = idParam(req);
+  const b = body<typeof CatalogPatch>(req);
+  const columns = CATALOG_COLUMNS[req.params.kind]!;
   const allowed: Record<string, string> = { name: 'name', title: 'title', order: '"order"', colorKey: 'color_key', active: 'active' };
   const sets: string[] = []; const params: unknown[] = []; const changes: Record<string, unknown> = {};
-  for (const [k, col] of Object.entries(allowed)) if (req.body?.[k] !== undefined) { sets.push(`${col} = ?`); params.push(typeof req.body[k] === 'boolean' ? (req.body[k] ? 1 : 0) : req.body[k]); changes[k] = req.body[k]; }
+  for (const [k, col] of Object.entries(allowed)) {
+    const value = (b as Record<string, unknown>)[k];
+    if (value === undefined) continue;
+    if (!columns.includes(k)) throw badRequest(`«${k}» لا ينطبق على هذا النوع`);
+    sets.push(`${col} = ?`); params.push(typeof value === 'boolean' ? (value ? 1 : 0) : value); changes[k] = value;
+  }
   if (!sets.length) throw badRequest('لا تغييرات');
   q.run(`UPDATE ${table} SET ${sets.join(', ')} WHERE id = ?`, ...params, id);
+  clearCatalogCache();
   audit(req, 'catalog.update', table, id, changes);
   res.json({ ok: true });
 });
+/** ما يشير إلى عنصر المنهج قبل حذفه — الحذف الصامت كان يجرّد المتعلّمين من صفّهم ويحذف وحدات المنهج (SET NULL/CASCADE) */
+const CATALOG_REFS: Record<string, { label: string; sql: string }[]> = {
+  countries: [{ label: 'مناهج', sql: 'SELECT COUNT(*) FROM curriculums WHERE country_id = ?' }],
+  curriculums: [
+    { label: 'صفوف', sql: 'SELECT COUNT(*) FROM grades WHERE curriculum_id = ?' },
+    { label: 'مواد', sql: 'SELECT COUNT(*) FROM subjects WHERE curriculum_id = ?' },
+    { label: 'متعلّمين', sql: 'SELECT COUNT(*) FROM learners WHERE curriculum_id = ?' },
+  ],
+  grades: [
+    { label: 'متعلّمين', sql: 'SELECT COUNT(*) FROM learners WHERE grade_id = ?' },
+    { label: 'معلّمين', sql: 'SELECT COUNT(DISTINCT teacher_id) FROM teacher_subjects WHERE grade_id = ?' },
+    { label: 'وحدات منهج', sql: 'SELECT COUNT(*) FROM units WHERE grade_id = ?' },
+    { label: 'كتباً', sql: 'SELECT COUNT(*) FROM books WHERE grade_id = ?' },
+    { label: 'دورات', sql: 'SELECT COUNT(*) FROM courses WHERE grade_id = ?' },
+  ],
+  semesters: [
+    { label: 'متعلّمين', sql: 'SELECT COUNT(*) FROM learners WHERE semester_id = ?' },
+    { label: 'وحدات منهج', sql: 'SELECT COUNT(*) FROM units WHERE semester_id = ?' },
+    { label: 'كتباً', sql: 'SELECT COUNT(*) FROM books WHERE semester_id = ?' },
+  ],
+  subjects: [
+    { label: 'متعلّمين', sql: 'SELECT COUNT(*) FROM learner_subjects WHERE subject_id = ?' },
+    { label: 'معلّمين', sql: 'SELECT COUNT(DISTINCT teacher_id) FROM teacher_subjects WHERE subject_id = ?' },
+    { label: 'وحدات منهج', sql: 'SELECT COUNT(*) FROM units WHERE subject_id = ?' },
+    { label: 'كتباً', sql: 'SELECT COUNT(*) FROM books WHERE subject_id = ?' },
+    { label: 'دورات', sql: 'SELECT COUNT(*) FROM courses WHERE subject_id = ?' },
+    { label: 'حجوزات', sql: 'SELECT COUNT(*) FROM bookings WHERE subject_id = ?' },
+  ],
+  units: [{ label: 'دروساً', sql: 'SELECT COUNT(*) FROM curriculum_lessons WHERE unit_id = ?' }],
+  lessons: [],
+};
 router.delete('/catalog/:kind/:id', requireRole('admin'), (req, res) => {
   const table = CATALOG_TABLES[req.params.kind]; if (!table) throw notFound();
-  try { q.run(`DELETE FROM ${table} WHERE id = ?`, idParam(req)); }
+  const id = idParam(req);
+  // الاسم يُقرأ قبل الحذف ليبقى في السجلّ — بعده لا يبقى إلا رقم بلا دلالة
+  const row = q.get<{ name?: string; title?: string }>(`SELECT * FROM ${table} WHERE id = ?`, id);
+  if (!row) throw notFound();
+  const used = (CATALOG_REFS[req.params.kind] ?? []).map(r => ({ label: r.label, count: n(r.sql, id) })).filter(r => r.count > 0);
+  if (used.length) throw conflict(`لا يمكن الحذف: مرتبط بـ ${used.map(u => `${u.count} ${u.label}`).join('، ')}. انقلها أولاً ثم احذف.`);
+  try { q.run(`DELETE FROM ${table} WHERE id = ?`, id); }
   catch (err) { if (isConstraint(err)) throw new AppError('conflict', 'لا يمكن الحذف: مرتبط بمحتوى منشور', 409); throw err; }
-  audit(req, 'catalog.delete', table, idParam(req));
+  clearCatalogCache();
+  audit(req, 'catalog.delete', table, id, { name: row.name ?? row.title ?? null });
   res.json({ ok: true });
 });
 
 /* ---------- الكوبونات ---------- */
 router.get('/coupons', requireRole('finance'), (_req, res) => {
-  res.json(q.all<any>('SELECT * FROM coupons ORDER BY id DESC').map(c => ({ id: c.id, code: c.code, type: c.type, value: c.value, startsAt: c.starts_at, endsAt: c.ends_at, usageLimit: c.usage_limit, userLimit: c.user_limit, usedCount: c.used_count, scope: json(c.scope, {}), active: !!c.active })));
+  res.json(q.all<any>('SELECT * FROM coupons ORDER BY id DESC LIMIT 300').map(c => ({ id: c.id, code: c.code, type: c.type, value: c.value, startsAt: c.starts_at, endsAt: c.ends_at, usageLimit: c.usage_limit, userLimit: c.user_limit, usedCount: c.used_count, scope: json(c.scope, {}), active: !!c.active })));
 });
 router.post('/coupons', requireRole('finance'), validate(CouponUpsert), (req, res) => {
   const c = body<typeof CouponUpsert>(req);
@@ -696,12 +764,24 @@ router.post('/coupons', requireRole('finance'), validate(CouponUpsert), (req, re
   audit(req, 'coupon.create', 'coupons', id, { code: c.code, type: c.type, value: c.value });
   res.status(201).json({ id });
 });
+/** تعديل الكوبون: جسم كامل بقيود الإنشاء نفسها، أو `{ active }` وحده لتبديل التفعيل */
 router.patch('/coupons/:id', requireRole('finance'), (req, res) => {
-  const active = req.body?.active;
-  if (typeof active !== 'boolean') throw badRequest();
   const id = idParam(req);
-  q.run('UPDATE coupons SET active = ? WHERE id = ?', active ? 1 : 0, id);
-  audit(req, 'coupon.update', 'coupons', id, { active });
+  if (!q.get('SELECT id FROM coupons WHERE id = ?', id)) throw notFound('الكوبون غير موجود');
+  const b = (req.body ?? {}) as Record<string, unknown>;
+  if (typeof b.active === 'boolean' && Object.keys(b).length === 1) {
+    q.run('UPDATE coupons SET active = ? WHERE id = ?', b.active ? 1 : 0, id);
+    audit(req, 'coupon.update', 'coupons', id, { active: b.active });
+    return res.json({ ok: true });
+  }
+  const parsed = CouponUpsert.safeParse(b);
+  if (!parsed.success) throw new AppError('validation_error', 'بعض البيانات غير صحيحة', 422, parsed.error.issues.map(i => ({ field: i.path.join('.'), message: i.message })));
+  const c = parsed.data;
+  try {
+    q.run('UPDATE coupons SET code = ?, type = ?, value = ?, starts_at = ?, ends_at = ?, usage_limit = ?, user_limit = ?, scope = ?, active = ? WHERE id = ?',
+      c.code, c.type, c.value, c.startsAt, c.endsAt, c.usageLimit, c.userLimit, JSON.stringify(c.scope), c.active ? 1 : 0, id);
+  } catch (err) { if (isConstraint(err)) throw new AppError('conflict', 'الرمز مستخدم', 409); throw err; }
+  audit(req, 'coupon.update', 'coupons', id, { code: c.code, type: c.type, value: c.value, active: c.active });
   res.json({ ok: true });
 });
 

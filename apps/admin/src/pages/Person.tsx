@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { PersonDetail, ProfilePatch } from '@manassah/shared';
 import { api, money, when, day } from '../api';
-import { Page, Empty, Badge, Tabs, Drawer, Field, Avatar, LearnerChip, TeacherLink, STAFF, STATUS_TONE, ar, useToast, errMsg, useConfirm, can, isSuper, type Me } from '../ui';
+import { Page, Empty, ErrorState, Badge, Tabs, Drawer, Field, Avatar, LearnerChip, TeacherLink, STAFF, STATUS_TONE, ar, useToast, errMsg, useConfirm, can, isSuper, type Me } from '../ui';
 import { ProfileTab } from './person/ProfileTab';
 import { RolesTab } from './person/RolesTab';
 import { WalletTab } from './person/WalletTab';
@@ -61,9 +61,12 @@ export default function Person({ me }: { me: Me }) {
   const setStatus = useMutation({ mutationFn: (b: { status: string; reason?: string }) => api.post<PersonDetail>(`/admin/users/${id}/status`, b), onSuccess: r => { toast('تم'); qc.setQueryData(['adm-user', id], r); refresh(); }, onError: e => toast(errMsg(e)) });
   const revoke = useMutation({ mutationFn: (deviceTokens: boolean) => api.post(`/admin/users/${id}/sessions/revoke`, { deviceTokens }), onSuccess: () => { toast('أُنهيت الجلسات'); refresh(); qc.invalidateQueries({ queryKey: ['adm-sessions', id] }); }, onError: e => toast(errMsg(e)) });
   const d = q.data;
-  if (!d) return <Page title="صفحة الشخص"><Empty text={q.isError ? errMsg(q.error) : 'جارٍ التحميل…'} /></Page>;
+  if (!d) return <Page title="صفحة الشخص">{q.isError ? <ErrorState error={q.error} /> : <Empty text="جارٍ التحميل…" />}</Page>;
   const name = d.profile.displayName || `#${d.id}`;
   const admin = can(me, 'admin'), support = can(me, 'support'), fin = can(me, 'finance');
+  // حسابات الطاقم يديرها super_admin وحده في الخادم (requireSuperForStaffTarget) — فلا تُعرض الأزرار لغيره
+  const staffTarget = d.roles.some(r => STAFF.includes(r.role));
+  const manage = !staffTarget || isSuper(me);
   const isTeacher = d.roles.some(r => r.role === 'teacher');
   const active = d.learners.find(l => l.id === d.activeLearnerId) ?? null;
   const suspend = async () => { const r = await confirm({ title: `إيقاف ${name}`, body: 'تُنهى جلساته فوراً ويُمنع من الدخول حتى التفعيل.', reasonRequired: true, danger: true, confirmLabel: 'إيقاف' }); if (r) setStatus.mutate({ status: 'suspended', reason: r.reason }); };
@@ -82,10 +85,11 @@ export default function Person({ me }: { me: Me }) {
   const p = { me, d, id };
   return (
     <Page title={name} sub={`مستخدم #${d.id}`} actions={<div className="acts">
-      {admin ? <button className="btn secondary" onClick={() => setEdit(true)}>تعديل البيانات</button> : null}
-      {admin && d.id !== me.id && d.status !== 'deleted' ? (d.status === 'active' ? <button className="btn danger" onClick={suspend}>إيقاف</button> : <button className="btn success" onClick={activate}>تفعيل</button>) : null}
+      {admin && manage ? <button className="btn secondary" onClick={() => setEdit(true)}>تعديل البيانات</button> : null}
+      {admin && manage && d.id !== me.id && d.status !== 'deleted' ? (d.status === 'active' ? <button className="btn danger" onClick={suspend}>إيقاف</button> : <button className="btn success" onClick={activate}>تفعيل</button>) : null}
       {isSuper(me) && d.id !== me.id && d.status !== 'deleted' ? <button className="btn danger" onClick={del}>حذف الحساب</button> : null}
-      {support ? <button className="btn secondary" onClick={endSessions}>إنهاء الجلسات</button> : null}
+      {support && manage ? <button className="btn secondary" onClick={endSessions}>إنهاء الجلسات</button> : null}
+      {staffTarget && !isSuper(me) ? <span className="badge info" title="حسابات الطاقم يديرها المدير العام">حساب طاقم — للمدير العام</span> : null}
       {d.teacher ? <Link className="btn ghost" to={`/teachers/${d.id}`}>صفحة المعلّم</Link> : null}
     </div>}>
       <div className="card phead">

@@ -28,8 +28,9 @@ export default function Conversation() {
   let lastDay = '';
   return (
     <Screen onBack={() => router.back()} title={other?.name ?? t('messagesUi.title')} scroll={false} padded={false}
-      footer={<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}><View style={styles.inputRow}><View style={styles.flex}><Input value={text} onChangeText={setText} placeholder={t('messagesUi.placeholder')} onSubmitEditing={submit} returnKeyType="send" blurOnSubmit={false} /></View><Button label={t('messagesUi.send')} icon="send" onPress={submit} loading={send.isPending} disabled={!text.trim()} /></View>{send.error ? <Text role="caption" tone="danger">{t(errorMessageKey(send.error))}</Text> : null}</KeyboardAvoidingView>}>
-      {q.isLoading ? <View style={styles.px}><RowSkeleton /><RowSkeleton /></View> : q.error ? <ErrorState error={q.error} onRetry={() => q.refetch()} /> : (
+      /* محادثة غير موجودة أو ممنوعة: لا نعرض حقل كتابة لا يصل إلى أحد */
+      footer={q.error ? undefined : <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}><View style={styles.inputRow}><View style={styles.flex}><Input value={text} onChangeText={setText} placeholder={t('messagesUi.placeholder')} onSubmitEditing={submit} returnKeyType="send" blurOnSubmit={false} /></View><Button label={t('messagesUi.send')} icon="send" onPress={submit} loading={send.isPending} disabled={!text.trim()} /></View>{send.error ? <Text role="caption" tone="danger">{t(errorMessageKey(send.error))}</Text> : null}</KeyboardAvoidingView>}>
+      {q.isLoading ? <View style={styles.px}><RowSkeleton /><RowSkeleton /></View> : q.error ? <ErrorState error={q.error} onRetry={() => q.refetch()} onBack={() => router.back()} /> : (
         <ScrollView ref={scroll} contentContainerStyle={styles.msgs} onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: true })}>
           {q.data?.length === 0 ? <Text role="small" tone="tertiary" center>{t('live.noMessages')}</Text> : null}
           {q.data?.map(m => {

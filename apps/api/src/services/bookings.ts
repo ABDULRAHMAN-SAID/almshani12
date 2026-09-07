@@ -2,7 +2,7 @@ import { db, q, settings, nowIso } from '../db/index.ts';
 import { AppError, notFound, forbidden } from '../lib/errors.ts';
 import { money, addMinutes, randomToken } from '../lib/helpers.ts';
 import { isWithinAvailability } from './slots.ts';
-import { createOrder, refundOrder, refundPercentFor } from './checkout.ts';
+import { createOrder, refundOrder, refundPercentFor, paidForBooking } from './checkout.ts';
 import { recordEarning, releaseEarnings, reverseEarning } from './earnings.ts';
 import { notify } from './notifications.ts';
 import { notifyBookingConfirmed } from './mail.ts';
@@ -118,12 +118,14 @@ export function cancelByStudent(bookingId: number, studentId: number, reason?: s
       if (percent === 100) q.run('UPDATE package_purchases SET remaining = remaining + 1 WHERE id = ?', b.package_purchase_id);
     } else if (b.order_id && b.status === 'confirmed') {
       const order = q.get<any>('SELECT * FROM orders WHERE id = ?', b.order_id);
-      if (order?.status === 'paid' && percent > 0) {
-        refundOrder(b.order_id, { amount: money(b.price * (percent / 100)), reason: `إلغاء حصة (${percent}٪)`, bookingId });
+      // الأساس هو ما دُفع فعلاً عن هذه الحصة (بعد الكوبون والضريبة) لا السعر المعلن
+      const paid = paidForBooking(b.order_id, bookingId);
+      if (order?.status === 'paid' && percent > 0 && paid > 0) {
+        refundOrder(b.order_id, { amount: money(paid * (percent / 100)), reason: `إلغاء حصة (${percent}٪)`, bookingId, clamp: true });
       } else if (order?.status === 'paid') {
         reverseEarning({ sourceType: 'lesson', sourceId: bookingId });
         // لا استرجاع: الربح يتحرّر للمعلّم لأن الوقت حُجز فعلاً
-        recordEarning(b.teacher_id, { sourceType: 'lesson', sourceId: bookingId, orderId: b.order_id, gross: money(b.price) });
+        recordEarning(b.teacher_id, { sourceType: 'lesson', sourceId: bookingId, orderId: b.order_id, gross: paid });
         releaseEarnings({ sourceType: 'lesson', sourceId: bookingId });
       }
     } else if (b.order_id) {
@@ -145,8 +147,9 @@ export function cancelByTeacher(bookingId: number, teacherId: number, reason?: s
     if (b.package_purchase_id) q.run('UPDATE package_purchases SET remaining = remaining + 1 WHERE id = ?', b.package_purchase_id);
     else if (b.order_id) {
       const order = q.get<any>('SELECT status FROM orders WHERE id = ?', b.order_id);
-      if (order?.status === 'paid') refundOrder(b.order_id, { amount: money(b.price), reason: 'إلغاء من المعلّم', bookingId });
-      else q.run("UPDATE orders SET status = 'cancelled' WHERE id = ? AND status = 'pending'", b.order_id);
+      const paid = paidForBooking(b.order_id, bookingId);
+      if (order?.status === 'paid' && paid > 0) refundOrder(b.order_id, { amount: paid, reason: 'إلغاء من المعلّم', bookingId, clamp: true });
+      else if (order?.status !== 'paid') q.run("UPDATE orders SET status = 'cancelled' WHERE id = ? AND status = 'pending'", b.order_id);
     }
     notify(b.student_id, { type: 'booking_cancelled_by_teacher', title: 'ألغى المعلّم الحصة', body: reason ?? 'سيُسترجع المبلغ كاملاً', data: { bookingId } });
   })();
@@ -163,18 +166,22 @@ export function completeBooking(bookingId: number) {
       // المعلّم لم يحضر → إلغاء بالكامل لصالح الطالب
       q.run("UPDATE bookings SET status = 'no_show', refund_percent = 100 WHERE id = ?", bookingId);
       if (b.package_purchase_id) q.run('UPDATE package_purchases SET remaining = remaining + 1 WHERE id = ?', b.package_purchase_id);
-      else if (b.order_id) refundOrder(b.order_id, { amount: money(b.price), reason: 'لم يحضر المعلّم', bookingId });
+      else if (b.order_id) {
+        const paid = paidForBooking(b.order_id, bookingId);
+        if (paid > 0 && q.val<string>('SELECT status FROM orders WHERE id = ?', b.order_id) === 'paid') refundOrder(b.order_id, { amount: paid, reason: 'لم يحضر المعلّم', bookingId, clamp: true });
+      }
       return;
     }
     q.run("UPDATE bookings SET status = ? WHERE id = ?", studentAttended ? 'completed' : 'no_show', bookingId);
     releaseEarnings({ sourceType: 'lesson', sourceId: bookingId });
     if (b.package_purchase_id && b.price === 0) {
       // حصة من باقة: الربح سُجّل عند شراء الباقة — نحرّر حصّة واحدة منها
-      const pkg = q.get<any>('SELECT package_id, order_id, total FROM package_purchases WHERE id = ?', b.package_purchase_id);
+      const pkg = q.get<any>('SELECT package_id, order_id, total, remaining FROM package_purchases WHERE id = ?', b.package_purchase_id);
       const earning = q.get<any>("SELECT id, net, teacher_id FROM teacher_earnings WHERE source_type = 'package' AND source_id = ? AND order_id = ? AND status = 'pending'", pkg?.package_id, pkg?.order_id);
-      if (earning) {
-        const per = money(earning.net / pkg.total);
-        q.run('UPDATE teacher_earnings SET net = net - ? WHERE id = ?', per, earning.id);
+      if (earning && earning.net > 0) {
+        // آخر حصة في الباقة تأخذ ما تبقّى (تستوعب فروق التقريب) — وما عداها حصّة واحدة من الصافي
+        const per = Math.min(money(earning.net), pkg.remaining <= 0 ? money(earning.net) : money(earning.net / pkg.total));
+        q.run('UPDATE teacher_earnings SET net = ? WHERE id = ?', money(earning.net - per), earning.id);
         q.run("INSERT INTO teacher_earnings (teacher_id, source_type, source_id, order_id, gross, commission, net, status) VALUES (?,?,?,?,?,?,?,'available')", earning.teacher_id, 'lesson', bookingId, pkg.order_id, per, 0, per);
         q.run('UPDATE teacher_profiles SET pending_balance = pending_balance - ?, available_balance = available_balance + ? WHERE user_id = ?', per, per, earning.teacher_id);
       }
@@ -188,7 +195,9 @@ export function completeBooking(bookingId: number) {
 /** الحصص التي انتهى وقتها ولم تُغلق (مهمة دورية) */
 export function closeFinishedBookings(): number {
   const closeAfter = settings.get<number>('room_close_minutes_after');
-  const rows = q.all<{ id: number }>(`SELECT id FROM bookings WHERE status IN ('confirmed','in_progress') AND datetime(ends_at, '+' || ? || ' minutes') < datetime('now')`, closeAfter);
+  // العتبة تُحسب في JS كي تبقى المقارنة على العمود نفسه (تستعمل idx_bookings_status_ends) بدل مسح الجدول كل دقيقة
+  const threshold = addMinutes(-closeAfter);
+  const rows = q.all<{ id: number }>(`SELECT id FROM bookings WHERE status IN ('confirmed','in_progress') AND ends_at < ?`, threshold);
   for (const r of rows) completeBooking(r.id);
   return rows.length;
 }

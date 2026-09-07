@@ -1,35 +1,40 @@
 import { View, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { colors, hitTarget, isDark, radius, spacing, themed } from '@manassah/tokens';
+import { useTranslation } from 'react-i18next';
 import { useUi } from '@/state/ui';
+import { useAuth } from '@/state/auth';
 import { Icon } from './Icon';
 import { Text } from './Text';
 import { useCart, useNotifications } from '@/features/queries';
 
 /** أزرار الترويسة المشتركة: الوضع الليلي، الإشعارات (بنقطة)، والسلة (بعدّاد) */
 export function HeaderActions({ cart = true, bell = true, theme = true }: { cart?: boolean; bell?: boolean; theme?: boolean }) {
+  const { t } = useTranslation();
   const router = useRouter();
   const setThemePref = useUi(s => s.setThemePref);
   const dark = isDark();
-  const c = useCart();
-  const n = useNotifications();
+  // زائر: لا سلة ولا إشعارات — الطلبان كانا يفشلان 401 عند كل إقلاع بارد قبل التحويل للترحيب
+  const authed = useAuth(s => !!s.user);
+  const c = useCart(authed);
+  const n = useNotifications(authed);
   const count = c.data?.items.length ?? 0;
   const unread = n.data?.unread ?? 0;
   return (
     <View style={styles.row}>
       {theme ? (
-        <Pressable onPress={() => setThemePref(dark ? 'light' : 'dark')} style={styles.btn} accessibilityRole="button" accessibilityLabel={dark ? 'الوضع النهاري' : 'الوضع الليلي'}>
+        <Pressable onPress={() => setThemePref(dark ? 'light' : 'dark')} style={styles.btn} accessibilityRole="button" accessibilityLabel={dark ? t('settings.light') : t('settings.dark')}>
           <Icon name={dark ? 'sun' : 'moonOutline'} size={22} color={dark ? colors.brand.gold : colors.text.primary} />
         </Pressable>
       ) : null}
       {bell ? (
-        <Pressable onPress={() => router.push('/account/notifications')} style={styles.btn} accessibilityRole="button" accessibilityLabel="الإشعارات">
+        <Pressable onPress={() => router.push('/account/notifications')} style={styles.btn} accessibilityRole="button" accessibilityLabel={t('account.notifications')}>
           <Icon name="bell" size={22} />
           {unread > 0 ? <View style={styles.dot} /> : null}
         </Pressable>
       ) : null}
       {cart ? (
-        <Pressable onPress={() => router.push('/cart')} style={styles.btn} accessibilityRole="button" accessibilityLabel="السلة">
+        <Pressable onPress={() => router.push('/cart')} style={styles.btn} accessibilityRole="button" accessibilityLabel={t('cart.title')}>
           <Icon name="cart" size={22} />
           {count > 0 ? <View style={styles.count}><Text role="caption" tone="inverse" tabular style={styles.countText}>{count}</Text></View> : null}
         </Pressable>

@@ -1,11 +1,51 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import multer from 'multer';
+import type { Request, Response, NextFunction } from 'express';
 import { config, STORAGE_DIR } from '../config.ts';
 import { q } from '../db/index.ts';
 import { hmac, safeEqual, randomToken } from '../lib/helpers.ts';
 import { AppError, notFound } from '../lib/errors.ts';
 
 export interface StoredFile { id: number; owner_id: number | null; storage_path: string; original_name: string | null; mime: string; size: number; visibility: string; purpose: string }
+
+const TMP_DIR = path.join(STORAGE_DIR, 'tmp');
+const extOf = (name: string) => path.extname(name).toLowerCase().replace(/[^.a-z0-9]/g, '').slice(0, 10);
+
+/**
+ * رفع متدفّق إلى القرص: الملف يُكتب قطعة قطعة في tmp ثم يُنقل مكانه —
+ * لا يُحمَّل في الذاكرة ولا يُكتب دفعة واحدة تعطّل حلقة الأحداث.
+ * الحدّ لكل غرض (صورة صغيرة، فيديو كبير) لا حدّاً واحداً للجميع.
+ */
+export const upload = (maxMb: number = config.uploads.maxSizeMb) => {
+  const handler = multer({
+    storage: multer.diskStorage({
+      destination: (_req, _file, cb) => { fs.mkdirSync(TMP_DIR, { recursive: true }); cb(null, TMP_DIR); },
+      filename: (_req, file, cb) => cb(null, `${Date.now()}-${randomToken(8)}${extOf(file.originalname)}`),
+    }),
+    limits: { fileSize: Math.max(1, maxMb) * 1024 * 1024 },
+  }).single('file');
+  return (req: Request, res: Response, next: NextFunction) => handler(req, res, (err?: unknown) => {
+    // ما لم يُنقل إلى المخزن (رفض النوع، خطأ لاحق) يُحذف بعد انتهاء الاستجابة
+    const tmp = req.file?.path;
+    if (tmp) res.on('finish', () => { try { fs.rmSync(tmp, { force: true }); } catch { /* حُذف بالنقل */ } });
+    next(err);
+  });
+};
+
+/** ينقل ملفاً مرفوعاً (على القرص) إلى المخزن ويسجّله — بلا نسخ في الذاكرة */
+export function storeUpload(file: { path: string; originalname: string; mimetype: string; size: number },
+  { ownerId, purpose = 'general', visibility = 'private' as 'private' | 'public' }: { ownerId: number | null; purpose?: string; visibility?: 'private' | 'public' }): StoredFile {
+  const rel = path.join(purpose, `${Date.now()}-${randomToken(8)}${extOf(file.originalname)}`);
+  const abs = path.join(STORAGE_DIR, rel);
+  fs.mkdirSync(path.dirname(abs), { recursive: true });
+  try { fs.renameSync(file.path, abs); }
+  catch { fs.copyFileSync(file.path, abs); fs.rmSync(file.path, { force: true }); } // نظام ملفات مختلف
+  const info = q.run(
+    'INSERT INTO files (owner_id, storage_path, original_name, mime, size, purpose, visibility) VALUES (?,?,?,?,?,?,?)',
+    ownerId, rel, file.originalname.slice(0, 200), file.mimetype, file.size, purpose, visibility);
+  return q.get<StoredFile>('SELECT * FROM files WHERE id = ?', info.lastInsertRowid)!;
+}
 
 /** يحفظ ملفاً في المخزن الخاص ويسجّله. الملفات لا تُخدَم مباشرة أبداً. */
 export function storeFile(buffer: Buffer, { ownerId, originalName, mime, purpose = 'general', visibility = 'private' as 'private' | 'public' }:

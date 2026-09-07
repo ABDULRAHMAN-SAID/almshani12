@@ -16,6 +16,12 @@ export function ReportsTable({ params = {}, initialStatus = 'open', hideReporter
   const inv = () => { qc.invalidateQueries({ queryKey: ['adm-reports'] }); qc.invalidateQueries({ queryKey: ['overview'] }); };
   const setSt = useMutation({ mutationFn: ({ id, status }: { id: number; status: string }) => api.post(`/admin/reports/${id}/status`, { status }), onSuccess: () => { toast('تم'); inv(); }, onError: e => toast(errMsg(e)) });
   const hide = useMutation({ mutationFn: ({ id, reason }: { id: number; reason: string }) => api.post(`/admin/reviews/${id}/hide`, { reason }), onSuccess: () => { toast('أُخفي التقييم'); inv(); }, onError: e => toast(errMsg(e)) });
+  const close = async (r: AdminReport, status: 'resolved' | 'dismissed') => {
+    const done = status === 'resolved';
+    const v = await confirm({ title: done ? `إغلاق البلاغ #${r.id} كمحلول` : `رفض البلاغ #${r.id}`, body: done ? 'يُغلق البلاغ ويُسجَّل باسمك.' : 'يُغلق البلاغ دون إجراء — يمكن إعادة فتحه لاحقاً.', reasonRequired: done, reasonLabel: 'ما الذي تمّ (يُسجَّل)', danger: !done, confirmLabel: done ? 'حُلّ' : 'رفض' });
+    if (v) setSt.mutate({ id: r.id, status });
+  };
+  const reopen = async (r: AdminReport) => { const v = await confirm({ title: `إعادة فتح البلاغ #${r.id}`, body: 'يعود البلاغ إلى «قيد المراجعة».', confirmLabel: 'إعادة فتح' }); if (v) setSt.mutate({ id: r.id, status: 'reviewing' }); };
   const askHide = async (r: AdminReport) => { const v = await confirm({ title: `إخفاء التقييم #${r.targetId}`, body: r.targetLabel || undefined, reasonRequired: true, danger: true, confirmLabel: 'إخفاء' }); if (v) hide.mutate({ id: r.targetId, reason: v.reason }); };
   const cols: Column<AdminReport>[] = [
     { key: 'id', label: '#', className: 'num', render: r => r.id },
@@ -24,12 +30,12 @@ export function ReportsTable({ params = {}, initialStatus = 'open', hideReporter
     { key: 'reason', label: 'السبب', render: r => r.reason },
     { key: 'at', label: 'التاريخ', className: 'num small', render: r => when(r.createdAt) },
     { key: 'status', label: 'الحالة', render: r => <><Badge tone={STATUS_TONE[r.status]}>{ar(r.status)}</Badge>{r.handledBy ? <div className="small muted">تولّاه <PersonLink id={r.handledBy.id} name={r.handledBy.name} /></div> : null}</> },
-    { key: 'act', label: '', className: 'actions', render: r => <>{r.status === 'open' ? <button className="btn secondary sm" onClick={() => setSt.mutate({ id: r.id, status: 'reviewing' })}>بدء المراجعة</button> : null} {['open', 'reviewing'].includes(r.status) ? <><button className="btn success sm" onClick={() => setSt.mutate({ id: r.id, status: 'resolved' })}>حُلّ</button> <button className="btn ghost sm" onClick={() => setSt.mutate({ id: r.id, status: 'dismissed' })}>رفض</button></> : null} {r.targetType === 'review' ? <button className="btn danger sm" onClick={() => askHide(r)}>إخفاء التقييم</button> : null}</> },
+    { key: 'act', label: '', className: 'actions', render: r => <>{r.status === 'open' ? <button className="btn secondary sm" onClick={() => setSt.mutate({ id: r.id, status: 'reviewing' })}>بدء المراجعة</button> : null} {['open', 'reviewing'].includes(r.status) ? <><button className="btn success sm" onClick={() => close(r, 'resolved')}>حُلّ</button> <button className="btn ghost sm" onClick={() => close(r, 'dismissed')}>رفض</button></> : <button className="btn secondary sm" onClick={() => reopen(r)}>إعادة فتح</button>} {r.targetType === 'review' ? <button className="btn danger sm" onClick={() => askHide(r)}>إخفاء التقييم</button> : null}</> },
   ];
   return (
     <>
       {statusChips ? <div className="toolbar">{REPORT_STATUSES.map(s => <button key={s} className={`chip ${status === s ? 'on' : ''}`} onClick={() => setStatus(s)}>{s === 'all' ? 'الكل' : ar(s)}</button>)}</div> : null}
-      <div className="card"><DataTable columns={cols} rows={list.data} loading={list.isLoading} empty="لا بلاغات" /></div>
+      <div className="card"><DataTable columns={cols} rows={list.data} loading={list.isLoading} error={list.error} empty="لا بلاغات" /></div>
     </>
   );
 }

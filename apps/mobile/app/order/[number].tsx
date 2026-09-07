@@ -82,6 +82,9 @@ export default function OrderStatus() {
           </Card>
           <Card>
             {o.items.map((it, i) => <View key={i} style={styles.line}><Text role="body" style={styles.flex} numberOfLines={2}>{it.title}{it.itemType === 'lesson' ? forLearner : ''}</Text><Text role="body" tabular>{money(it.unitPrice)}</Text></View>)}
+            {/* بدون سطر الخصم لا تجتمع أسعار العناصر على الإجمالي */}
+            {o.discount > 0 ? <View style={styles.line}><Text role="body" tone="success">{t('cart.discount')}</Text><Text role="body" tone="success" tabular>−{money(o.discount)}</Text></View> : null}
+            {o.tax > 0 ? <View style={styles.line}><Text role="body" tone="secondary">{t('cart.tax')}</Text><Text role="body" tabular>{money(o.tax)}</Text></View> : null}
             <View style={[styles.line, styles.total]}><Text role="h3">{t('cart.total')}</Text><Text role="price" tabular>{money(o.total)}</Text></View>
           </Card>
           {awaiting && bank ? (

@@ -80,11 +80,14 @@ export const BookingCreated = z.object({
   expiresAt: IsoDateTime.nullable(),
 });
 
+/** قواعد مرتّبة تنازلياً وقت التطبيق: ساعات فريدة (وإلّا صارت القاعدة المطبَّقة ملتبسة) وقاعدة صفر كحدّ أدنى */
 export const CancellationPolicy = z.array(z.object({
   /** «قبل أكثر من X ساعة» */
   hoursBefore: z.number().int().min(0),
   refundPercent: z.number().int().min(0).max(100),
-})).min(1);
+})).min(1)
+  .refine(p => new Set(p.map(r => r.hoursBefore)).size === p.length, { message: 'لا تكرّر عدد الساعات في أكثر من قاعدة' })
+  .refine(p => p.some(r => r.hoursBefore === 0), { message: 'أضِف قاعدة بصفر ساعات كحدّ أدنى' });
 export type CancellationPolicy = z.infer<typeof CancellationPolicy>;
 
 export const CancelBooking = z.object({ reason: z.string().trim().max(300).nullable().optional() });

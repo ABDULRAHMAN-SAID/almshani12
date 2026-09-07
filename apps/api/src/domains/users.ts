@@ -1,5 +1,4 @@
-import { Router } from 'express';
-import multer from 'multer';
+import { Router, type Request, type Response, type NextFunction } from 'express';
 import { z } from 'zod';
 import { StudentSetup, CreateReview, FavoriteToggle, CreateReport, AnalyticsEvent, LearnerUpsert, LearnerPatch, Id } from '@manassah/shared';
 import { config } from '../config.ts';
@@ -7,9 +6,10 @@ import { db, q, json, nowIso } from '../db/index.ts';
 import { AppError, asyncHandler, notFound, badRequest, conflict } from '../lib/errors.ts';
 import { validate, body, idParam } from '../lib/validate.ts';
 import { requireAuth } from '../lib/auth.ts';
-import { money } from '../lib/helpers.ts';
+import { money, iso } from '../lib/helpers.ts';
+import { ownedIds } from '../services/access.ts';
 import { userView, orderView, notificationView } from '../lib/views.ts';
-import { storeFile } from '../services/storage.ts';
+import { upload, storeUpload } from '../services/storage.ts';
 import { publicUrl } from '../services/storage.ts';
 import * as wallet from '../services/wallet.ts';
 import { unreadCount } from '../services/notifications.ts';
@@ -114,33 +114,35 @@ router.delete('/me', requireAuth, asyncHandler(async (req, res) => {
 }));
 
 /* ---------- رفع الملفات ---------- */
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: config.uploads.maxSizeMb * 1024 * 1024 } });
-const PURPOSES: Record<string, { mimes: RegExp; visibility: 'public' | 'private' }> = {
-  avatar: { mimes: /^image\//, visibility: 'public' },
-  cover: { mimes: /^image\//, visibility: 'public' },
-  document: { mimes: /^(image\/|application\/pdf)/, visibility: 'private' },
-  book: { mimes: /^application\/pdf$/, visibility: 'private' },
-  sample: { mimes: /^(image\/|application\/pdf)/, visibility: 'private' },
-  video: { mimes: /^video\//, visibility: 'private' },
-  attachment: { mimes: /^(image\/|application\/pdf|text\/)/, visibility: 'private' },
+/** لكل غرض نوعه وحدّ حجمه — الفيديو وحده يستحقّ الحدّ الأقصى */
+const PURPOSES: Record<string, { mimes: RegExp; visibility: 'public' | 'private'; maxMb: number }> = {
+  avatar: { mimes: /^image\//, visibility: 'public', maxMb: 8 },
+  cover: { mimes: /^image\//, visibility: 'public', maxMb: 8 },
+  document: { mimes: /^(image\/|application\/pdf)/, visibility: 'private', maxMb: 20 },
+  book: { mimes: /^application\/pdf$/, visibility: 'private', maxMb: 60 },
+  sample: { mimes: /^(image\/|application\/pdf)/, visibility: 'private', maxMb: 20 },
+  video: { mimes: /^video\//, visibility: 'private', maxMb: config.uploads.maxSizeMb },
+  attachment: { mimes: /^(image\/|application\/pdf|text\/)/, visibility: 'private', maxMb: 20 },
 };
-router.post('/files', requireAuth, upload.single('file'), asyncHandler(async (req, res) => {
+const uploadByPurpose = (req: Request, res: Response, next: NextFunction) =>
+  upload(PURPOSES[String(req.query.purpose ?? 'attachment')]?.maxMb ?? 20)(req, res, next);
+router.post('/files', requireAuth, uploadByPurpose, asyncHandler(async (req, res) => {
   const purpose = String(req.query.purpose ?? req.body?.purpose ?? 'attachment');
   const rule = PURPOSES[purpose];
   if (!rule) throw badRequest('غرض الملف غير معروف');
   if (!req.file) throw badRequest('لم يُرفق ملف');
   if (!rule.mimes.test(req.file.mimetype)) throw badRequest('نوع الملف غير مسموح لهذا الغرض');
-  const f = storeFile(req.file.buffer, { ownerId: req.user!.id, originalName: req.file.originalname, mime: req.file.mimetype, purpose, visibility: rule.visibility });
+  const f = storeUpload(req.file, { ownerId: req.user!.id, purpose, visibility: rule.visibility });
   res.status(201).json({ id: f.id, mime: f.mime, size: f.size, url: rule.visibility === 'public' ? publicUrl(f.id) : null });
 }));
 
 /* ---------- المشتريات والمحفظة ---------- */
 router.get('/me/purchases', requireAuth, asyncHandler(async (req, res) => {
   const uid = req.user!.id;
-  const books = q.all<any>(`SELECT b.id, b.title, b.cover_file_id, e.created_at FROM entitlements e JOIN books b ON b.id = e.item_id WHERE e.user_id = ? AND e.item_type = 'book' ORDER BY e.id DESC`, uid)
-    .map(r => ({ id: r.id, title: r.title, coverUrl: publicUrl(r.cover_file_id), purchasedAt: r.created_at }));
-  const courses = q.all<any>(`SELECT c.id, c.title, c.cover_file_id, ce.created_at, ce.progress_percent FROM course_enrollments ce JOIN courses c ON c.id = ce.course_id WHERE ce.user_id = ? ORDER BY ce.created_at DESC`, uid)
-    .map(r => ({ id: r.id, title: r.title, coverUrl: publicUrl(r.cover_file_id), purchasedAt: r.created_at, progressPercent: r.progress_percent }));
+  const books = q.all<any>(`SELECT b.id, b.title, b.cover_file_id, e.created_at FROM entitlements e JOIN books b ON b.id = e.item_id WHERE e.user_id = ? AND e.item_type = 'book' ORDER BY e.id DESC LIMIT 200`, uid)
+    .map(r => ({ id: r.id, title: r.title, coverUrl: publicUrl(r.cover_file_id), purchasedAt: iso(r.created_at) }));
+  const courses = q.all<any>(`SELECT c.id, c.title, c.cover_file_id, ce.created_at, ce.progress_percent FROM course_enrollments ce JOIN courses c ON c.id = ce.course_id WHERE ce.user_id = ? ORDER BY ce.created_at DESC LIMIT 200`, uid)
+    .map(r => ({ id: r.id, title: r.title, coverUrl: publicUrl(r.cover_file_id), purchasedAt: iso(r.created_at), progressPercent: r.progress_percent }));
   const lessons = q.all<any>(`SELECT b.id, b.starts_at, b.price, b.status, p.display_name, s.name AS subject FROM bookings b JOIN profiles p ON p.user_id = b.teacher_id JOIN subjects s ON s.id = b.subject_id WHERE b.student_id = ? ORDER BY b.starts_at DESC LIMIT 50`, uid)
     .map(r => ({ bookingId: r.id, teacherName: r.display_name, subjectName: r.subject, startsAt: r.starts_at, price: money(r.price), status: r.status }));
   const subscriptions = q.all<any>('SELECT s.id, s.status, s.ends_at, pl.name FROM subscriptions s JOIN plans pl ON pl.id = s.plan_id WHERE s.user_id = ?', uid)
@@ -152,7 +154,7 @@ router.get('/me/purchases', requireAuth, asyncHandler(async (req, res) => {
 router.get('/me/wallet', requireAuth, (req, res) => {
   res.json({
     balance: wallet.balance(req.user!.id), currency: config.money.currency,
-    transactions: wallet.history(req.user!.id).map((t: any) => ({ id: t.id, type: t.type, amount: t.amount, balanceAfter: t.balance_after, note: t.note, createdAt: t.created_at })),
+    transactions: wallet.history(req.user!.id).map((t: any) => ({ id: t.id, type: t.type, amount: t.amount, balanceAfter: t.balance_after, note: t.note, createdAt: iso(t.created_at) })),
   });
 });
 
@@ -177,13 +179,17 @@ router.post('/me/device-tokens', requireAuth, validate(DeviceToken), (req, res) 
 /* ---------- المفضّلة ---------- */
 router.get('/me/favorites', requireAuth, (req, res) => {
   const uid = req.user!.id;
-  const ids = (t: string) => q.all<{ target_id: number }>('SELECT target_id FROM favorites WHERE user_id = ? AND target_type = ? ORDER BY created_at DESC', uid, t).map(r => r.target_id);
+  const ids = (t: string) => q.all<{ target_id: number }>('SELECT target_id FROM favorites WHERE user_id = ? AND target_type = ? ORDER BY created_at DESC LIMIT 100', uid, t).map(r => r.target_id);
   const inList = (xs: number[]) => xs.length ? xs.map(() => '?').join(',') : 'NULL';
   const b = ids('book'), c = ids('course'), t = ids('teacher');
+  // مجموعات الملكية/المفضّلة تُقرأ مرة واحدة للطلب كلّه بدل استعلامين لكل بطاقة
+  const bctx = { userId: uid, owned: ownedIds(uid, 'book'), fav: new Set(b) };
+  const cctx = { userId: uid, enrolled: ownedIds(uid, 'course'), fav: new Set(c) };
+  const tctx = { userId: uid, fav: new Set(t), withNextSlot: false };
   res.json({
-    books: q.all<any>(`SELECT * FROM books WHERE status = 'published' AND id IN (${inList(b)})`, ...b).map(r => bookCard(r, { userId: uid })),
-    courses: q.all<any>(`SELECT * FROM courses WHERE status = 'published' AND id IN (${inList(c)})`, ...c).map(r => courseCard(r, { userId: uid })),
-    teachers: q.all<any>(`SELECT tp.*, p.display_name, p.avatar_path FROM teacher_profiles tp JOIN profiles p ON p.user_id = tp.user_id WHERE tp.verification_status = 'verified' AND tp.user_id IN (${inList(t)})`, ...t).map(r => teacherCard(r, { userId: uid })),
+    books: q.all<any>(`SELECT * FROM books WHERE status = 'published' AND id IN (${inList(b)})`, ...b).map(r => bookCard(r, bctx)),
+    courses: q.all<any>(`SELECT * FROM courses WHERE status = 'published' AND id IN (${inList(c)})`, ...c).map(r => courseCard(r, cctx)),
+    teachers: q.all<any>(`SELECT tp.*, p.display_name, p.avatar_path FROM teacher_profiles tp JOIN profiles p ON p.user_id = tp.user_id WHERE tp.verification_status = 'verified' AND tp.user_id IN (${inList(t)})`, ...t).map(r => teacherCard(r, tctx)),
   });
 });
 router.post('/me/favorites', requireAuth, validate(FavoriteToggle), (req, res) => {
@@ -254,7 +260,7 @@ router.get('/me/progress', requireAuth, (req, res) => {
   const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
   const lessons = q.val<number>("SELECT COUNT(*) FROM bookings WHERE student_id = ? AND status = 'completed' AND ends_at >= ?", uid, weekAgo) ?? 0;
   const attendanceSec = q.val<number>('SELECT COALESCE(SUM(seconds),0) FROM booking_attendance WHERE user_id = ? AND joined_at >= ?', uid, weekAgo) ?? 0;
-  const courseSec = q.val<number>('SELECT COALESCE(SUM(cl.duration_seconds),0) FROM lesson_progress lp JOIN course_lessons cl ON cl.id = lp.lesson_id WHERE lp.user_id = ? AND lp.completed = 1 AND lp.updated_at >= ?', uid, weekAgo) ?? 0;
+  const courseSec = q.val<number>("SELECT COALESCE(SUM(cl.duration_seconds),0) FROM lesson_progress lp JOIN course_lessons cl ON cl.id = lp.lesson_id WHERE lp.user_id = ? AND lp.completed = 1 AND replace(lp.updated_at, ' ', 'T') >= ?", uid, weekAgo) ?? 0;
   const quizzes = q.val<number>('SELECT COUNT(*) FROM quiz_attempts WHERE user_id = ? AND finished_at >= ?', uid, weekAgo) ?? 0;
   const avgScore = q.val<number | null>('SELECT AVG(percent) FROM quiz_attempts WHERE user_id = ? AND finished_at >= ?', uid, weekAgo) ?? null;
 

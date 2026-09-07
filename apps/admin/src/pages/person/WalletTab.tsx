@@ -42,7 +42,7 @@ export function WalletTab({ me, d, id }: TabProps) {
         <div className="kpis" style={{ marginBottom: 0, minWidth: 220 }}><Kpi label={`الرصيد (${w.data?.currency ?? d.wallet.currency})`} value={money(w.data?.balance ?? d.wallet.balance)} /></div>
         {canAdjust ? <button className="btn" onClick={() => setOpen(true)}>تعديل الرصيد</button> : <span className="muted small">تعديل الرصيد للمالية والإدارة فقط</span>}
       </div>
-      <div className="card"><DataTable columns={cols} rows={w.data?.data} meta={w.data?.meta} onPage={setPage} loading={w.isLoading} empty="لا حركات بعد" /></div>
+      <div className="card"><DataTable columns={cols} rows={w.data?.data} error={w.error} meta={w.data?.meta} onPage={setPage} loading={w.isLoading} empty="لا حركات بعد" /></div>
       {open ? (
         <Drawer title="تعديل رصيد المحفظة" onClose={() => setOpen(false)} footer={<><button className="btn secondary" onClick={() => setOpen(false)}>إلغاء</button><button className="btn" disabled={!ok || adjust.isPending} onClick={() => adjust.mutate()}>تطبيق</button></>}>
           <p className="muted small">يُقيَّد فوراً ويُبلَّغ المستخدم ويُسجَّل باسمك. الحدّ ±٥٠٠ ر.ع لكل عملية؛ الخصم لا يتجاوز الرصيد.</p>

@@ -82,7 +82,7 @@ export default function LessonPlayer() {
           ) : d.lesson.kind === 'reading' ? (
             <View style={styles.px}><Card><Text role="body" style={styles.reading}>{d.readingBody ?? ''}</Text></Card>{!done ? <Button label={t('courses.player.markDone')} icon="check" onPress={markDone} style={styles.mt} full /> : null}</View>
           ) : (
-            <View style={styles.px}><Card accent><View style={styles.quiz}><Icon name="quiz" size={36} color={colors.brand.primary} /><Text role="h3">{d.lesson.title}</Text><Button label={t('playerUi.startQuiz')} icon="play" onPress={() => d.quizId && router.push({ pathname: `/quiz/${d.quizId}`, params: { lessonId: String(lid) } })} disabled={!d.quizId} /></View></Card></View>
+            <View style={styles.px}><Card accent><View style={styles.quiz}><Icon name="quiz" size={36} color={colors.brand.primary} /><Text role="h3">{d.lesson.title}</Text><Button label={t('playerUi.startQuiz')} icon="play" onPress={() => d.quizId && router.push({ pathname: `/quiz/${d.quizId}`, params: { lessonId: String(lid), courseId: String(courseId) } })} disabled={!d.quizId} /></View></Card></View>
           )}
           <View style={styles.px}><Text role="h3" style={styles.mt}>{d.lesson.title}</Text><Text role="caption" tone="tertiary" tabular>{t(`playerUi.${d.lesson.kind === 'video' ? 'lessonOf' : d.lesson.kind}`, { i: idx + 1, n: count })}{d.lesson.durationSeconds ? ` · ${durationLabel(d.lesson.durationSeconds)}` : ''}</Text></View>
         </View>

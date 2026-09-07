@@ -28,8 +28,10 @@ export default function ApplyTeacher() {
   const [docType, setDocType] = useState<DocType>('id');
   const [docs, setDocs] = useState<{ type: DocType; fileId: number; name: string }[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const set = (k: keyof typeof f) => (v: string) => setF(s => ({ ...s, [k]: v }));
-  const toggle = (list: number[], setList: (l: number[]) => void, id: number) => setList(list.includes(id) ? list.filter(x => x !== id) : [...list, id]);
+  // خطأ الحقل يزول بمجرّد تصحيحه — لا ينتظر إرسالاً جديداً
+  const clear = (...ks: string[]) => setErrors(e => { const next = { ...e }; for (const k of ks) delete next[k]; return next; });
+  const set = (k: keyof typeof f) => (v: string) => { setF(s => ({ ...s, [k]: v })); clear(k, 'prices'); };
+  const toggle = (list: number[], setList: (l: number[]) => void, id: number, key: string) => { setList(list.includes(id) ? list.filter(x => x !== id) : [...list, id]); clear(key); };
 
   const payload = useMemo(() => ({
     displayName: f.displayName.trim(), headline: f.headline.trim(), bio: f.bio.trim(), yearsExp: Number(f.yearsExp) || 0, qualification: f.qualification.trim(), specialty: f.specialty.trim(),
@@ -47,6 +49,7 @@ export default function ApplyTeacher() {
     const a = r.assets[0];
     const up = await upload.mutateAsync({ uri: a.uri, name: a.name, mime: a.mimeType ?? 'application/octet-stream', purpose: 'document', blob: a.file ?? undefined });
     setDocs(d => [...d, { type: docType, fileId: up.id, name: a.name }]);
+    clear('documents');
   };
   const submit = () => {
     const parsed = TeacherApplication.safeParse(payload);
@@ -54,7 +57,8 @@ export default function ApplyTeacher() {
     setErrors({});
     apply.mutate(parsed.data, { onSuccess: () => router.replace('/teacher-app') });
   };
-  const err = (k: string) => errors[k] ? (k === 'documents' ? t('teacherUi.docsNeeded') : t('errors.validation')) : undefined;
+  // رسالة الحقل نفسها من العقد، لا «بعض البيانات غير صحيحة» مكرّرة تحت كل حقل
+  const err = (k: string) => errors[k] ? (k === 'documents' ? t('teacherUi.docsNeeded') : errors[k]) : undefined;
   const subjectList = catalog.data?.subjects ?? [], gradeList = catalog.data?.grades ?? [];
 
   return (
@@ -68,10 +72,10 @@ export default function ApplyTeacher() {
         <View style={styles.row}><View style={styles.flex}><Input label={t('teacherUi.qualification')} value={f.qualification} onChangeText={set('qualification')} error={err('qualification')} /></View><View style={styles.flex}><Input label={t('teacherUi.specialty')} value={f.specialty} onChangeText={set('specialty')} error={err('specialty')} /></View></View>
         <Input label={t('teacherUi.years')} value={f.yearsExp} onChangeText={set('yearsExp')} keyboardType="number-pad" numeric error={err('yearsExp')} />
         <SectionHeader title={t('teacherUi.subjects')} />
-        <View style={styles.chips}>{subjectList.map(s => { const sc = subjectColors[(s.colorKey as SubjectColorKey)] ?? subjectColors.default; const on = subjects.includes(s.id); return <Chip key={s.id} label={s.name} selected={on} color={on ? sc.main : undefined} softColor={on ? sc.soft : undefined} onPress={() => toggle(subjects, setSubjects, s.id)} />; })}</View>
+        <View style={styles.chips}>{subjectList.map(s => { const sc = subjectColors[(s.colorKey as SubjectColorKey)] ?? subjectColors.default; const on = subjects.includes(s.id); return <Chip key={s.id} label={s.name} selected={on} color={on ? sc.main : undefined} softColor={on ? sc.soft : undefined} onPress={() => toggle(subjects, setSubjects, s.id, 'subjectIds')} />; })}</View>
         {err('subjectIds') ? <Text role="caption" tone="danger">{err('subjectIds')}</Text> : null}
         <SectionHeader title={t('teacherUi.grades')} />
-        <View style={styles.chips}>{gradeList.map(g => <Chip key={g.id} label={g.name} selected={grades.includes(g.id)} onPress={() => toggle(grades, setGrades, g.id)} />)}</View>
+        <View style={styles.chips}>{gradeList.map(g => <Chip key={g.id} label={g.name} selected={grades.includes(g.id)} onPress={() => toggle(grades, setGrades, g.id, 'gradeIds')} />)}</View>
         {err('gradeIds') ? <Text role="caption" tone="danger">{err('gradeIds')}</Text> : null}
         <SectionHeader title={t('teacherUi.prices')} subtitle={t('teachers.individual')} />
         <View style={styles.row}><View style={styles.flex}><Input label="٣٠ د" value={f.p30} onChangeText={set('p30')} keyboardType="decimal-pad" numeric /></View><View style={styles.flex}><Input label="٤٥ د" value={f.p45} onChangeText={set('p45')} keyboardType="decimal-pad" numeric /></View><View style={styles.flex}><Input label="٦٠ د" value={f.p60} onChangeText={set('p60')} keyboardType="decimal-pad" numeric /></View></View>

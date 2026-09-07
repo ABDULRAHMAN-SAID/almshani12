@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { colors, spacing, radius, themed } from '@manassah/tokens';
 import type { Booking } from '@manassah/shared';
@@ -16,7 +16,11 @@ export default function Lessons() {
   const router = useRouter();
   const user = useAuth(s => s.user);
   const canTeach = !!user?.roles.includes('teacher') && user.teacher?.verificationStatus === 'verified';
-  const [asTeacher, setAsTeacher] = useState(false);
+  // ?as=teacher من لوحة المعلّم، وكذلك حساب معلّم بلا متعلّمين — لا تُفتح قائمة الطالب الفارغة
+  const { as } = useLocalSearchParams<{ as?: string }>();
+  const [asTeacher, setAsTeacher] = useState(canTeach && (as === 'teacher' || (user?.learners.length ?? 0) === 0));
+  // التبويب مركّب مسبقاً في مجموعة التبويبات: نتابع تغيّر الوسيط لا الحالة الابتدائية وحدها
+  useEffect(() => { if (canTeach && as === 'teacher') setAsTeacher(true); }, [as, canTeach]);
   const [tab, setTab] = useState<Tab>('upcoming');
   const learners = useLearners();
   const multi = !asTeacher && learners.length > 1;

@@ -57,7 +57,7 @@ export default function LessonDetail() {
             <Card onPress={() => !asTeacher && router.push(`/teacher/${other.id}`)} style={styles.person}>
               <Avatar name={other.name} url={other.avatarUrl} size="lg" verified={other.verified} />
               <View style={styles.flex}><Text role="caption" tone="secondary">{asTeacher ? t('onboarding.student') : t('booking.teacher')}</Text><Text role="h3" numberOfLines={1}>{other.name}</Text></View>
-              <Button label={t('bookingUi.contact')} variant="secondary" size="sm" icon="message" loading={start.isPending} onPress={() => start.mutate({ userId: other.id, context: { type: 'booking', id: bookingId } }, { onSuccess: c => router.push(`/conversation/${c.id}`) })} />
+              <Button label={t(asTeacher ? 'bookingUi.contactStudent' : 'bookingUi.contact')} variant="secondary" size="sm" icon="message" loading={start.isPending} onPress={() => start.mutate({ userId: other.id, context: { type: 'booking', id: bookingId } }, { onSuccess: c => router.push(`/conversation/${c.id}`) })} />
             </Card>
           ) : null}
 
@@ -70,13 +70,19 @@ export default function LessonDetail() {
             </Card>
           ) : null}
 
-          {b.attendance ? (
+          {/* الحضور يُقرأ بعد انتهاء الحصة؛ أثناءها «جارية» لا شارتان حمراوان بصفر دقيقة */}
+          {b.attendance && ['completed', 'no_show'].includes(b.status) ? (
             <Card>
               <SectionHeader title={t('lessons.room.participants')} />
               <View style={styles.att}>
                 <Badge label={`${t('booking.teacher')}: ${Math.round(b.attendance.teacherSeconds / 60)} ${t('common.minutes')}`} tone={b.attendance.teacherSeconds ? 'success' : 'danger'} />
                 <Badge label={`${t('onboarding.student')}: ${Math.round(b.attendance.studentSeconds / 60)} ${t('common.minutes')}`} tone={b.attendance.studentSeconds ? 'success' : 'danger'} />
               </View>
+            </Card>
+          ) : b.attendance && b.status === 'in_progress' ? (
+            <Card>
+              <SectionHeader title={t('lessons.room.participants')} />
+              <View style={styles.att}><Badge label={t('bookingUi.inProgress')} tone="live" icon="video" /></View>
             </Card>
           ) : null}
 
@@ -100,7 +106,7 @@ export default function LessonDetail() {
         {cancel.error ? <Text role="small" tone="danger">{t(errorMessageKey(cancel.error))}</Text> : null}
       </Dialog>
       <Dialog visible={dialog === 'report'} onClose={() => setDialog(null)} title={t('bookingUi.report')} body={report.isSuccess ? t('bookingUi.reportSent') : undefined}
-        actions={report.isSuccess ? <Button label={t('common.ok')} onPress={() => setDialog(null)} /> : <><Button label={t('common.cancel')} variant="secondary" onPress={() => setDialog(null)} /><Button label={t('common.report')} loading={report.isPending} onPress={() => report.mutate({ targetType: 'user', targetId: other?.id ?? 0, reason: `مشكلة في الحصة #${bookingId}` })} /></>} />
+        actions={report.isSuccess ? <Button label={t('common.ok')} onPress={() => setDialog(null)} /> : <><Button label={t('common.cancel')} variant="secondary" onPress={() => setDialog(null)} /><Button label={t('common.report')} loading={report.isPending} onPress={() => report.mutate({ targetType: 'user', targetId: other?.id ?? 0, reason: `${t('bookingUi.report')} #${bookingId}` })} /></>} />
       <BottomSheet visible={sheet} onClose={() => setSheet(false)} title={t('booking.reschedule')}
         footer={<Button label={t('booking.reschedule')} full disabled={!slot} loading={resched.isPending} onPress={() => slot && resched.mutate(slot, { onSuccess: () => { setSheet(false); setSlot(null); } })} />}>
         <Text role="caption" tone="secondary">{t('bookingUi.rescheduleHint', { h: 24 })}</Text>

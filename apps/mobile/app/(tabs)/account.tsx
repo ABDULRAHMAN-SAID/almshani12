@@ -31,7 +31,9 @@ export default function Account() {
         <Avatar name={user.displayName} url={user.avatarUrl} size="xl" />
         <View style={styles.flex}>
           <Text role="h2" numberOfLines={1}>{user.displayName || t('ui.guest')}</Text>
-          {active?.gradeName ? <Text role="small" tone="secondary" numberOfLines={1}>{active.gradeName}{active.semesterName ? ` · ${active.semesterName}` : ''}</Text> : null}
+          {/* الصف يخصّ المتعلّم لا الحساب: وليّ الأمر يرى «تتابع: فلان» بدل صفّ ابنه تحت اسمه */}
+          {active?.isSelf && active.gradeName ? <Text role="small" tone="secondary" numberOfLines={1}>{active.gradeName}{active.semesterName ? ` · ${active.semesterName}` : ''}</Text>
+            : active && !active.isSelf ? <Text role="small" tone="secondary" numberOfLines={1}>{t('home.followingLearner', { name: active.displayName })}</Text> : null}
           <Text role="caption" tone="tertiary" tabular numberOfLines={1}>{user.phone ?? user.email}</Text>
         </View>
         <IconButton icon="edit" label={t('account.edit')} variant="soft" size={44} color={colors.brand.primary} onPress={() => router.push('/account/settings')} />

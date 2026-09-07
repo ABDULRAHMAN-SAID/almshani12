@@ -1,6 +1,7 @@
 /** عميل API للوحة الإدارة: رمز في localStorage، تجديد تلقائي عند 401، وأخطاء عربية من الخادم */
 const BASE = import.meta.env.VITE_API_URL || '';
-export class ApiError extends Error { constructor(public code: string, message: string, public status: number) { super(message); } }
+export type FieldError = { field: string; message: string };
+export class ApiError extends Error { constructor(public code: string, message: string, public status: number, public details?: FieldError[]) { super(message); } }
 
 export const session = {
   get access() { return localStorage.getItem('adm_access'); },
@@ -27,7 +28,7 @@ async function request<T>(method: string, path: string, body?: unknown, retry = 
   if (res.status === 401 && retry && await refresh()) return request<T>(method, path, body, false);
   const text = await res.text();
   const data = text ? JSON.parse(text) : null;
-  if (!res.ok) throw new ApiError(data?.error?.code ?? 'server_error', data?.error?.message ?? `HTTP ${res.status}`, res.status);
+  if (!res.ok) throw new ApiError(data?.error?.code ?? 'server_error', data?.error?.message ?? `HTTP ${res.status}`, res.status, data?.error?.details);
   return data as T;
 }
 const qs = (p?: Record<string, unknown>) => { const e = Object.entries(p ?? {}).filter(([, v]) => v !== undefined && v !== '' && v !== null); return e.length ? `?${new URLSearchParams(e.map(([k, v]) => [k, String(v)]))}` : ''; };

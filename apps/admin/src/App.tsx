@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Routes, Route, NavLink, Navigate, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, session } from './api';
 import type { Overview as OverviewT, AuthMethods, OtpVia, OtpDelivery, OtpRequestResult } from '@manassah/shared';
-import { useMe, can, Field, errMsg, STAFF } from './ui';
+import { useMe, can, Field, errMsg, STAFF, NoAccess, Page } from './ui';
 import Overview from './pages/Overview';
 import Teachers from './pages/Teachers';
 import Content from './pages/Content';
@@ -97,6 +97,8 @@ export default function App() {
   if (me.isLoading || !me.data) return <div className="empty">جارٍ التحميل…</div>;
   const u = me.data; const q: Partial<OverviewT['queues']> = overview.data?.queues ?? {};
   const item = (to: string, label: string, ok: boolean, count?: number) => ok ? <NavLink to={to} end={to === '/'}>{label}{count ? <span className="count">{count}</span> : null}</NavLink> : null;
+  /** حارس الدور: القسم الممنوع يعرض «لا تملك صلاحية» بدل قائمة فارغة أو 403 صامت */
+  const guard = (title: string, ok: boolean, el: ReactNode) => ok ? el : <Page title={title}><NoAccess /></Page>;
   return (
     <div className="layout">
       <aside className="side">
@@ -119,22 +121,22 @@ export default function App() {
       <main className="main">
         <Routes>
           <Route path="/" element={<Overview />} />
-          <Route path="/teachers" element={<Teachers me={u} />} />
-          <Route path="/teachers/:id" element={<TeacherPage me={u} />} />
-          <Route path="/teachers/:id/:tab" element={<TeacherPage me={u} />} />
-          <Route path="/content" element={<Content />} />
-          <Route path="/bookings" element={<Bookings me={u} />} />
-          <Route path="/orders" element={<Orders me={u} />} />
-          <Route path="/payouts" element={<Payouts />} />
-          <Route path="/coupons" element={<Coupons />} />
-          <Route path="/catalog" element={<Catalog me={u} />} />
-          <Route path="/users" element={<Users me={u} />} />
-          <Route path="/users/:id" element={<Person me={u} />} />
-          <Route path="/users/:id/:tab" element={<Person me={u} />} />
-          <Route path="/reports" element={<Reports />} />
-          <Route path="/settings" element={<Settings me={u} />} />
-          {can(u, 'admin') ? <Route path="/system" element={<System />} /> : null}
-          <Route path="/audit" element={<Audit />} />
+          <Route path="/teachers" element={guard('المعلّمون', can(u, 'support'), <Teachers me={u} />)} />
+          <Route path="/teachers/:id" element={guard('المعلّم', can(u, 'support', 'finance'), <TeacherPage me={u} />)} />
+          <Route path="/teachers/:id/:tab" element={guard('المعلّم', can(u, 'support', 'finance'), <TeacherPage me={u} />)} />
+          <Route path="/content" element={guard('مراجعة المحتوى', can(u, 'content_reviewer'), <Content me={u} />)} />
+          <Route path="/bookings" element={guard('الحجوزات', can(u, 'support', 'finance'), <Bookings me={u} />)} />
+          <Route path="/orders" element={guard('الطلبات والاسترجاع', can(u, 'finance', 'support'), <Orders me={u} />)} />
+          <Route path="/payouts" element={guard('سحوبات المعلّمين', can(u, 'finance'), <Payouts />)} />
+          <Route path="/coupons" element={guard('الكوبونات', can(u, 'finance'), <Coupons />)} />
+          <Route path="/catalog" element={guard('المنهج', can(u, 'admin', 'content_reviewer'), <Catalog me={u} />)} />
+          <Route path="/users" element={guard('المستخدمون', can(u, 'support'), <Users me={u} />)} />
+          <Route path="/users/:id" element={guard('صفحة الشخص', can(u, 'support', 'finance'), <Person me={u} />)} />
+          <Route path="/users/:id/:tab" element={guard('صفحة الشخص', can(u, 'support', 'finance'), <Person me={u} />)} />
+          <Route path="/reports" element={guard('البلاغات', can(u, 'support'), <Reports />)} />
+          <Route path="/settings" element={guard('الإعدادات والسياسات', can(u, 'finance', 'support'), <Settings me={u} />)} />
+          <Route path="/system" element={guard('الربط والخدمات', can(u, 'admin'), <System />)} />
+          <Route path="/audit" element={guard('سجلّ العمليات', can(u, 'admin'), <Audit />)} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

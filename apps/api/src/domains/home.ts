@@ -6,6 +6,7 @@ import { publicUrl } from '../services/storage.ts';
 import { unreadCount } from '../services/notifications.ts';
 import { bookCard, courseCard, teacherCard, bookingView } from '../services/mappers.ts';
 import { resolveLearner, learnerRef, countLearners } from '../services/learners.ts';
+import { arabicDate } from '../lib/helpers.ts';
 import type { BookingRow } from '../services/bookings.ts';
 
 /**
@@ -57,12 +58,12 @@ router.get('/', (req, res) => {
   const solvedProblems = q.all<any>(`SELECT * FROM books WHERE status = 'published' AND type IN ('solved_problems','exercises') ${gradeSql} ORDER BY ${subjPref} sales_count DESC LIMIT 8`, ...gradeArg).map(b => bookCard(b, bctx));
   // ٧) الأكثر طلباً (آخر ٣٠ يوماً من الشراء الفعلي؛ وإلا حسب المبيعات)
   const monthAgo = new Date(Date.now() - 30 * 86_400_000).toISOString();
-  let trending = q.all<any>(`SELECT b.*, COUNT(e.id) AS recent FROM books b JOIN entitlements e ON e.item_type = 'book' AND e.item_id = b.id AND e.created_at >= ? WHERE b.status = 'published' ${gradeSql.replace('grade_id', 'b.grade_id')} GROUP BY b.id ORDER BY recent DESC LIMIT 8`, monthAgo, ...gradeArg);
+  let trending = q.all<any>(`SELECT b.*, COUNT(e.id) AS recent FROM books b JOIN entitlements e ON e.item_type = 'book' AND e.item_id = b.id AND replace(e.created_at, ' ', 'T') >= ? WHERE b.status = 'published' ${gradeSql.replace('grade_id', 'b.grade_id')} GROUP BY b.id ORDER BY recent DESC LIMIT 8`, monthAgo, ...gradeArg);
   if (trending.length < 4) trending = q.all<any>(`SELECT * FROM books WHERE status = 'published' ${gradeSql} ORDER BY sales_count DESC, rating_avg DESC LIMIT 8`, ...gradeArg);
   // ٨) العروض: كوبونات عامة مفعّلة وموسومة featured
   const offers = q.all<any>("SELECT id, code, type, value, scope, ends_at FROM coupons WHERE active = 1 AND (starts_at IS NULL OR starts_at <= ?) AND (ends_at IS NULL OR ends_at >= ?)", nowIso(), nowIso())
     .filter(c => json<any>(c.scope, {}).featured)
-    .map(c => ({ id: c.id, title: json<any>(c.scope, {}).title ?? (c.type === 'percentage' ? `خصم ${c.value}٪` : `خصم ${c.value} ر.ع`), subtitle: c.ends_at ? `حتى ${c.ends_at.slice(0, 10)}` : null, code: c.code }));
+    .map(c => ({ id: c.id, title: json<any>(c.scope, {}).title ?? (c.type === 'percentage' ? `خصم ${c.value}٪` : `خصم ${c.value} ر.ع`), subtitle: c.ends_at ? `حتى ${arabicDate(c.ends_at)}` : null, code: c.code }));
 
   res.json({
     greeting: {

@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { TeacherAdminDetail, ReviewAdmin } from '@manassah/shared';
 import { api, money, when, day, pct, share } from '../api';
-import { Page, Empty, Badge, Tabs, Drawer, Field, Avatar, PersonLink, Kpi, STATUS_TONE, ar, useToast, errMsg, useConfirm, can, WEEKDAYS, type Me } from '../ui';
+import { Page, Empty, ErrorState, Badge, Tabs, Drawer, Field, Avatar, PersonLink, Kpi, STATUS_TONE, ar, useToast, errMsg, useConfirm, can, WEEKDAYS, type Me } from '../ui';
 import { DocumentsTab } from './teacher/DocumentsTab';
 import { EarningsTab } from './teacher/EarningsTab';
 import { StudentsTab } from './teacher/StudentsTab';
@@ -116,7 +116,7 @@ export default function TeacherPage({ me }: { me: Me }) {
   const q = useQuery({ queryKey: ['adm-teacher', id], queryFn: () => api.get<TeacherAdminDetail>(`/admin/teachers/${id}`), enabled: Number.isInteger(id) && id > 0 });
   const reviews = useQuery({ queryKey: ['adm-reviews', 'teacher', id], queryFn: () => api.get<ReviewAdmin[]>(`/admin/teachers/${id}/reviews`), enabled: tab === 'reviews' && can(me, 'support') });
   const d = q.data;
-  if (!d) return <Page title="صفحة المعلّم"><Empty text={q.isError ? errMsg(q.error) : 'جارٍ التحميل…'} /></Page>;
+  if (!d) return <Page title="صفحة المعلّم">{q.isError ? <ErrorState error={q.error} /> : <Empty text="جارٍ التحميل…" />}</Page>;
   const admin = can(me, 'admin'), fin = can(me, 'finance'), support = can(me, 'support');
   const pendingDocs = d.documents.filter(x => x.status === 'submitted').length;
   const tabs = [

@@ -122,11 +122,12 @@ export const TeacherApplication = z.object({
 });
 export type TeacherApplication = z.infer<typeof TeacherApplication>;
 
+/** الرفض والإيقاف يصلان للمعلّم — لذا سبب لا يقلّ عن ٣ أحرف شرطٌ في العقد لا في الواجهة وحدها */
 export const TeacherVerificationDecision = z.object({
   decision: z.enum(['under_review', 'verified', 'rejected', 'suspended']),
   reason: z.string().trim().max(500).nullable().optional(),
   commissionRate: z.number().min(0).max(0.9).optional(),
-});
+}).refine(d => !['rejected', 'suspended'].includes(d.decision) || (d.reason?.trim().length ?? 0) >= 3, { message: 'اذكر سبباً لا يقلّ عن ٣ أحرف', path: ['reason'] });
 
 export const TeacherDashboard = z.object({
   verificationStatus: VerificationStatus,
@@ -144,6 +145,8 @@ export const TeacherDashboard = z.object({
 export const TeacherEarnings = z.object({
   gross: Money, commission: Money, net: Money,
   pending: Money, available: Money, paid: Money,
+  /** طلبات سحب قيد المعالجة — خُصمت من «متاح للسحب» ولم تُصرف بعد */
+  requested: Money.optional(),
   breakdown: z.object({ lessons: Money, books: Money, courses: Money }),
   commissionRate: z.number(),
   minPayout: Money,

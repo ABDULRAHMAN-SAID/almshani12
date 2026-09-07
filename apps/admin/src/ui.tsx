@@ -22,6 +22,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return <ToastCtx.Provider value={setMsg}>{children}{msg ? <div className="toast" role="status">{msg}</div> : null}</ToastCtx.Provider>;
 }
 export const errMsg = (e: unknown) => e instanceof ApiError ? e.message : 'تعذّر إكمال العملية';
+/** تفاصيل 422 من الخادم كخريطة حقل ← رسالة، لتوضع تحت الحقل نفسه */
+export const fieldErrors = (e: unknown): Record<string, string> => e instanceof ApiError && e.details
+  ? Object.fromEntries(e.details.map(d => [d.field, d.message])) : {};
+/** 403 من الخادم — يُعرض كحالة صلاحية واضحة لا كقائمة فارغة */
+export const isForbidden = (e: unknown) => e instanceof ApiError && e.status === 403;
+export const NO_ACCESS = 'لا تملك صلاحية';
+export const NO_ACCESS_HINT = 'هذا القسم متاح لأدوار أخرى — راجع مدير النظام.';
 
 /* ---------- عناصر أساسية ---------- */
 export const Badge = ({ tone = '', children, title }: { tone?: string; children: ReactNode; title?: string }) => <span className={`badge ${tone}`} title={title}>{children}</span>;
@@ -34,8 +41,16 @@ export function Drawer({ title, onClose, children, footer }: { title: string; on
   useEffect(() => { const k = (e: KeyboardEvent) => e.key === 'Escape' && onClose(); window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k); }, [onClose]);
   return <><div className="drawer-bg" onClick={onClose} /><aside className="drawer" role="dialog" aria-modal><div className="dh"><h2>{title}</h2><button className="btn ghost sm" onClick={onClose}>إغلاق</button></div><div className="db">{children}</div>{footer ? <div className="df">{footer}</div> : null}</aside></>;
 }
-export const Field = ({ label, children, hint }: { label: string; children: ReactNode; hint?: string }) => <div className="field"><label>{label}</label>{children}{hint ? <span className="muted small">{hint}</span> : null}</div>;
-export const Empty = ({ text = 'لا بيانات' }: { text?: string }) => <div className="empty">{text}</div>;
+export const Field = ({ label, children, hint, error }: { label: string; children: ReactNode; hint?: string; error?: string | null }) => <div className="field"><label>{label}</label>{children}{error ? <span className="error">{error}</span> : hint ? <span className="muted small">{hint}</span> : null}</div>;
+export const Empty = ({ text = 'لا بيانات', hint, tone }: { text?: string; hint?: string; tone?: 'error' }) => (
+  <div className={`empty ${tone ?? ''}`}><div className={tone ? 'strong' : undefined}>{text}</div>{hint ? <div className="small" style={{ marginTop: 4 }}>{hint}</div> : null}</div>
+);
+/** خطأ جلب: 403 يظهر «لا تملك صلاحية» لا «لا بيانات» */
+export const ErrorState = ({ error }: { error: unknown }) => isForbidden(error)
+  ? <Empty text={NO_ACCESS} hint={NO_ACCESS_HINT} tone="error" />
+  : <Empty text={errMsg(error)} tone="error" />;
+/** قسم محجوب بالدور — يُعرض قبل إرسال أي طلب، بنفس نصّ 403 */
+export const NoAccess = () => <Empty text={NO_ACCESS} hint={NO_ACCESS_HINT} tone="error" />;
 export function Page({ title, sub, actions, children }: { title: string; sub?: string; actions?: ReactNode; children: ReactNode }) {
   return <div><div className="head"><div><h1>{title}</h1>{sub ? <div className="muted small">{sub}</div> : null}</div>{actions}</div>{children}</div>;
 }
@@ -58,14 +73,15 @@ export function Tabs({ tabs, value, onChange }: { tabs: { key: string; label: st
 
 /* ---------- جدول بيانات مع ترقيم «N من M» ---------- */
 export type Column<T> = { key: string; label: ReactNode; render: (row: T, i: number) => ReactNode; className?: string; hide?: boolean };
-export function DataTable<T>({ columns, rows, meta, onPage, loading, empty = 'لا بيانات', rowKey, rowClass, expand }: {
-  columns: Column<T>[]; rows: T[] | undefined; meta?: PageMeta | null; onPage?: (page: number) => void; loading?: boolean; empty?: string;
+export function DataTable<T>({ columns, rows, meta, onPage, loading, error, empty = 'لا بيانات', rowKey, rowClass, expand }: {
+  columns: Column<T>[]; rows: T[] | undefined; meta?: PageMeta | null; onPage?: (page: number) => void; loading?: boolean; error?: unknown; empty?: string;
   rowKey?: (row: T, i: number) => string | number; rowClass?: (row: T) => string; expand?: (row: T) => ReactNode;
 }) {
   const [open, setOpen] = useState<Set<string | number>>(new Set());
   const cols = columns.filter(c => !c.hide);
   const key = (r: T, i: number) => rowKey ? rowKey(r, i) : (r as { id?: number }).id ?? i;
   const toggle = (k: string | number) => setOpen(s => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n; });
+  if (error) return <ErrorState error={error} />;
   if (!rows?.length) return <Empty text={loading ? 'جارٍ التحميل…' : empty} />;
   return (
     <div className="tbl">

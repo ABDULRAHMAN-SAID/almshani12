@@ -14,5 +14,5 @@ export function StudentsTab({ teacherId }: { teacherId: number }) {
     { key: 'lessons', label: 'الحصص', className: 'num', render: r => r.lessons },
     { key: 'last', label: 'آخر حصة', className: 'num small', render: r => when(r.lastAt) },
   ];
-  return <div className="card"><DataTable columns={cols} rows={s.data?.data} meta={s.data?.meta} onPage={setPage} loading={s.isLoading} rowKey={r => `${r.account.id}-${r.learner.id}`} empty="لا طلاب بعد" /></div>;
+  return <div className="card"><DataTable columns={cols} rows={s.data?.data} error={s.error} meta={s.data?.meta} onPage={setPage} loading={s.isLoading} rowKey={r => `${r.account.id}-${r.learner.id}`} empty="لا طلاب بعد" /></div>;
 }

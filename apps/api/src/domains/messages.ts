@@ -5,6 +5,7 @@ import { db, q, nowIso } from '../db/index.ts';
 import { AppError, notFound, forbidden, badRequest } from '../lib/errors.ts';
 import { validate, body, idParam } from '../lib/validate.ts';
 import { requireAuth } from '../lib/auth.ts';
+import { iso } from '../lib/helpers.ts';
 import { signedUrl } from '../services/storage.ts';
 import { publicUrlFromPath } from '../services/mappers.ts';
 import { notify } from '../services/notifications.ts';
@@ -31,12 +32,12 @@ const convView = (c: any, viewerId: number) => {
   }
   return {
     id: c.id, other: { id: otherId, name: other?.display_name ?? '', avatarUrl: publicUrlFromPath(other?.avatar_path), role: c.student_id === viewerId ? 'teacher' : 'student' },
-    lastMessage: last ? (last.kind === 'text' ? last.body : last.kind === 'image' ? '📎 صورة' : '📎 ملف') : null, lastAt: c.last_message_at, unread, context,
+    lastMessage: last ? (last.kind === 'text' ? last.body : last.kind === 'image' ? '📎 صورة' : '📎 ملف') : null, lastAt: iso(c.last_message_at), unread, context,
   };
 };
 const msgView = (m: any, viewerId: number) => ({
   id: m.id, conversationId: m.conversation_id, senderId: m.sender_id, kind: m.kind, body: m.body,
-  fileUrl: m.file_id ? signedUrl(m.file_id, viewerId).url : null, replyToId: m.reply_to_id, createdAt: m.created_at,
+  fileUrl: m.file_id ? signedUrl(m.file_id, viewerId).url : null, replyToId: m.reply_to_id, createdAt: iso(m.created_at),
 });
 
 router.get('/', (req, res) => {
@@ -76,7 +77,8 @@ router.get('/:id/messages', (req, res) => {
   const uid = req.user!.id;
   const before = Number(req.query.before) || null;
   const rows = q.all<any>(`SELECT * FROM messages WHERE conversation_id = ? ${before ? 'AND id < ?' : ''} ORDER BY id DESC LIMIT 50`, ...(before ? [c.id, before] : [c.id])).reverse();
-  q.run('UPDATE messages SET read_at = ? WHERE conversation_id = ? AND sender_id <> ? AND read_at IS NULL', nowIso(), c.id, uid);
+  // التطبيق يستطلع كل بضع ثوانٍ: لا نفتح معاملة كتابة إلا إذا كان هناك غير مقروء فعلاً
+  if (rows.some(m => m.sender_id !== uid && !m.read_at)) q.run('UPDATE messages SET read_at = ? WHERE conversation_id = ? AND sender_id <> ? AND read_at IS NULL', nowIso(), c.id, uid);
   res.json(rows.map(m => msgView(m, uid)));
 });
 router.post('/:id/messages', validate(SendMessage), (req, res) => {

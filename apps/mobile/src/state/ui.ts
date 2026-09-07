@@ -3,6 +3,8 @@ import { Platform } from 'react-native';
 import type { BooksQuery, TeachersQuery } from '@manassah/shared';
 import { z } from 'zod';
 import { readPrefs, readPrefsSync, patchPrefs } from '@/lib/prefs';
+import { applyLocale, storedLocale } from '@/i18n';
+import type { Locale } from '@manassah/shared';
 
 type BookFilters = Partial<z.infer<typeof BooksQuery>>;
 type TeacherFilters = Partial<z.infer<typeof TeachersQuery>>;
@@ -18,6 +20,8 @@ interface UiState {
   textScale: TextScale;
   /** عنوان خادم مخصّص (https://…) — فارغ = الإعداد الافتراضي للبناء */
   serverUrl: string;
+  /** لغة الواجهة — تُحفَظ محلياً فتصمد عبر إعادة التحميل وإقلاع التطبيق */
+  locale: Locale;
   /** هل قُرئت التفضيلات المحفوظة؟ (فوري على الويب، غير متزامن على الجوال) */
   hydrated: boolean;
   /** رسالة عابرة أسفل الشاشة (انتهاء الجلسة، حدّ المتعلّمين…) — تختفي وحدها */
@@ -30,13 +34,15 @@ interface UiState {
   setThemePref: (t: ThemePref) => void;
   setTextScale: (s: TextScale) => void;
   setServerUrl: (u: string) => void;
+  setLocale: (l: Locale) => void;
 }
 
-const PREF_KEYS = ['themePref', 'textScale', 'serverUrl'] as const;
+const PREF_KEYS = ['themePref', 'textScale', 'serverUrl', 'locale'] as const;
 const fromPrefs = (p: Record<string, unknown>) => ({
   themePref: (['light', 'dark', 'system'].includes(String(p.themePref)) ? p.themePref : 'system') as ThemePref,
   textScale: (p.textScale === 1.15 ? 1.15 : 1) as TextScale,
   serverUrl: typeof p.serverUrl === 'string' ? p.serverUrl : '',
+  locale: storedLocale(p),
 });
 const initial = { ...fromPrefs(readPrefsSync()), hydrated: Platform.OS === 'web' };
 
@@ -57,6 +63,7 @@ export const useUi = create<UiState>((set, get) => {
     setThemePref: (themePref) => { set({ themePref }); persist(); },
     setTextScale: (textScale) => { set({ textScale }); persist(); },
     setServerUrl: (u) => { set({ serverUrl: u.trim().replace(/\/+$/, '') }); persist(); },
+    setLocale: (locale) => { set({ locale }); persist(); applyLocale(locale); },
   };
 });
 
@@ -64,4 +71,5 @@ export const useUi = create<UiState>((set, get) => {
 export async function hydratePrefs(): Promise<void> {
   const p = await readPrefs();
   useUi.setState({ ...(Object.keys(p).length ? fromPrefs(p) : {}), hydrated: true });
+  applyLocale(useUi.getState().locale);
 }

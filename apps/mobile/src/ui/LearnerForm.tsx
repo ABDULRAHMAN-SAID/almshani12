@@ -50,6 +50,12 @@ export function LearnerForm({ initial, mode, showSelfToggle, isSelf: fixedSelf, 
   const sameGrade = (id: number) => others.find(l => l.gradeId === id);
 
   const canSubmit = name.trim().length >= 2 && !!gradeId && !!semesterId && subjects.length > 0 && !!curriculum && !busy;
+  const missing = [
+    name.trim().length >= 2 ? null : t('onboarding.yourName'),
+    gradeId ? null : t('common.grade'),
+    semesterId ? null : t('common.semester'),
+    subjects.length > 0 ? null : t('common.subject'),
+  ].filter(Boolean) as string[];
   const submit = () => {
     if (!canSubmit || !curriculum) return;
     onSubmit({ displayName: name.trim(), gender, isSelf: mode === 'edit' ? undefined : (selfToggle ? isSelf : fixedSelf ?? false), curriculumId: curriculum.id, gradeId: gradeId!, semesterId: semesterId!, subjectIds: subjects, school: school.trim() || null });
@@ -108,6 +114,8 @@ export function LearnerForm({ initial, mode, showSelfToggle, isSelf: fixedSelf, 
         <Input label={t('learners.school')} value={school} onChangeText={setSchool} placeholder={t('account.school')} maxLength={120} />
       </View>
       {error ? <Text role="small" tone="danger">{t(errorMessageKey(error))}</Text> : null}
+      {/* الزرّ المعطّل بلا سبب محيّر — نسمّي ما ينقص (الفصل الدراسي أشيع ما يُنسى) */}
+      {!canSubmit && !busy ? <Text role="caption" tone="tertiary" center>{t('learners.missingFields', { fields: missing.join('، ') })}</Text> : null}
       <Button label={submitLabel} onPress={submit} loading={busy} disabled={!canSubmit} size="lg" full />
     </View>
   );

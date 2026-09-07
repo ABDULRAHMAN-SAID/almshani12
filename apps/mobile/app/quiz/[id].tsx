@@ -8,7 +8,7 @@ import type { QuizResult } from '@manassah/shared';
 import { Screen, Text, Icon, Button, Input, Card, Badge, EmptyState } from '@/ui';
 import { useQuiz, useSubmitQuiz, useLessonProgress } from '@/features/queries';
 import { ApiError, errorMessageKey } from '@/api/client';
-import { durationLabel } from '@/lib/format';
+import { durationLabel, mmss } from '@/lib/format';
 
 type Answer = number[] | string;
 
@@ -16,11 +16,12 @@ type Answer = number[] | string;
 export default function Quiz() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { id, lessonId } = useLocalSearchParams<{ id: string; lessonId?: string }>();
+  const { id, lessonId, courseId } = useLocalSearchParams<{ id: string; lessonId?: string; courseId?: string }>();
   const quizId = Number(id);
   const q = useQuiz(quizId);
   const submit = useSubmitQuiz(quizId);
-  const progress = useLessonProgress(0);
+  // معرّف الدورة يأتي من شاشة الدرس — بدونه كان الإبطال يستهدف ['course', 0] فلا يتحدّث شيء
+  const progress = useLessonProgress(Number(courseId) || 0);
   const [started, setStarted] = useState(false);
   const [i, setI] = useState(0);
   const [answers, setAnswers] = useState<Record<string, Answer>>({});
@@ -68,7 +69,7 @@ export default function Quiz() {
         <View style={styles.wrap}>
           <View style={styles.meta}>
             <View style={styles.track}><View style={[styles.fill, { width: `${((i + 1) / qs.length) * 100}%` }]} /></View>
-            {quiz?.timeLimitSeconds ? <Text role="caption" tone={left < 30 ? 'danger' : 'secondary'} tabular>{t('quiz.timeLeft')}: {durationLabel(left)}</Text> : null}
+            {quiz?.timeLimitSeconds ? <Text role="caption" tone={left < 30 ? 'danger' : 'secondary'} tabular>{t('quiz.timeLeft')}: {mmss(left)}</Text> : null}
           </View>
           <Card>
             <Text role="caption" tone="tertiary">{cur.topicTag ?? ''}</Text>

@@ -1,5 +1,4 @@
-import { Router } from 'express';
-import multer from 'multer';
+import { Router, type Request, type Response, type NextFunction } from 'express';
 import { z } from 'zod';
 import { BooksQuery, BookUpsert, ReaderProgress, BookmarkToggle } from '@manassah/shared';
 import { config } from '../config.ts';
@@ -7,9 +6,9 @@ import { db, q, json, nowIso } from '../db/index.ts';
 import { AppError, asyncHandler, notFound, forbidden, badRequest } from '../lib/errors.ts';
 import { validate, body, query, idParam } from '../lib/validate.ts';
 import { attachUser, requireAuth, requireVerifiedTeacher, hasRole } from '../lib/auth.ts';
-import { paginate, pageMeta, money } from '../lib/helpers.ts';
+import { paginate, pageMeta, money, iso } from '../lib/helpers.ts';
 import { checkAccess, ownedIds, favoriteIds } from '../services/access.ts';
-import { signedUrl, storeFile, publicUrl } from '../services/storage.ts';
+import { signedUrl, upload, storeUpload, publicUrl } from '../services/storage.ts';
 import { bookCard, reviewItems } from '../services/mappers.ts';
 import { notifyStaff } from '../services/notifications.ts';
 
@@ -40,8 +39,9 @@ router.get('/', attachUser, validate(BooksQuery, 'query'), (req, res) => {
 
 /** كتب المعلّم نفسه (كل الحالات) */
 router.get('/mine', requireAuth, (req, res) => {
-  const rows = q.all<any>('SELECT * FROM books WHERE author_id = ? ORDER BY id DESC', req.user!.id);
-  res.json(rows.map(b => ({ ...bookCard(b, { userId: req.user!.id }), status: b.status, rejectReason: b.reject_reason, hasFile: !!q.get("SELECT 1 FROM book_files WHERE book_id = ? AND kind = 'full'", b.id) })));
+  const rows = q.all<any>('SELECT * FROM books WHERE author_id = ? ORDER BY id DESC LIMIT 200', req.user!.id);
+  const mineCtx = { userId: req.user!.id, owned: ownedIds(req.user!.id, 'book'), fav: favoriteIds(req.user!.id, 'book') };
+  res.json(rows.map(b => ({ ...bookCard(b, mineCtx), status: b.status, rejectReason: b.reject_reason, hasFile: !!q.get("SELECT 1 FROM book_files WHERE book_id = ? AND kind = 'full'", b.id) })));
 });
 
 /* ---------- صفحة الكتاب ---------- */
@@ -51,7 +51,8 @@ router.get('/:id', attachUser, (req, res) => {
   const b = q.get<any>('SELECT * FROM books WHERE id = ?', id);
   const staff = hasRole(req.user, 'content_reviewer');
   if (!b || (b.status !== 'published' && b.author_id !== uid && !staff)) throw notFound('الكتاب غير موجود');
-  const card = bookCard(b, { userId: uid });
+  const ctx = { userId: uid, owned: ownedIds(uid, 'book'), fav: favoriteIds(uid, 'book') };
+  const card = bookCard(b, ctx);
   const samples = q.all<{ file_id: number }>("SELECT file_id FROM book_files WHERE book_id = ? AND kind = 'sample_page' ORDER BY \"order\"", id);
   const similar = q.all<any>("SELECT * FROM books WHERE status = 'published' AND id <> ? AND subject_id = ? AND grade_id = ? ORDER BY sales_count DESC LIMIT 6", id, b.subject_id, b.grade_id);
   const byAuthor = q.all<any>("SELECT * FROM books WHERE status = 'published' AND id <> ? AND author_id = ? ORDER BY sales_count DESC LIMIT 6", id, b.author_id);
@@ -61,10 +62,10 @@ router.get('/:id', attachUser, (req, res) => {
     ...card,
     description: b.description, learnPoints: json<string[]>(b.learn_points, []),
     toc: q.all<any>('SELECT title, page FROM book_toc WHERE book_id = ? ORDER BY "order", id', id),
-    pages: b.pages, edition: b.edition, version: b.version, updatedAt: b.updated_at, language: b.language, level: b.level,
+    pages: b.pages, edition: b.edition, version: b.version, updatedAt: iso(b.updated_at), language: b.language, level: b.level,
     previewPages: b.preview_pages,
     samplePageUrls: samples.map(s => signedUrl(s.file_id, uid ?? 0, 3600).url),
-    reviews: reviewItems('book', id), similar: similar.map(x => bookCard(x, { userId: uid })), byAuthor: byAuthor.map(x => bookCard(x, { userId: uid })),
+    reviews: reviewItems('book', id), similar: similar.map(x => bookCard(x, ctx)), byAuthor: byAuthor.map(x => bookCard(x, ctx)),
     canReview, status: b.status,
   });
 });
@@ -147,22 +148,22 @@ router.patch('/:id', requireVerifiedTeacher, validate(BookUpsert), (req, res) =>
   res.json({ ...bookCard(b, { userId: req.user!.id }), status: b.status });
 });
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: config.uploads.maxSizeMb * 1024 * 1024 } });
-/** رفع ملفات الكتاب: full / preview / sample_page (خاصة) أو cover (عامة) */
-router.post('/:id/files', requireVerifiedTeacher, upload.single('file'), asyncHandler(async (req, res) => {
+/** رفع ملفات الكتاب: full / preview / sample_page (خاصة) أو cover (عامة) — غلاف صغير وملف كتاب أكبر */
+const uploadBookFile = (req: Request, res: Response, next: NextFunction) => upload(String(req.query.kind ?? '') === 'cover' ? 8 : 60)(req, res, next);
+router.post('/:id/files', requireVerifiedTeacher, uploadBookFile, asyncHandler(async (req, res) => {
   const b = ownBook(req);
   const kind = String(req.query.kind ?? req.body?.kind ?? '');
   if (!req.file) throw badRequest('لم يُرفق ملف');
   if (kind === 'cover') {
     if (!req.file.mimetype.startsWith('image/')) throw badRequest('الغلاف يجب أن يكون صورة');
-    const f = storeFile(req.file.buffer, { ownerId: req.user!.id, originalName: req.file.originalname, mime: req.file.mimetype, purpose: 'cover', visibility: 'public' });
+    const f = storeUpload(req.file, { ownerId: req.user!.id, purpose: 'cover', visibility: 'public' });
     q.run('UPDATE books SET cover_file_id = ?, updated_at = ? WHERE id = ?', f.id, nowIso(), b.id);
     return res.status(201).json({ fileId: f.id, url: publicUrl(f.id) });
   }
   if (!['full', 'preview', 'sample_page'].includes(kind)) throw badRequest('نوع الملف غير معروف');
   const okMime = kind === 'sample_page' ? /^(image\/|application\/pdf)/ : /^application\/pdf$/;
   if (!okMime.test(req.file.mimetype)) throw badRequest('الملف يجب أن يكون PDF');
-  const f = storeFile(req.file.buffer, { ownerId: req.user!.id, originalName: req.file.originalname, mime: req.file.mimetype, purpose: 'book', visibility: 'private' });
+  const f = storeUpload(req.file, { ownerId: req.user!.id, purpose: 'book', visibility: 'private' });
   if (kind !== 'sample_page') q.run('DELETE FROM book_files WHERE book_id = ? AND kind = ?', b.id, kind);
   const order = (q.val<number>('SELECT COALESCE(MAX("order"),0) FROM book_files WHERE book_id = ?', b.id) ?? 0) + 1;
   q.run('INSERT INTO book_files (book_id, kind, file_id, "order") VALUES (?,?,?,?)', b.id, kind, f.id, order);

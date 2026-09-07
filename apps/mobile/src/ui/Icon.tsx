@@ -1,5 +1,6 @@
 import { I18nManager, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+// استيراد العائلة مباشرة: فهرس @expo/vector-icons يُصدّر كل العائلات فتُحزَم خرائط رموزها كلها في الحزمة
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors } from '@manassah/tokens';
 
 /** نظام أيقونات موحّد — أسماء دلالية تُترجَم إلى Ionicons في مكان واحد */
@@ -14,7 +15,7 @@ export const ICONS = {
   cameraOff: 'videocam-off-outline', speaker: 'volume-high-outline', chat: 'chatbubble-outline', hand: 'hand-right-outline',
   people: 'people-outline', board: 'easel-outline', share: 'share-social-outline', leave: 'exit-outline',
   book: 'book-outline', bookFilled: 'book', teacher: 'school-outline', solve: 'calculator-outline', quiz: 'help-circle-outline',
-  play: 'play', pause: 'pause', bookmark: 'bookmark-outline', bookmarkFilled: 'bookmark', list: 'list-outline',
+  play: 'play', pause: 'pause', bookmark: 'bookmark-outline', bookmarkFilled: 'bookmark', list: 'list-outline', more: 'ellipsis-horizontal',
   settings: 'settings-outline', language: 'language-outline', support: 'help-buoy-outline', logout: 'log-out-outline',
   wallet: 'wallet-outline', receipt: 'receipt-outline', progress: 'stats-chart-outline', message: 'mail-outline',
   lock: 'lock-closed-outline', wifi: 'wifi-outline', wifiOff: 'cloud-offline-outline', warning: 'alert-circle-outline',

@@ -32,7 +32,7 @@ export function AuditTable({ params = {}, limit = 50, filters }: { params?: Reco
           <span className="muted small">{list.data?.meta.total ?? 0} عملية</span>
         </div>
       ) : null}
-      <div className="card"><DataTable columns={cols} rows={list.data?.data} meta={list.data?.meta} onPage={setPage} loading={list.isLoading} empty="لا عمليات مسجّلة بعد" /></div>
+      <div className="card"><DataTable columns={cols} rows={list.data?.data} error={list.error} meta={list.data?.meta} onPage={setPage} loading={list.isLoading} empty="لا عمليات مسجّلة بعد" /></div>
     </>
   );
 }

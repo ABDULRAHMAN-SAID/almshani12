@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import * as Clipboard from 'expo-clipboard';
 import { colors, spacing, radius, shadow, subjectColors, themed } from '@manassah/tokens';
 import type { z } from 'zod';
-import type { ContinueItem } from '@manassah/shared';
+import { brand, type ContinueItem } from '@manassah/shared';
 import { Screen, Text, Icon, Button, Card, Avatar, SectionHeader, BookCard, TeacherCard, CourseCard, LessonCard, HeaderActions, LearnerSwitcher, type IconName } from '@/ui';
 import { useHome, useQuickQuiz } from '@/features/queries';
 import { useAuth, useActiveLearner, showSwitcher, isTeacher } from '@/state/auth';
@@ -25,8 +25,11 @@ export default function Home() {
   const active = useActiveLearner();
   const switcher = showSwitcher(user);
   const noLearner = !!user && user.learners.length === 0 && !isTeacher(user);
-  const hour = new Date().getHours();
-  const greeting = t(hour < 12 ? 'home.greetingMorning' : 'home.greetingEvening', { name: d?.greeting.name || user?.displayName || '' });
+  // ساعة مسقط لا ساعة الجهاز — بقيّة الأوقات في التطبيق كلها بتوقيت المنصّة
+  const hour = Number(new Intl.DateTimeFormat('en-GB', { hour: '2-digit', hour12: false, timeZone: brand.timezone }).format(new Date()));
+  const name = d?.greeting.name || user?.displayName || '';
+  // حساب بلا اسم بعد: تحيّة بلا فاصلة معلّقة
+  const greeting = name ? t(hour < 12 ? 'home.greetingMorning' : 'home.greetingEvening', { name }) : t(hour < 12 ? 'home.greetingMorningPlain' : 'home.greetingEveningPlain');
 
   const tiles: { key: string; icon: IconName; label: string; bg: string; fg: string; onPress: () => void }[] = [
     { key: 'teacher', icon: 'schoolSolid', label: t('home.quick.bookTeacher'), bg: colors.brand.primarySoft, fg: colors.brand.primary, onPress: () => router.push('/teachers') },
@@ -86,7 +89,8 @@ export default function Home() {
       <View style={[styles.px, styles.section]}>
         <SectionHeader title={t('home.nextLesson')} onSeeAll={d?.nextLesson ? () => router.push('/(tabs)/lessons') : undefined} />
         {d?.nextLesson ? (
-          <LessonCard booking={d.nextLesson} hero onPress={() => router.push(`/lesson/${d.nextLesson!.id}`)} onJoin={() => router.push(`/lesson/${d.nextLesson!.id}/precall`)} />
+          /* الحصة القادمة قد تكون حصة يُدرّسها صاحب الحساب — عندها الطرف الآخر هو الطالب لا هو نفسه */
+          <LessonCard booking={d.nextLesson} hero asTeacher={d.nextLesson.teacher.id === user?.id} onPress={() => router.push(`/lesson/${d.nextLesson!.id}`)} onJoin={() => router.push(`/lesson/${d.nextLesson!.id}/precall`)} />
         ) : (
           <Card>
             <View style={styles.emptyLesson}>

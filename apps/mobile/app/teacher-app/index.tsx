@@ -13,13 +13,15 @@ export default function TeacherDashboard() {
   const { t } = useTranslation();
   const router = useRouter();
   const q = useTeacherMe();
-  const students = useTeacherStudents();
+  const d = q.data;
+  const verified = d?.verificationStatus === 'verified';
+  // /teacher/students للمعلّم المعتمد فقط — لا نطلبه قبل الاعتماد (403 على كل فتح للوحة)
+  const students = useTeacherStudents(verified);
   const [showStudents, setShowStudents] = useState(false);
   const notApplied = q.error instanceof ApiError && q.error.status === 404;
   useEffect(() => { if (notApplied) router.replace('/teacher-app/apply'); }, [notApplied, router]);
-  const d = q.data;
   const status = d?.verificationStatus;
-  const verified = status === 'verified';
+  const openLessons = () => router.push({ pathname: '/(tabs)/lessons', params: { as: 'teacher' } });
   const tile = (icon: IconName, label: string, value: string, onPress?: () => void) => <Card key={label} style={styles.tile} onPress={onPress}><Icon name={icon} size={18} color={colors.brand.primary} /><Text role="h2" tabular>{value}</Text><Text role="caption" tone="secondary">{label}</Text></Card>;
 
   return (
@@ -28,17 +30,17 @@ export default function TeacherDashboard() {
         <View style={styles.wrap}>
           <Card accent={verified} rail={!verified ? colors.state.warning : undefined}>
             <View style={styles.statusRow}>
-              <View style={styles.flex}><Text role="h3">{t(`teacherUi.status.${status}`)}</Text>
-                <Text role="small" tone="secondary">{status === 'pending' || status === 'under_review' ? t('teachers.pendingBody') : status === 'rejected' ? `${t('teacherUi.rejectedReason')}: ${d.lastDecision?.reason ?? '—'}` : status === 'suspended' ? (d.lastDecision?.reason ?? '') : t('teacherUi.commissionNote', { p: 20 })}</Text></View>
+              {/* الحالة تُقال مرة واحدة في الشارة؛ النصّ يشرحها بدل تكرارها */}
+              <View style={styles.flex}><Text role="body">{status === 'pending' || status === 'under_review' ? t('teachers.pendingBody') : status === 'rejected' ? `${t('teacherUi.rejectedReason')}: ${d.lastDecision?.reason ?? '—'}` : status === 'suspended' ? (d.lastDecision?.reason ?? '') : t('teacherUi.commissionNote', { p: 20 })}</Text></View>
               <Badge label={t(`teacherUi.status.${status}`)} tone={verified ? 'success' : status === 'rejected' || status === 'suspended' ? 'danger' : 'warning'} />
             </View>
             {status === 'rejected' ? <Button label={t('teacherUi.reapply')} variant="secondary" size="sm" onPress={() => router.push('/teacher-app/apply')} style={styles.mt} /> : null}
           </Card>
           <View style={styles.grid}>
             {tile('wallet', t('teacherApp.monthIncome'), money(d.monthIncome), () => router.push('/teacher-app/earnings'))}
-            {tile('video', t('teacherApp.todayLessons'), String(d.todayLessons), () => router.push('/(tabs)/lessons'))}
-            {tile('calendar', t('teacherApp.upcoming'), String(d.upcomingLessons), () => router.push('/(tabs)/lessons'))}
-            {tile('people', t('teacherApp.students'), String(d.studentsCount), () => setShowStudents(true))}
+            {tile('video', t('teacherApp.todayLessons'), String(d.todayLessons), () => openLessons())}
+            {tile('calendar', t('teacherApp.upcoming'), String(d.upcomingLessons), () => openLessons())}
+            {tile('people', t('teacherApp.students'), String(d.studentsCount), verified ? () => setShowStudents(true) : undefined)}
             {tile('star', t('teacherApp.rating'), d.ratingAvg ? d.ratingAvg.toFixed(1) : '—')}
             {tile('receipt', t('teacherApp.balance'), money(d.availableBalance), () => router.push('/teacher-app/earnings'))}
             {tile('book', t('teacherApp.booksSold'), String(d.booksSold), () => router.push('/teacher-app/books'))}
@@ -48,9 +50,8 @@ export default function TeacherDashboard() {
             <Button label={t('teacherApp.availability')} icon="calendar" variant="secondary" full disabled={!verified} onPress={() => router.push('/teacher-app/availability')} />
             <Button label={t('teacherApp.earnings')} icon="wallet" variant="secondary" full onPress={() => router.push('/teacher-app/earnings')} />
             <Button label={t('teacherApp.quick.uploadBook')} icon="upload" variant="secondary" full disabled={!verified} onPress={() => router.push('/teacher-app/books')} />
-            <Button label={t('teacherUi.myLessons')} icon="video" variant="secondary" full onPress={() => router.push('/(tabs)/lessons')} />
+            <Button label={t('teacherUi.myLessons')} icon="video" variant="secondary" full onPress={openLessons} />
           </View>
-          {!verified ? <Text role="caption" tone="tertiary" center>{t('teachers.pending')}</Text> : null}
         </View>
       ) : null}
       <BottomSheet visible={showStudents} onClose={() => setShowStudents(false)} title={t('teacherUi.students')}>

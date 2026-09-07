@@ -26,9 +26,19 @@ export default function Teachers({ me }: { me: Me }) {
   const list = useQuery({ queryKey: ['adm-teachers', status, dq, subjectId, gradeId, minRating, sort, page], queryFn: () => api.get<{ data: TeacherAdminRow[]; meta: PageMeta }>('/admin/teachers', { status: status || undefined, q: dq || undefined, subjectId: subjectId || undefined, gradeId: gradeId || undefined, minRating: minRating || undefined, sort, page, limit: 30 }) });
   const detail = useQuery({ queryKey: ['adm-teacher', open], queryFn: () => api.get<TeacherAdminDetail>(`/admin/teachers/${open}`), enabled: !!open });
   const decide = useMutation({ mutationFn: (b: { decision: string; reason?: string | null; commissionRate?: number }) => api.post(`/admin/teachers/${open}/decision`, b), onSuccess: () => { toast('تم تسجيل القرار'); qc.invalidateQueries({ queryKey: ['adm-teachers'] }); qc.invalidateQueries({ queryKey: ['adm-teacher', open] }); qc.invalidateQueries({ queryKey: ['overview'] }); }, onError: e => toast(errMsg(e)) });
-  const suspend = async () => { const r = await confirm({ title: 'إيقاف المعلّم', body: 'إيقاف المعلّم يلغي حصصه القادمة ويعيد المبالغ للطلاب.', danger: true, confirmLabel: 'إيقاف' }); if (r) decide.mutate({ decision: 'suspended', reason }); };
-  const reset = (f: () => void) => { f(); setPage(1); };
   const d = detail.data;
+  // نسبة العمولة: كسر بين ٠ و٠٫٩ — «abc» لا تصل للخادم لتعود ٤٢٢ عامّة
+  const rateErr = rate.trim() && !(Number.isFinite(Number(rate)) && Number(rate) >= 0 && Number(rate) <= 0.9) ? 'نسبة العمولة كسر بين 0 و 0.9 (مثال 0.15)' : null;
+  // القرارات السالبة لا تنفَّذ بنقرة واحدة: تأكيد + سبب يصل للمعلّم (٣ أحرف على الأقل)
+  const suspend = async () => { const r = await confirm({ title: 'إيقاف المعلّم', body: 'إيقاف المعلّم يلغي حصصه القادمة ويعيد المبالغ للطلاب، ويصل السبب إليه.', reasonRequired: true, reasonLabel: 'سبب الإيقاف (يصل للمعلّم)', danger: true, confirmLabel: 'إيقاف' }); if (r) decide.mutate({ decision: 'suspended', reason: r.reason }); };
+  const reject = async () => { const r = await confirm({ title: `رفض طلب ${d?.name ?? 'المعلّم'}`, body: 'يصل السبب للمعلّم ويُطلب منه إعادة التقديم — لا يمكن التراجع تلقائياً.', reasonRequired: true, reasonLabel: 'سبب الرفض (يصل للمعلّم)', danger: true, confirmLabel: 'رفض' }); if (r) decide.mutate({ decision: 'rejected', reason: r.reason }); };
+  const review = async () => { const r = await confirm({ title: 'تحويل إلى «قيد المراجعة»', body: 'يبقى الطلب في الطابور ولا يُعلَن للمعلّم قرار نهائي.', confirmLabel: 'تحويل' }); if (r) decide.mutate({ decision: 'under_review', reason: reason.trim() || null }); };
+  const approve = async () => {
+    if (rateErr) return toast(rateErr);
+    const r = await confirm({ title: `اعتماد ${d?.name ?? 'المعلّم'}`, body: `يصير المعلّم معتمداً ويظهر للطلاب${rate.trim() ? ` — العمولة ${Math.round(Number(rate) * 100)}٪` : ''}.`, confirmLabel: 'اعتماد' });
+    if (r) decide.mutate({ decision: 'verified', reason: reason.trim() || null, commissionRate: rate.trim() ? Number(rate) : undefined });
+  };
+  const reset = (f: () => void) => { f(); setPage(1); };
   const cols: Column<TeacherAdminRow>[] = [
     { key: 'name', label: 'المعلّم', render: t => <span className="row" style={{ gap: 8, flexWrap: 'nowrap' }}><Avatar url={t.avatarUrl} name={t.name} size={30} /><span><b><TeacherLink id={t.id} name={t.name} /></b><div className="muted small num">{t.phone ?? t.email}</div></span></span> },
     { key: 'spec', label: 'التخصّص', render: t => t.specialty ?? t.headline ?? '—' },
@@ -50,7 +60,7 @@ export default function Teachers({ me }: { me: Me }) {
         <select value={sort} onChange={e => reset(() => setSort(e.target.value))} style={{ minWidth: 140 }}><option value="queue">طابور المراجعة</option><option value="rating_desc">الأعلى تقييماً</option><option value="lessons_desc">الأكثر حصصاً</option><option value="applied_desc">الأحدث تقديماً</option><option value="name">الاسم</option></select>
         <span className="muted small">{list.data?.meta.total ?? 0} معلّم</span>
       </div>
-      <div className="card"><DataTable columns={cols} rows={list.data?.data} meta={list.data?.meta} onPage={setPage} loading={list.isLoading} empty="لا معلّمين في هذه الحالة" /></div>
+      <div className="card"><DataTable columns={cols} rows={list.data?.data} meta={list.data?.meta} onPage={setPage} loading={list.isLoading} error={list.error} empty="لا معلّمين في هذه الحالة" /></div>
       {open ? (
         <Modal title={d?.name ?? '…'} onClose={() => setOpen(null)}>
           {d ? (<>
@@ -68,12 +78,12 @@ export default function Teachers({ me }: { me: Me }) {
             {can(me, 'admin') ? (
               <div className="card" style={{ marginTop: 16, background: 'var(--bg-2)' }}>
                 <h3>القرار</h3>
-                <div className="grid grid-2"><Field label="السبب (يصل للمعلّم عند الرفض/الإيقاف)"><input value={reason} onChange={e => setReason(e.target.value)} /></Field><Field label="نسبة العمولة (اختياري، مثال 0.15)"><input value={rate} onChange={e => setRate(e.target.value)} inputMode="decimal" /></Field></div>
+                <div className="grid grid-2"><Field label="ملاحظة داخلية (تُسجَّل مع الاعتماد/المراجعة)" hint="سبب الرفض أو الإيقاف يُطلب في نافذة التأكيد"><input value={reason} onChange={e => setReason(e.target.value)} /></Field><Field label="نسبة العمولة (اختياري، مثال 0.15)" hint={rateErr ?? undefined}><input value={rate} onChange={e => setRate(e.target.value)} inputMode="decimal" /></Field></div>
                 <div className="row end">
-                  <button className="btn secondary" disabled={decide.isPending} onClick={() => decide.mutate({ decision: 'under_review', reason })}>قيد المراجعة</button>
-                  <button className="btn danger" disabled={decide.isPending} onClick={() => decide.mutate({ decision: 'rejected', reason })}>رفض</button>
+                  <button className="btn secondary" disabled={decide.isPending} onClick={review}>قيد المراجعة</button>
+                  <button className="btn danger" disabled={decide.isPending} onClick={reject}>رفض</button>
                   {d.status === 'verified' ? <button className="btn danger" disabled={decide.isPending} onClick={suspend}>إيقاف</button> : null}
-                  <button className="btn success" disabled={decide.isPending} onClick={() => decide.mutate({ decision: 'verified', reason, commissionRate: rate ? Number(rate) : undefined })}>اعتماد</button>
+                  <button className="btn success" disabled={decide.isPending || !!rateErr} onClick={approve}>اعتماد</button>
                 </div>
               </div>
             ) : <p className="muted small">القرار للمدير فقط — يمكنك المراجعة.</p>}

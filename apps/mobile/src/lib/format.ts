@@ -39,7 +39,13 @@ export const dayKey = (iso: string) =>
 
 export const minutesUntil = (iso: string) => Math.round((new Date(iso).getTime() - Date.now()) / 60_000);
 
+/** عدّاد mm:ss — للمؤقّتات التي تتغيّر كل ثانية (القاعة، الاختبار) */
+export const mmss = (seconds: number) =>
+  `${String(Math.floor(Math.max(0, seconds) / 60)).padStart(2, '0')}:${String(Math.floor(Math.max(0, seconds)) % 60).padStart(2, '0')}`;
+
 export function durationLabel(seconds: number): string {
+  // أقلّ من دقيقة يُقال بالثواني، لا «٠ دقيقة»
+  if (seconds < 60) return `${Math.round(seconds)} ${i18n.t('common.seconds')}`;
   const m = Math.round(seconds / 60);
   if (m < 60) return `${m} ${i18n.t('common.minutes')}`;
   const h = Math.floor(m / 60), r = m % 60;
@@ -49,4 +55,6 @@ export function durationLabel(seconds: number): string {
 export const compactNumber = (n: number) =>
   new Intl.NumberFormat(localeFor(), { notation: n >= 10_000 ? 'compact' : 'standard', maximumFractionDigits: 1 }).format(n);
 
-export const initials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map(w => w[0] ?? '').join('');
+/** أحرف الاسم الأولى — بلا أقواس أو أرقام (مثل «عبدالرحمن (١١)» → «ع») */
+export const initials = (name: string) =>
+  name.replace(/[^\p{L}\s]/gu, ' ').trim().split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0] ?? '').join('');

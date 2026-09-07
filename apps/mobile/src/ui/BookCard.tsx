@@ -1,6 +1,7 @@
 import { View, Pressable, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
-import { Ionicons } from '@expo/vector-icons';
+// استيراد العائلة مباشرة: فهرس @expo/vector-icons يُصدّر كل العائلات فتُحزَم خرائط رموزها كلها في الحزمة
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTranslation } from 'react-i18next';
 import { colors, radius, spacing, shadow, subjectColors, subjectIcons, type SubjectColorKey, themed } from '@manassah/tokens';
 import type { BookCard as BookCardData } from '@manassah/shared';
@@ -30,7 +31,7 @@ function Cover({ book, height, small }: { book: BookCardData; height: number; sm
   const { t } = useTranslation();
   const sc = subj(book.subject.colorKey);
   if (book.coverUrl) {
-    return <Image source={{ uri: book.coverUrl }} style={[styles.cover, { height }]} contentFit="cover" transition={150} />;
+    return <Image source={{ uri: book.coverUrl }} style={[styles.cover, { height }]} contentFit="cover" transition={150} accessibilityLabel={book.title} />;
   }
   return (
     <View style={[styles.cover, styles.coverFallback, { height, backgroundColor: sc.main }]}>

@@ -17,10 +17,14 @@ interface RoomState {
   startedAt: number | null;
   sharing: boolean;
   boardOps: unknown[];
+  addBoardOp: (op: unknown) => void;
   set: (patch: Partial<RoomState>) => void;
   addMessage: (m: RoomMessage, mine: boolean) => void;
   reset: () => void;
 }
+
+/** أقصى ما يُحتفظ به من ضربات السبّورة في الذاكرة */
+const BOARD_OPS_MAX = 500;
 
 const initial = {
   connection: 'connecting' as Connection, me: null, participants: [], messages: [], unread: 0,
@@ -31,5 +35,7 @@ export const useRoom = create<RoomState>((set) => ({
   ...initial,
   set: (patch) => set(patch),
   addMessage: (m, mine) => set(s => ({ messages: [...s.messages, m].slice(-300), unread: mine ? s.unread : s.unread + 1 })),
+  /** ضربة سبّورة واحدة — بسقف كسقف الرسائل حتى لا تنمو الحالة (وإعادة رسمها) بلا حدّ في حصة طويلة */
+  addBoardOp: (op) => set(s => ({ boardOps: [...s.boardOps, op].slice(-BOARD_OPS_MAX) })),
   reset: () => set({ ...initial }),
 }));

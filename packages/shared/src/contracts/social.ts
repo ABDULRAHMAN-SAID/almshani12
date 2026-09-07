@@ -18,11 +18,12 @@ export const NotificationType = z.enum([
   'lesson_in_1h', 'lesson_in_15m', 'booking_confirmed', 'booking_cancelled_by_teacher',
   'refund_processed', 'book_published', 'favorite_discount', 'new_course_from_teacher',
   'message', 'homework', 'teacher_verified', 'teacher_rejected', 'content_approved', 'content_rejected',
-  'payout_processed', 'system',
+  'payout_processed', 'teacher_document_rejected', 'wallet_adjusted', 'system',
 ]);
 export const Notification = z.object({
   id: Id,
-  type: NotificationType,
+  /** الأنواع المعروفة أعلاه، وأي نوع من خادم أحدث يُمرَّر كما هو بدل إسقاط التغذية كلها */
+  type: z.union([NotificationType, z.string()]),
   title: z.string(),
   body: z.string().nullable(),
   data: z.record(z.string(), z.any()).nullable(),

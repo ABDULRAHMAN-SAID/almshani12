@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS users (
   timezone      TEXT NOT NULL DEFAULT 'Asia/Muscat',
   onboarding_completed INTEGER NOT NULL DEFAULT 0,
   last_login_at TEXT,
-  created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   -- المتعلّم النشط (يضبطه العميل عبر /me/learners/:id/activate) وسبب الإيقاف — أُضيفت بالترحيل 002 على القواعد القديمة
   active_learner_id INTEGER REFERENCES learners(id) ON DELETE SET NULL,
   status_reason TEXT,
@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS user_roles (
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   role    TEXT NOT NULL CHECK (role IN ('student','parent','teacher','content_reviewer','support','finance','admin','super_admin')),
   granted_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY (user_id, role)
 );
 
@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS auth_identities (
   user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   provider     TEXT NOT NULL CHECK (provider IN ('phone_otp','email_otp','apple','google')),
   provider_uid TEXT NOT NULL,
-  created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   UNIQUE (provider, provider_uid)
 );
 
@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS otp_codes (
   attempts   INTEGER NOT NULL DEFAULT 0,
   expires_at INTEGER NOT NULL,
   consumed_at TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   provider   TEXT NOT NULL DEFAULT 'local',   -- local (الرمز محلي مهشّر) | twilio_verify (الرمز عند Twilio)
   via        TEXT                             -- sms | whatsapp | email | test
 );
@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
   ip         TEXT,
   expires_at INTEGER NOT NULL,
   revoked    INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 CREATE INDEX IF NOT EXISTS idx_rt_user ON refresh_tokens(user_id);
 
@@ -75,7 +75,7 @@ CREATE TABLE IF NOT EXISTS profiles (
   gender       TEXT CHECK (gender IN ('male','female')),
   bio          TEXT,
   country_code TEXT NOT NULL DEFAULT 'OM',
-  updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
+  updated_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 
 CREATE TABLE IF NOT EXISTS student_profiles (
@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS student_profiles (
   grade_id      INTEGER REFERENCES grades(id) ON DELETE SET NULL,
   semester_id   INTEGER REFERENCES semesters(id) ON DELETE SET NULL,
   school        TEXT,
-  updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
+  updated_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 
 CREATE TABLE IF NOT EXISTS student_subjects (
@@ -142,7 +142,7 @@ CREATE TABLE IF NOT EXISTS teacher_profiles (
   payout_details      TEXT,
   applied_at          TEXT,
   verified_at         TEXT,
-  updated_at          TEXT NOT NULL DEFAULT (datetime('now'))
+  updated_at          TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 
 CREATE TABLE IF NOT EXISTS teacher_subjects (
@@ -159,7 +159,7 @@ CREATE TABLE IF NOT EXISTS teacher_documents (
   file_id    INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
   status     TEXT NOT NULL DEFAULT 'submitted' CHECK (status IN ('submitted','accepted','rejected')),
   note       TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   reviewed_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
   reviewed_at TEXT
 );
@@ -170,14 +170,14 @@ CREATE TABLE IF NOT EXISTS teacher_verifications (
   reviewer_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
   decision    TEXT NOT NULL CHECK (decision IN ('under_review','verified','rejected','suspended')),
   reason      TEXT,
-  decided_at  TEXT NOT NULL DEFAULT (datetime('now'))
+  decided_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 
 CREATE TABLE IF NOT EXISTS parent_links (
   parent_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   student_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   status     TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','active','revoked')),
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY (parent_id, student_id)
 );
 
@@ -192,7 +192,7 @@ CREATE TABLE IF NOT EXISTS files (
   checksum     TEXT,
   visibility   TEXT NOT NULL DEFAULT 'private' CHECK (visibility IN ('private','public')),
   purpose      TEXT NOT NULL DEFAULT 'general',
-  created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 
 -- ------------------------- المنهج (هرمي) -------------------------
@@ -272,8 +272,8 @@ CREATE TABLE IF NOT EXISTS books (
   sales_count   INTEGER NOT NULL DEFAULT 0,
   featured      INTEGER NOT NULL DEFAULT 0,
   published_at  TEXT,
-  created_at    TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 CREATE INDEX IF NOT EXISTS idx_books_scope ON books(status, grade_id, subject_id);
 
@@ -296,7 +296,7 @@ CREATE TABLE IF NOT EXISTS reading_progress (
   book_id    INTEGER NOT NULL REFERENCES books(id) ON DELETE CASCADE,
   last_page  INTEGER NOT NULL DEFAULT 1,
   bookmarks  TEXT NOT NULL DEFAULT '[]',  -- JSON array of pages
-  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY (user_id, book_id)
 );
 
@@ -321,8 +321,8 @@ CREATE TABLE IF NOT EXISTS courses (
   sales_count   INTEGER NOT NULL DEFAULT 0,
   featured      INTEGER NOT NULL DEFAULT 0,
   published_at  TEXT,
-  created_at    TEXT NOT NULL DEFAULT (datetime('now')),
-  updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  updated_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 CREATE TABLE IF NOT EXISTS course_sections (
   id        INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -349,7 +349,7 @@ CREATE TABLE IF NOT EXISTS course_enrollments (
   progress_percent REAL NOT NULL DEFAULT 0,
   last_lesson_id   INTEGER REFERENCES course_lessons(id) ON DELETE SET NULL,
   completed_at     TEXT,
-  created_at       TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY (user_id, course_id)
 );
 CREATE TABLE IF NOT EXISTS lesson_progress (
@@ -357,7 +357,7 @@ CREATE TABLE IF NOT EXISTS lesson_progress (
   lesson_id        INTEGER NOT NULL REFERENCES course_lessons(id) ON DELETE CASCADE,
   position_seconds INTEGER NOT NULL DEFAULT 0,
   completed        INTEGER NOT NULL DEFAULT 0,
-  updated_at       TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY (user_id, lesson_id)
 );
 
@@ -371,7 +371,7 @@ CREATE TABLE IF NOT EXISTS quizzes (
   pass_score         INTEGER NOT NULL DEFAULT 60,
   time_limit_seconds INTEGER NOT NULL DEFAULT 0,
   attempts_allowed   INTEGER NOT NULL DEFAULT 3,
-  created_at         TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at         TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 CREATE TABLE IF NOT EXISTS quiz_questions (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -396,7 +396,7 @@ CREATE TABLE IF NOT EXISTS quiz_attempts (
   answers          TEXT NOT NULL DEFAULT '{}',
   topic_breakdown  TEXT NOT NULL DEFAULT '[]',
   duration_seconds INTEGER NOT NULL DEFAULT 0,
-  finished_at      TEXT NOT NULL DEFAULT (datetime('now'))
+  finished_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 CREATE INDEX IF NOT EXISTS idx_attempts_user ON quiz_attempts(user_id, quiz_id);
 
@@ -447,7 +447,7 @@ CREATE TABLE IF NOT EXISTS package_purchases (
   total      INTEGER NOT NULL,
   remaining  INTEGER NOT NULL,
   expires_at TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   learner_id INTEGER REFERENCES learners(id) ON DELETE SET NULL   -- NULL = لأي متعلّم في الحساب
 );
 
@@ -473,7 +473,7 @@ CREATE TABLE IF NOT EXISTS bookings (
   cancelled_at        TEXT,
   cancel_reason       TEXT,
   refund_percent      INTEGER,
-  created_at          TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at          TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   learner_id          INTEGER REFERENCES learners(id) ON DELETE SET NULL   -- لمن الحصة (الحساب يبقى student_id)
 );
 CREATE INDEX IF NOT EXISTS idx_bookings_student ON bookings(student_id, starts_at);
@@ -503,7 +503,7 @@ CREATE TABLE IF NOT EXISTS booking_notes (
   homework     TEXT,
   attachments  TEXT NOT NULL DEFAULT '[]',  -- JSON [{fileId,name}]
   suggest_next INTEGER NOT NULL DEFAULT 0,
-  updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
+  updated_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 
 CREATE TABLE IF NOT EXISTS live_rooms (
@@ -514,14 +514,14 @@ CREATE TABLE IF NOT EXISTS live_rooms (
   opens_at         TEXT NOT NULL,
   closes_at        TEXT NOT NULL,
   status           TEXT NOT NULL DEFAULT 'scheduled' CHECK (status IN ('scheduled','open','ended')),
-  created_at       TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 CREATE TABLE IF NOT EXISTS room_participants (
   id               INTEGER PRIMARY KEY AUTOINCREMENT,
   room_id          INTEGER NOT NULL REFERENCES live_rooms(id) ON DELETE CASCADE,
   user_id          INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   token_hash       TEXT NOT NULL,
-  token_issued_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  token_issued_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   token_expires_at INTEGER NOT NULL
 );
 CREATE TABLE IF NOT EXISTS room_messages (
@@ -529,21 +529,21 @@ CREATE TABLE IF NOT EXISTS room_messages (
   room_id    INTEGER NOT NULL REFERENCES live_rooms(id) ON DELETE CASCADE,
   user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   body       TEXT NOT NULL,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 
 -- ------------------------- التجارة -------------------------
 CREATE TABLE IF NOT EXISTS carts (
   user_id    INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   coupon_code TEXT,
-  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 CREATE TABLE IF NOT EXISTS cart_items (
   id        INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   item_type TEXT NOT NULL CHECK (item_type IN ('book','course')),
   item_id   INTEGER NOT NULL,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   UNIQUE (user_id, item_type, item_id)
 );
 
@@ -560,7 +560,7 @@ CREATE TABLE IF NOT EXISTS coupons (
   scope       TEXT NOT NULL DEFAULT '{}',   -- JSON {products?, teacherId?, category?}
   created_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
   active      INTEGER NOT NULL DEFAULT 1,
-  created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 CREATE TABLE IF NOT EXISTS coupon_redemptions (
   coupon_id INTEGER NOT NULL REFERENCES coupons(id) ON DELETE CASCADE,
@@ -585,7 +585,7 @@ CREATE TABLE IF NOT EXISTS orders (
   paid_at      TEXT,
   expires_at   TEXT,
   meta         TEXT,
-  created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   learner_id   INTEGER REFERENCES learners(id) ON DELETE SET NULL   -- نسبة الطلب لمتعلّم (للعرض فقط؛ الوصول للحساب)
 );
 CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(user_id);
@@ -613,7 +613,7 @@ CREATE TABLE IF NOT EXISTS payments (
   currency     TEXT NOT NULL DEFAULT 'OMR',
   status       TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','succeeded','failed','refunded')),
   raw          TEXT,
-  created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 
 CREATE TABLE IF NOT EXISTS refunds (
@@ -625,7 +625,7 @@ CREATE TABLE IF NOT EXISTS refunds (
   policy_applied TEXT,     -- JSON snapshot من السياسة وقت الاسترجاع
   status         TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','processed','rejected')),
   processed_by   INTEGER REFERENCES users(id) ON DELETE SET NULL,
-  created_at     TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at     TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   processed_at   TEXT
 );
 
@@ -638,7 +638,7 @@ CREATE TABLE IF NOT EXISTS entitlements (
   source     TEXT NOT NULL DEFAULT 'purchase' CHECK (source IN ('purchase','free','admin','gift','subscription')),
   order_id   INTEGER REFERENCES orders(id) ON DELETE SET NULL,
   expires_at TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   UNIQUE (user_id, item_type, item_id)
 );
 CREATE INDEX IF NOT EXISTS idx_ent_user ON entitlements(user_id);
@@ -652,7 +652,7 @@ CREATE TABLE IF NOT EXISTS wallet_transactions (
   ref_type      TEXT,
   ref_id        INTEGER,
   note          TEXT,
-  created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 CREATE TABLE IF NOT EXISTS wallets (
   user_id  INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
@@ -673,7 +673,7 @@ CREATE TABLE IF NOT EXISTS teacher_earnings (
   status      TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','available','paid','reversed')),
   available_at TEXT,
   payout_id   INTEGER REFERENCES teacher_payouts(id) ON DELETE SET NULL,
-  created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 CREATE INDEX IF NOT EXISTS idx_earnings_teacher ON teacher_earnings(teacher_id, status);
 
@@ -686,7 +686,7 @@ CREATE TABLE IF NOT EXISTS teacher_payouts (
   status       TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','approved','paid','rejected')),
   note         TEXT,
   processed_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
-  requested_at TEXT NOT NULL DEFAULT (datetime('now')),
+  requested_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   processed_at TEXT
 );
 
@@ -714,7 +714,7 @@ CREATE TABLE IF NOT EXISTS invoices (
   order_id   INTEGER NOT NULL UNIQUE REFERENCES orders(id) ON DELETE CASCADE,
   number     TEXT NOT NULL UNIQUE,
   file_id    INTEGER REFERENCES files(id) ON DELETE SET NULL,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 
 -- ------------------------- التفاعل -------------------------
@@ -728,7 +728,7 @@ CREATE TABLE IF NOT EXISTS reviews (
   gate_type   TEXT NOT NULL CHECK (gate_type IN ('booking','order','enrollment')),
   gate_id     INTEGER NOT NULL,      -- يثبت التجربة الحقيقية
   status      TEXT NOT NULL DEFAULT 'published' CHECK (status IN ('published','hidden')),
-  created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   hidden_reason TEXT,
   hidden_by   INTEGER REFERENCES users(id) ON DELETE SET NULL,
   UNIQUE (user_id, target_type, target_id)
@@ -739,7 +739,7 @@ CREATE TABLE IF NOT EXISTS favorites (
   user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   target_type TEXT NOT NULL CHECK (target_type IN ('book','course','teacher')),
   target_id   INTEGER NOT NULL,
-  created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY (user_id, target_type, target_id)
 );
 
@@ -750,7 +750,7 @@ CREATE TABLE IF NOT EXISTS conversations (
   context_type  TEXT CHECK (context_type IN ('booking','book','course')),
   context_id    INTEGER,
   last_message_at TEXT,
-  created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at    TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   UNIQUE (student_id, teacher_id)
 );
 CREATE TABLE IF NOT EXISTS messages (
@@ -762,14 +762,14 @@ CREATE TABLE IF NOT EXISTS messages (
   file_id         INTEGER REFERENCES files(id) ON DELETE SET NULL,
   reply_to_id     INTEGER REFERENCES messages(id) ON DELETE SET NULL,
   read_at         TEXT,
-  created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 CREATE INDEX IF NOT EXISTS idx_messages_conv ON messages(conversation_id, id);
 
 CREATE TABLE IF NOT EXISTS blocks (
   user_id         INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   blocked_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   PRIMARY KEY (user_id, blocked_user_id)
 );
 
@@ -781,7 +781,7 @@ CREATE TABLE IF NOT EXISTS reports (
   reason      TEXT NOT NULL,
   status      TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','reviewing','resolved','dismissed')),
   handled_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
-  created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 
 CREATE TABLE IF NOT EXISTS notifications (
@@ -792,7 +792,7 @@ CREATE TABLE IF NOT EXISTS notifications (
   body       TEXT,
   data       TEXT,
   read_at    TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(user_id, read_at);
 
@@ -801,7 +801,7 @@ CREATE TABLE IF NOT EXISTS device_tokens (
   user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   platform   TEXT NOT NULL CHECK (platform IN ('ios','android','web')),
   token      TEXT NOT NULL UNIQUE,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 
 -- أجهزة الإشعارات الفورية: اشتراك المتصفح (Web Push: token = endpoint + مفتاحا auth/p256dh) أو رمز Expo — أُضيف بالترحيل 004
@@ -815,7 +815,7 @@ CREATE TABLE IF NOT EXISTS push_devices (
   platform     TEXT,
   user_agent   TEXT,
   last_used_at TEXT,
-  created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   UNIQUE (kind, token)
 );
 CREATE INDEX IF NOT EXISTS idx_push_devices_user ON push_devices(user_id);
@@ -834,7 +834,7 @@ CREATE TABLE IF NOT EXISTS content_reviews (
   decision    TEXT NOT NULL CHECK (decision IN ('approved','rejected')),
   reason      TEXT,
   checklist   TEXT,    -- JSON {content, price, file, copyright, category, description}
-  created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 
 CREATE TABLE IF NOT EXISTS audit_logs (
@@ -845,7 +845,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   entity_id  INTEGER,
   meta       TEXT,
   ip         TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   target_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL   -- المستخدم المتأثّر بالإجراء (لصفحة الشخص)
 );
 CREATE INDEX IF NOT EXISTS idx_audit_target ON audit_logs(target_user_id, id);
@@ -857,7 +857,42 @@ CREATE TABLE IF NOT EXISTS analytics_events (
   user_id    INTEGER REFERENCES users(id) ON DELETE SET NULL,
   name       TEXT NOT NULL,
   props      TEXT,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 CREATE INDEX IF NOT EXISTS idx_events_name ON analytics_events(name, created_at);
 CREATE INDEX IF NOT EXISTS idx_analytics_created ON analytics_events(created_at);
+
+
+/* ---------- فهارس الأداء (مطابقة لترحيل 005) ----------
+   كل فهرس هنا يقابل تصفية/ربطاً متكرّراً كان يمسح الجدول كاملاً. */
+CREATE INDEX IF NOT EXISTS idx_course_sections_course ON course_sections(course_id);
+CREATE INDEX IF NOT EXISTS idx_course_lessons_section ON course_lessons(section_id);
+CREATE INDEX IF NOT EXISTS idx_courses_scope         ON courses(status, grade_id, subject_id);
+CREATE INDEX IF NOT EXISTS idx_courses_teacher       ON courses(teacher_id);
+CREATE INDEX IF NOT EXISTS idx_book_files_book       ON book_files(book_id, kind);
+CREATE INDEX IF NOT EXISTS idx_book_toc_book         ON book_toc(book_id);
+CREATE INDEX IF NOT EXISTS idx_ent_item              ON entitlements(item_type, item_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_conv_teacher          ON conversations(teacher_id);
+CREATE INDEX IF NOT EXISTS idx_time_off_teacher      ON teacher_time_off(teacher_id, ends_at);
+CREATE INDEX IF NOT EXISTS idx_packages_teacher      ON lesson_packages(teacher_id);
+CREATE INDEX IF NOT EXISTS idx_pkg_purchases_user    ON package_purchases(user_id);
+CREATE INDEX IF NOT EXISTS idx_teacher_docs_teacher  ON teacher_documents(teacher_id);
+CREATE INDEX IF NOT EXISTS idx_curriculum_lessons_unit ON curriculum_lessons(unit_id);
+CREATE INDEX IF NOT EXISTS idx_wallet_tx_user        ON wallet_transactions(user_id, id);
+CREATE INDEX IF NOT EXISTS idx_payments_order        ON payments(order_id);
+CREATE INDEX IF NOT EXISTS idx_refunds_order         ON refunds(order_id);
+CREATE INDEX IF NOT EXISTS idx_room_participants_room ON room_participants(room_id, user_id);
+CREATE INDEX IF NOT EXISTS idx_room_participants_hash ON room_participants(token_hash);
+CREATE INDEX IF NOT EXISTS idx_room_messages_room    ON room_messages(room_id, id);
+CREATE INDEX IF NOT EXISTS idx_bookings_order        ON bookings(order_id);
+CREATE INDEX IF NOT EXISTS idx_bookings_status_ends  ON bookings(status, ends_at);
+CREATE INDEX IF NOT EXISTS idx_bookings_expires      ON bookings(status, expires_at);
+CREATE INDEX IF NOT EXISTS idx_orders_expires        ON orders(status, expires_at);
+CREATE INDEX IF NOT EXISTS idx_orders_coupon         ON orders(coupon_id, status);
+CREATE INDEX IF NOT EXISTS idx_earnings_source       ON teacher_earnings(source_type, source_id);
+CREATE INDEX IF NOT EXISTS idx_earnings_pending      ON teacher_earnings(status, available_at);
+CREATE INDEX IF NOT EXISTS idx_device_tokens_user    ON device_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_user    ON subscriptions(user_id);
+CREATE INDEX IF NOT EXISTS idx_reports_status        ON reports(status);
+CREATE INDEX IF NOT EXISTS idx_payouts_teacher       ON teacher_payouts(teacher_id, status);
+CREATE INDEX IF NOT EXISTS idx_coupons_active        ON coupons(active);

@@ -1,4 +1,5 @@
 import { db, q, settings, nowIso, json } from '../db/index.ts';
+import { config } from '../config.ts';
 import { AppError, notFound } from '../lib/errors.ts';
 import { money, orderNumber, addMinutes, hoursUntil } from '../lib/helpers.ts';
 import { grantAccess, revokeAccess, checkAccess } from './access.ts';
@@ -44,10 +45,13 @@ export function applyCoupon(code: string | null | undefined, items: ResolvedItem
   const now = nowIso();
   if (c.starts_at && c.starts_at > now) throw new AppError('validation_error', 'رمز الخصم لم يُفعَّل بعد', 400);
   if (c.ends_at && c.ends_at < now) throw new AppError('validation_error', 'انتهت صلاحية رمز الخصم', 400);
-  if (c.usage_limit != null && c.used_count >= c.usage_limit) throw new AppError('validation_error', 'استُنفد رمز الخصم', 400);
+  // السقوف تحسب المحجوز أيضاً: طلب معلّق لم تنتهِ مهلته يحجز استخداماً — وإلا تُتجاوز السقوف بإنشاء طلبات متوازية ثم دفعها
+  const pending = (extra: string, ...p: unknown[]) =>
+    q.val<number>(`SELECT COUNT(*) FROM orders WHERE coupon_id = ? AND status = 'pending' AND (expires_at IS NULL OR expires_at > ?)${extra}`, c.id, now, ...p) ?? 0;
+  if (c.usage_limit != null && c.used_count + pending('') >= c.usage_limit) throw new AppError('validation_error', 'استُنفد رمز الخصم', 400);
   if (c.user_limit != null) {
     const used = q.val<number>('SELECT COUNT(*) FROM coupon_redemptions WHERE coupon_id = ? AND user_id = ?', c.id, userId) ?? 0;
-    if (used >= c.user_limit) throw new AppError('validation_error', 'استخدمت هذا الرمز من قبل', 400);
+    if (used + pending(' AND user_id = ?', userId) >= c.user_limit) throw new AppError('validation_error', 'استخدمت هذا الرمز من قبل', 400);
   }
   const scope = json<{ products?: { type: string; id: number }[]; teacherId?: number; category?: string }>(c.scope, {});
   const eligible = items.filter(it => {
@@ -89,7 +93,7 @@ export function createOrder(userId: number, { items, couponCode, meta, learnerId
     const info = q.run(
       `INSERT INTO orders (number, user_id, subtotal, discount, tax, total, currency, coupon_id, status, expires_at, meta, learner_id)
        VALUES (?,?,?,?,?,?,?,?,'pending',?,?,?)`,
-      orderNumber(), userId, calc.subtotal, calc.discount, calc.tax, calc.total, settings.get<string>('currency', 'OMR'),
+      orderNumber(), userId, calc.subtotal, calc.discount, calc.tax, calc.total, config.money.currency,
       calc.coupon?.id ?? null, addMinutes(30), meta ? JSON.stringify(meta) : null, learnerId ?? null);
     const orderId = Number(info.lastInsertRowid);
     for (const it of calc.items) {
@@ -138,7 +142,8 @@ function fulfillOrderTx(orderId: number, { provider, providerRef }: { provider: 
         const gross = money(it.teacher_share + it.platform_share);
         const rate = gross > 0 ? it.platform_share / gross : 0;
         recordEarning(it.teacher_id, { sourceType: it.item_type, sourceId: it.item_id, orderId, gross, commissionRate: rate });
-        notify(it.teacher_id, { type: 'system', title: 'عملية بيع جديدة', body: it.title, data: { orderId } });
+        // teacherSale يميّز إشعار البائع عن إشعار المشتري: التطبيق يفتح به الأرباح لا «مشترياتي»
+        notify(it.teacher_id, { type: 'system', title: 'عملية بيع جديدة', body: it.title, data: { orderId, teacherSale: true } });
       }
     }
     q.run("UPDATE orders SET status = 'paid', paid_at = ?, provider = ?, provider_ref = COALESCE(?, provider_ref) WHERE id = ?", nowIso(), provider, providerRef ?? null, orderId);
@@ -153,15 +158,43 @@ function fulfillOrderTx(orderId: number, { provider, providerRef }: { provider: 
 }
 
 /* ---------- الاسترجاع ---------- */
-export function refundOrder(orderId: number, { amount, reason, bookingId, processedBy, toWallet = true }:
-  { amount?: number; reason?: string | null; bookingId?: number | null; processedBy?: number | null; toWallet?: boolean }) {
+/** مجموع ما استُرجع من الطلب حتى الآن */
+export const refundedTotal = (orderId: number): number =>
+  money(q.val<number>('SELECT COALESCE(SUM(amount),0) FROM refunds WHERE order_id = ?', orderId) ?? 0);
+
+/** المتبقّي القابل للاسترجاع = المدفوع − ما استُرجع */
+export const refundableRemaining = (order: { id: number; total: number }): number =>
+  money(order.total - refundedTotal(order.id));
+
+/**
+ * ما دُفع فعلاً مقابل عنصر في الطلب (حصّته من الإجمالي بعد الكوبون والضريبة) —
+ * أساس أي استرجاع، لا السعر المعلن (حصة بكوبون خصم تُسترجع بما دُفع).
+ */
+export function paidForItem(orderId: number, itemType: ItemType, itemId: number): number {
+  const order = q.get<{ total: number; subtotal: number }>('SELECT total, subtotal FROM orders WHERE id = ?', orderId);
+  const item = q.get<{ unit_price: number }>('SELECT unit_price FROM order_items WHERE order_id = ? AND item_type = ? AND item_id = ?', orderId, itemType, itemId);
+  if (!order || !item) return 0;
+  if (order.subtotal <= 0) return money(order.total);
+  return money(order.total * (item.unit_price / order.subtotal));
+}
+/** ما دُفع مقابل حصة (طلب الحصة الواحدة) */
+export const paidForBooking = (orderId: number, bookingId: number): number => paidForItem(orderId, 'lesson', bookingId);
+
+export function refundOrder(orderId: number, { amount, reason, bookingId, processedBy, toWallet = true, clamp = false }:
+  { amount?: number; reason?: string | null; bookingId?: number | null; processedBy?: number | null; toWallet?: boolean; clamp?: boolean }) {
   return db.transaction(() => {
     const order = q.get<any>('SELECT * FROM orders WHERE id = ?', orderId);
     if (!order) throw notFound('الطلب غير موجود');
     if (order.status !== 'paid' && order.status !== 'partially_refunded') throw new AppError('conflict', 'لا يمكن استرجاع طلب غير مدفوع', 409);
-    const refundAmount = money(amount ?? order.total);
+    // سقف الاسترجاع: لا يتجاوز المدفوع ناقص ما استُرجع سابقاً — بأي حال (إدارة كانت أو إلغاء حصة)
+    const remaining = refundableRemaining(order);
+    if (remaining <= 0) throw new AppError('conflict', 'استُرجع هذا الطلب بالكامل', 409);
+    const requested = money(amount ?? remaining);
+    if (requested <= 0) throw new AppError('validation_error', 'مبلغ الاسترجاع يجب أن يكون أكبر من صفر', 400);
+    if (requested > remaining && !clamp) throw new AppError('conflict', `المبلغ يتجاوز المتبقّي القابل للاسترجاع (${remaining} ${order.currency})`, 409);
+    const refundAmount = Math.min(requested, remaining);
     const items = q.all<any>('SELECT * FROM order_items WHERE order_id = ?', orderId);
-    const full = refundAmount >= order.total;
+    const full = money(remaining - refundAmount) <= 0;
 
     for (const it of items) {
       if (bookingId && !(it.item_type === 'lesson' && it.item_id === bookingId)) continue;

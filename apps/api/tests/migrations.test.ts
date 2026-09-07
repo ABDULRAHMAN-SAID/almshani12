@@ -19,6 +19,26 @@ const open = (file: string) => { const d = new Database(file); d.pragma('journal
 const tableInfo = (d: Database.Database, t: string) =>
   (d.pragma(`table_info(${t})`) as any[]).map(x => ({ cid: x.cid, name: x.name, type: x.type, notnull: x.notnull, dflt: x.dflt_value, pk: x.pk }));
 const indexNames = (d: Database.Database) => d.prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name LIKE 'idx_%' ORDER BY name").pluck().all();
+const tableNames = (d: Database.Database) =>
+  d.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name").pluck().all() as string[];
+const foreignKeys = (d: Database.Database, t: string) =>
+  (d.pragma(`foreign_key_list(${t})`) as any[]).map(x => ({ table: x.table, from: x.from, to: x.to, on_update: x.on_update, on_delete: x.on_delete }));
+/** نصّ التعريف بلا تعليقات ولا فروق مسافات — ALTER TABLE ADD COLUMN يكتب الفواصل بمسافات تخالف schema.sql — لمقارنة قيود CHECK/UNIQUE أيضاً */
+const normSql = (sql: unknown) =>
+  String(sql ?? '').replace(/--[^\n]*/g, ' ').replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\s+/g, ' ').replace(/\s*([(),])\s*/g, '$1').trim();
+const schemaSql = (d: Database.Database) => Object.fromEntries(
+  (d.prepare("SELECT type, name, sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name").all() as any[]).map(r => [`${r.type}:${r.name}`, normSql(r.sql)]));
+/** الشكل الكامل: كل الجداول (لا عيّنة منها) بأعمدتها ومفاتيحها الأجنبية وفهارسها ونصّ تعريفها */
+const assertSameShape = (d: Database.Database, fresh: Database.Database) => {
+  const tables = tableNames(fresh);
+  assert.deepEqual(tableNames(d), tables, 'قائمة الجداول');
+  for (const t of tables) {
+    assert.deepEqual(tableInfo(d, t), tableInfo(fresh, t), `table_info(${t})`);
+    assert.deepEqual(foreignKeys(d, t), foreignKeys(fresh, t), `foreign_key_list(${t})`);
+  }
+  assert.deepEqual(indexNames(d), indexNames(fresh), 'الفهارس');
+  assert.deepEqual(schemaSql(d), schemaSql(fresh), 'نصّ التعريفات (القيود والافتراضيات)');
+};
 
 test('قاعدة v0: نسخة احتياطية، متعلّم لكل student_profiles، تعبئة الأعمدة، والتشغيل الثاني لا يغيّر شيئاً', async () => {
   const dbm = await import('../src/db/index.ts');
@@ -73,9 +93,16 @@ test('قاعدة v0: نسخة احتياطية، متعلّم لكل student_pro
   for (const [t, col] of [['package_purchases', 'learner_id'], ['teacher_documents', 'reviewed_by'], ['teacher_documents', 'reviewed_at'], ['reviews', 'hidden_reason'], ['reviews', 'hidden_by'], ['otp_codes', 'provider'], ['otp_codes', 'via']]) assert.equal(mig.hasColumn(d, t, col), true, `${t}.${col}`);
   assert.ok(indexNames(d).includes('idx_otp_created'));
   assert.deepEqual(d.pragma('foreign_key_check'), []);
+  // ترحيل ٠٠٥: الطوابع القديمة 'YYYY-MM-DD HH:MM:SS' تصير ISO بلاحقة Z، والافتراضي نفسه يُصحَّح فتُكتب الصفوف الجديدة ISO
+  assert.equal(d.prepare("SELECT created_at FROM audit_logs WHERE action = 'user.suspended'").pluck().get(), '2026-02-01T10:00:00Z');
+  d.exec("INSERT INTO audit_logs (actor_id, action, entity, entity_id) VALUES (2,'test.iso','user',1)");
+  const fresh_at = d.prepare("SELECT created_at FROM audit_logs WHERE action = 'test.iso'").pluck().get() as string;
+  assert.match(fresh_at, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/, 'الافتراضي الجديد يكتب ISO');
+  assert.equal(d.prepare("SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND sql LIKE '%datetime(''now'')%'").pluck().get(), 0, 'لا افتراضي بلا منطقة زمنية');
+  assert.ok(indexNames(d).includes('idx_bookings_status_ends') && indexNames(d).includes('idx_refunds_order'));
 
   // التشغيل الثاني: لا تغيير في الشكل ولا في الصفوف ولا نسخة احتياطية جديدة
-  const snapshot = () => JSON.stringify({ info: TOUCHED.map(t => tableInfo(d, t)), counts: TOUCHED.map(t => d.prepare(`SELECT COUNT(*) FROM ${t}`).pluck().get()), version: d.pragma('user_version', { simple: true }) });
+  const snapshot = () => JSON.stringify({ sql: schemaSql(d), counts: TOUCHED.map(t => d.prepare(`SELECT COUNT(*) FROM ${t}`).pluck().get()), version: d.pragma('user_version', { simple: true }) });
   const before = snapshot();
   dbm.migrateDb(d, file, { backup: true });
   assert.equal(snapshot(), before);
@@ -85,15 +112,14 @@ test('قاعدة v0: نسخة احتياطية، متعلّم لكل student_pro
   const fresh = new Database(':memory:');
   dbm.migrateDb(fresh, ':memory:');
   assert.equal(fresh.pragma('user_version', { simple: true }), mig.SCHEMA_VERSION);
-  for (const t of TOUCHED) assert.deepEqual(tableInfo(d, t), tableInfo(fresh, t), `table_info(${t})`);
-  assert.deepEqual(indexNames(d), indexNames(fresh));
+  assertSameShape(d, fresh);
   fresh.close(); d.close();
 });
 
 test('قاعدة جديدة: user_version نهائي والترحيلات لا تفعل شيئاً و/api/health يعلن الإصدار', async () => {
   const mig = await import('../src/db/migrations.ts');
   assert.equal(c.db.pragma('user_version', { simple: true }), mig.SCHEMA_VERSION);
-  assert.equal(mig.SCHEMA_VERSION, 4);
+  assert.equal(mig.SCHEMA_VERSION, 5);
   const h = await c.api('/api/health');
   assert.equal(h.status, 200); assert.equal(h.json.schemaVersion, mig.SCHEMA_VERSION);
   assert.equal(c.q.val('SELECT COUNT(*) FROM sqlite_master WHERE type = ? AND name IN (?, ?)', 'table', 'learners', 'learner_subjects'), 2);
@@ -122,6 +148,6 @@ test('قاعدة v2 → الأحدث: عمودا provider/via وفهرس created
   assert.deepEqual(d.prepare('SELECT provider, via FROM otp_codes').get(), { provider: 'local', via: 'test' }, 'الصفوف القديمة لا تُحتسب إرسالاً حقيقياً');
   const fresh = new Database(':memory:');
   dbm.migrateDb(fresh, ':memory:');
-  assert.deepEqual(tableInfo(d, 'otp_codes'), tableInfo(fresh, 'otp_codes'));
+  assertSameShape(d, fresh);
   fresh.close(); d.close();
 });

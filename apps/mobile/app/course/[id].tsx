@@ -27,7 +27,7 @@ export default function CourseDetail() {
 
   return (
     <Screen onBack={() => router.back()} title={c?.title ?? ''} loading={q.isLoading} error={q.error} onRetry={() => q.refetch()} padded={false}
-      right={c ? <Pressable onPress={() => fav.mutate({ targetType: 'course', targetId: courseId })} style={styles.iconBtn} accessibilityRole="button"><Icon name={c.favorited ? 'heartFilled' : 'heart'} size={22} color={c.favorited ? colors.brand.primary : colors.text.primary} /></Pressable> : undefined}
+      right={c ? <Pressable onPress={() => fav.mutate({ targetType: 'course', targetId: courseId })} style={styles.iconBtn} accessibilityRole="button" accessibilityLabel={t('account.favorites')} accessibilityState={{ selected: c.favorited }}><Icon name={c.favorited ? 'heartFilled' : 'heart'} size={22} color={c.favorited ? colors.brand.primary : colors.text.primary} /></Pressable> : undefined}
       footer={c ? (c.enrolled ? <Button label={c.progressPercent ? t('courses.continue') : t('courses.start')} icon="play" size="lg" full disabled={!nextLesson} onPress={() => nextLesson && router.push(`/course/${courseId}/lesson/${nextLesson.id}`)} />
         : <View style={styles.footer}><View style={styles.flex}><Price value={c.price} size="lg" /><Text role="caption" tone="tertiary">{t('book.securePay')}</Text></View>
           {c.price > 0 ? <Button label={inCart ? t('book.inCart') : t('book.addToCart')} variant="secondary" icon="cart" disabled={inCart} loading={add.isPending} onPress={() => add.mutate({ itemType: 'course', itemId: courseId })} /> : null}

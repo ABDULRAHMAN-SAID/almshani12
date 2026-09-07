@@ -10,7 +10,8 @@ import { formatDateTime } from '@/lib/format';
 
 const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
 type Rule = { weekday: number; startTime: string; endTime: string; slotMinutes: number; breakMinutes: number };
-const HHMM = /^([01]\d|2[0-4]):[0-5]\d$/;
+const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
 /** تقويم المعلّم: فترات أسبوعية متكرّرة (اليوم، من، إلى، خانة، استراحة) + إجازات — المواعيد تُولَّد منها تلقائياً */
 export default function Availability() {
@@ -26,8 +27,10 @@ export default function Availability() {
   useEffect(() => { if (q.data) setRules(q.data.rules.map(r => ({ ...r, slotMinutes: r.slotMinutes ?? 60, breakMinutes: r.breakMinutes ?? 0 }))); }, [q.data]);
   const update = (i: number, patch: Partial<Rule>) => setRules(r => r.map((x, j) => j === i ? { ...x, ...patch } : x));
   const valid = rules.every(r => HHMM.test(r.startTime) && HHMM.test(r.endTime) && r.endTime > r.startTime);
+  // نهاية الإجازة بعد بدايتها — يُتحقّق قبل الإرسال بدل رسالة «بعض البيانات غير صحيحة» العامة من الخادم
+  const offValid = ISO_DAY.test(off.date) && HHMM.test(off.from) && HHMM.test(off.to) && off.to > off.from;
   const addTimeOff = () => {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(off.date) || !HHMM.test(off.from) || !HHMM.test(off.to)) return;
+    if (!offValid) return;
     addOff.mutate({ startsAt: new Date(`${off.date}T${off.from}:00+04:00`).toISOString(), endsAt: new Date(`${off.date}T${off.to}:00+04:00`).toISOString(), reason: off.reason.trim() || null },
       { onSuccess: r => { setConflicts(r.conflictingBookings.length); setOff({ date: '', from: '09:00', to: '17:00', reason: '' }); } });
   };
@@ -42,8 +45,8 @@ export default function Availability() {
           <Card key={i}>
             <View style={styles.chips}>{DAYS.map((d, wd) => <Chip key={d} small label={t(`days.${d}`)} selected={r.weekday === wd} onPress={() => update(i, { weekday: wd })} />)}</View>
             <View style={[styles.row, styles.mt]}>
-              <View style={styles.flex}><Input label={t('teacherUi.from')} value={r.startTime} onChangeText={v => update(i, { startTime: v })} placeholder="16:00" numeric error={HHMM.test(r.startTime) ? undefined : ' '} /></View>
-              <View style={styles.flex}><Input label={t('teacherUi.to')} value={r.endTime} onChangeText={v => update(i, { endTime: v })} placeholder="21:00" numeric error={HHMM.test(r.endTime) && r.endTime > r.startTime ? undefined : ' '} /></View>
+              <View style={styles.flex}><Input label={t('teacherUi.from')} value={r.startTime} onChangeText={v => update(i, { startTime: v })} placeholder="16:00" numeric keyboardType="numbers-and-punctuation" error={HHMM.test(r.startTime) ? undefined : ' '} /></View>
+              <View style={styles.flex}><Input label={t('teacherUi.to')} value={r.endTime} onChangeText={v => update(i, { endTime: v })} placeholder="21:00" numeric keyboardType="numbers-and-punctuation" error={HHMM.test(r.endTime) && r.endTime > r.startTime ? undefined : ' '} /></View>
             </View>
             <View style={[styles.row, styles.mt, styles.center]}>
               <Text role="caption" tone="secondary">{t('teacherUi.slot')}</Text>{[30, 45, 60].map(m => <Chip key={m} small label={`${m} د`} selected={r.slotMinutes === m} onPress={() => update(i, { slotMinutes: m })} />)}
@@ -60,10 +63,10 @@ export default function Availability() {
           <Card key={o.id} style={styles.offRow}><View style={styles.flex}><Text role="bodyMedium" tabular>{formatDateTime(o.startsAt)} → {formatDateTime(o.endsAt)}</Text>{o.reason ? <Text role="caption" tone="secondary">{o.reason}</Text> : null}</View><Button label={t('teacherUi.removeRule')} variant="ghost" size="sm" icon="trash" onPress={() => o.id && removeOff.mutate(o.id)} /></Card>
         )) : <Text role="small" tone="tertiary">{t('teacherUi.noTimeOff')}</Text>}
         <Card>
-          <Input label={t('booking.chooseDate')} value={off.date} onChangeText={v => setOff(s => ({ ...s, date: v }))} placeholder="2026-09-20" numeric />
-          <View style={[styles.row, styles.mt]}><View style={styles.flex}><Input label={t('teacherUi.from')} value={off.from} onChangeText={v => setOff(s => ({ ...s, from: v }))} numeric /></View><View style={styles.flex}><Input label={t('teacherUi.to')} value={off.to} onChangeText={v => setOff(s => ({ ...s, to: v }))} numeric /></View></View>
+          <Input label={t('booking.chooseDate')} value={off.date} onChangeText={v => setOff(s => ({ ...s, date: v }))} placeholder="2026-09-20" numeric keyboardType="numbers-and-punctuation" error={!off.date || ISO_DAY.test(off.date) ? undefined : ' '} />
+          <View style={[styles.row, styles.mt]}><View style={styles.flex}><Input label={t('teacherUi.from')} value={off.from} onChangeText={v => setOff(s => ({ ...s, from: v }))} numeric keyboardType="numbers-and-punctuation" error={HHMM.test(off.from) ? undefined : ' '} /></View><View style={styles.flex}><Input label={t('teacherUi.to')} value={off.to} onChangeText={v => setOff(s => ({ ...s, to: v }))} numeric keyboardType="numbers-and-punctuation" error={offValid ? undefined : ' '} /></View></View>
           <Input label={t('teacherUi.reason')} value={off.reason} onChangeText={v => setOff(s => ({ ...s, reason: v }))} />
-          <Button label={t('teacherUi.timeOffAdd')} icon="plus" size="sm" style={styles.mt} loading={addOff.isPending} onPress={addTimeOff} />
+          <Button label={t('teacherUi.timeOffAdd')} icon="plus" size="sm" style={styles.mt} loading={addOff.isPending} disabled={!offValid} onPress={addTimeOff} />
           {conflicts ? <Text role="small" tone="warning" style={styles.mt}>{t('teacherUi.conflicts', { n: conflicts })}</Text> : null}
           {addOff.error ? <Text role="small" tone="danger">{t(errorMessageKey(addOff.error))}</Text> : null}
         </Card>

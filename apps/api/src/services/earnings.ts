@@ -14,8 +14,8 @@ export function recordEarning(teacherId: number, { sourceType, sourceId, orderId
   const commission = money(gross * rate);
   const net = money(gross - commission);
   const holdHours = settings.get<number>('earnings_hold_hours');
-  // الحصص تتحرّر عند اكتمالها لا بالوقت؛ الكتب والدورات بعد نافذة الاسترجاع
-  const availableAt = sourceType === 'lesson' ? null : addHours(holdHours);
+  // الحصص تتحرّر عند اكتمالها لا بالوقت — والباقة مثلها: حصة حصة عند تسليمها؛ الكتب والدورات بعد نافذة الاسترجاع
+  const availableAt = sourceType === 'lesson' || sourceType === 'package' ? null : addHours(holdHours);
   const info = q.run(
     `INSERT INTO teacher_earnings (teacher_id, source_type, source_id, order_id, gross, commission, net, status, available_at)
      VALUES (?,?,?,?,?,?,?,'pending',?)`,
@@ -30,7 +30,7 @@ export function releaseEarnings(filter: { sourceType?: Source; sourceId?: number
   const params: unknown[] = ['pending', nowIso()];
   if (filter.sourceType) { where.push('source_type = ?'); params.push(filter.sourceType); }
   if (filter.sourceId) { where.push('source_id = ?'); params.push(filter.sourceId); }
-  else where.push("source_type <> 'lesson'"); // الحصص لا تُحرَّر بالوقت
+  else where.push("source_type NOT IN ('lesson','package')"); // الحصص (ومنها حصص الباقة) تتحرّر بالتسليم لا بالوقت
   const rows = q.all<{ id: number; teacher_id: number; net: number }>(`SELECT id, teacher_id, net FROM teacher_earnings WHERE ${where.join(' AND ')}`, ...params);
   for (const r of rows) {
     q.run("UPDATE teacher_earnings SET status = 'available' WHERE id = ?", r.id);
@@ -59,9 +59,16 @@ export function summary(teacherId: number) {
   const bySource = (src: Source) => money(q.val<number>("SELECT COALESCE(SUM(net),0) FROM teacher_earnings WHERE teacher_id = ? AND source_type = ? AND status <> 'reversed'", teacherId, src) ?? 0);
   const totals = q.get<{ gross: number; commission: number; net: number }>(
     "SELECT COALESCE(SUM(gross),0) AS gross, COALESCE(SUM(commission),0) AS commission, COALESCE(SUM(net),0) AS net FROM teacher_earnings WHERE teacher_id = ? AND status <> 'reversed'", teacherId)!;
+  // «متاح للسحب» هو رصيد الملف نفسه الذي يخصم منه طلب السحب ويتحقّق منه الخادم —
+  // مجموع الأرباح المتاحة وحده يتجاهل ما طُلب سحبه فيدعو المعلّم لطلب مبلغ سيُرفض.
+  const balance = q.get<{ available_balance: number }>('SELECT available_balance FROM teacher_profiles WHERE user_id = ?', teacherId);
+  const payouts = (status: string[]) => money(q.val<number>(
+    `SELECT COALESCE(SUM(amount),0) FROM teacher_payouts WHERE teacher_id = ? AND status IN (${status.map(() => '?').join(',')})`, teacherId, ...status) ?? 0);
   return {
     gross: money(totals.gross), commission: money(totals.commission), net: money(totals.net),
-    pending: agg('pending'), available: agg('available'), paid: agg('paid'),
+    pending: agg('pending'), available: money(balance?.available_balance ?? 0), paid: payouts(['paid']),
+    /** طلبات سحب لم تُصرف بعد — خرجت من «متاح للسحب» ولم تدخل «مصروف» */
+    requested: payouts(['pending', 'approved']),
     breakdown: { lessons: money(bySource('lesson') + bySource('package')), books: bySource('book'), courses: bySource('course') },
   };
 }

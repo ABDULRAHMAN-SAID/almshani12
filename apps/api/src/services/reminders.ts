@@ -17,7 +17,8 @@ export function sendLessonReminders(): number {
       const learner = learnerRefById(b.learner_id);
       const body = learner ? `حصة ${learner.displayName} — جهّز الكاميرا والمايك` : 'جهّز الكاميرا والمايك';
       for (const uid of [b.student_id, b.teacher_id]) {
-        const dup = q.get('SELECT 1 FROM notifications WHERE user_id = ? AND type = ? AND data LIKE ?', uid, type, `%"bookingId":${b.id}%`);
+        // مطابقة دقيقة على معرّف الحجز (LIKE بالبادئة كان يخلط 1 مع 10/12/100…)
+        const dup = q.get("SELECT 1 FROM notifications WHERE user_id = ? AND type = ? AND json_extract(data, '$.bookingId') = ?", uid, type, b.id);
         if (dup) continue;
         notify(uid, { type, title: m >= 60 ? `حصة ${b.subject} بعد ساعة` : `حصة ${b.subject} بعد ${m} دقيقة`, body, data: { bookingId: b.id } });
         sent++;

@@ -88,7 +88,7 @@ expo.dev ← مشروع EAS ← انسخ **Project ID** إلى `apps/mobile/app.
 ```bash
 DOMAIN=app.example.om docker compose -f deploy/docker-compose.prod.yml up -d
 ```
-Caddy يصدر شهادة Let's Encrypt تلقائياً ويمرّر كل شيء إلى التطبيق. الخطوات كاملة (Ubuntu، Docker، الجدار الناري، أول مدير، النسخ الاحتياطية) في **`deploy/README.md`**. `PUBLIC_URL` يصبح `https://<DOMAIN>` تلقائياً؛ حدّد `CORS_ORIGINS` في الإنتاج.
+Caddy يصدر شهادة Let's Encrypt تلقائياً ويمرّر كل شيء إلى التطبيق. الخطوات كاملة (Ubuntu، Docker، الجدار الناري، أول مدير، النسخ الاحتياطية) في **`deploy/README.md`**. `PUBLIC_URL` يصبح `https://<DOMAIN>` تلقائياً؛ حدّد `CORS_ORIGINS` في الإنتاج. خلف أي وكيل عكسي أو نفق (Caddy هنا، وكذلك Nginx أو Cloudflare أو `docker-compose.yml` الجذر) اضبط `TRUST_PROXY=true` ليُقرأ عنوان العميل من `X-Forwarded-For`؛ بدونه تُحسَب حدود الطلبات على عنوان الوكيل وحده فيتشاركها كل العملاء. (`deploy/docker-compose.prod.yml` وFly وRender تضبطها أصلاً.)
 
 <a id="صورة-ghcr"></a>
 ### صورة GHCR

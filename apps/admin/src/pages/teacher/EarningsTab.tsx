@@ -33,7 +33,7 @@ export function EarningsTab({ d }: { d: TeacherAdminDetail }) {
       <div>
         <div>
           <div className="toolbar">{STATUSES.map(s => <button key={s} className={`chip ${status === s ? 'on' : ''}`} onClick={() => { setStatus(s); setPage(1); }}>{s ? ar(s) : 'الكل'}</button>)}</div>
-          <div className="card"><DataTable columns={cols} rows={e.data?.data} meta={e.data?.meta} onPage={setPage} loading={e.isLoading} empty="لا أرباح" /></div>
+          <div className="card"><DataTable columns={cols} rows={e.data?.data} error={e.error} meta={e.data?.meta} onPage={setPage} loading={e.isLoading} empty="لا أرباح" /></div>
         </div>
         <div className="card" style={{ marginTop: 16 }}><h2>وسيلة الصرف</h2>{d.payoutMethod ? <dl className="kv"><dt>الوسيلة</dt><dd>{d.payoutMethod === 'bank' ? 'تحويل بنكي' : d.payoutMethod}</dd>{Object.entries((d.payoutDetails as Record<string, unknown> | null) ?? {}).map(([k, v]) => <div key={k} style={{ display: 'contents' }}><dt>{k}</dt><dd className="mono">{String(v)}</dd></div>)}</dl> : <p className="muted">لم يضبط المعلّم وسيلة صرف بعد.</p>}</div>
       </div>

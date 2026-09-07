@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
 import { Platform, View, StyleSheet } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+// استيراد العائلة مباشرة: فهرس @expo/vector-icons يُصدّر كل العائلات فتُحزَم خرائط رموزها كلها في الحزمة
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTranslation } from 'react-i18next';
 import { colors, fontFamily, radius, themed } from '@manassah/tokens';
 

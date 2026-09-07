@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, StyleSheet, I18nManager, Platform, Switch } from 'react-native';
+import { View, StyleSheet, Platform, Switch } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { colors, spacing, themed } from '@manassah/tokens';
@@ -7,8 +7,8 @@ import { Screen, Text, Button, Input, Chip, Card, ListRow, Dialog, Icon, Badge, 
 import { useUpdateProfile, useDeleteAccount } from '@/features/queries';
 import { useAuth, useActiveLearner } from '@/state/auth';
 import { useUi, type ThemePref, type TextScale } from '@/state/ui';
+import type { Locale } from '@manassah/shared';
 import { signOut } from '@/lib/session';
-import i18n from '@/i18n';
 import { errorMessageKey, resolveBase, DEMO_FALLBACK, isDemo } from '@/api/client';
 import { getPushState, enablePush, disablePush, type PushState } from '@/lib/push';
 
@@ -20,7 +20,7 @@ export default function Settings() {
   const active = useActiveLearner();
   const update = useUpdateProfile();
   const del = useDeleteAccount();
-  const { themePref, setThemePref, textScale, setTextScale, serverUrl, setServerUrl } = useUi();
+  const { themePref, setThemePref, textScale, setTextScale, serverUrl, setServerUrl, locale, setLocale } = useUi();
   const [name, setName] = useState(user?.displayName ?? '');
   const [confirm, setConfirm] = useState(false);
   const [url, setUrl] = useState(serverUrl);
@@ -31,13 +31,8 @@ export default function Settings() {
   const togglePush = async (on: boolean) => { setPush('busy'); setPush(on ? await enablePush() : await disablePush()); };
   const pushLabel = push === 'checking' || push === 'busy' ? t('settings.pushChecking') : t(`settings.push${push === 'on' ? 'On' : push === 'off' ? 'Off' : push === 'denied' ? 'Denied' : push === 'unconfigured' ? 'Unconfigured' : 'Unsupported'}`);
 
-  const setLang = (lng: 'ar' | 'en') => {
-    i18n.changeLanguage(lng);
-    update.mutate({ locale: lng });
-    const rtl = lng === 'ar';
-    if (Platform.OS === 'web' && typeof document !== 'undefined') { document.documentElement.dir = rtl ? 'rtl' : 'ltr'; document.documentElement.lang = lng; }
-    else if (I18nManager.isRTL !== rtl) { I18nManager.forceRTL(rtl); }
-  };
+  // الاختيار يُحفَظ على الجهاز (setLocale) قبل إبلاغ الخادم — فيصمد عبر إعادة التحميل حتى بلا شبكة
+  const setLang = (lng: Locale) => { setLocale(lng); update.mutate({ locale: lng }); };
 
   /** يطرق /api/health على العنوان المكتوب ويعرض النتيجة والزمن */
   const test = async () => {
@@ -76,7 +71,7 @@ export default function Settings() {
         {/* اللغة */}
         <Card>
           <View style={styles.head}><Icon name="globe" size={22} color={colors.state.info} /><Text role="h3">{t('settings.language')}</Text></View>
-          <View style={styles.chips}><Chip label={t('settings.arabic')} selected={i18n.language !== 'en'} onPress={() => setLang('ar')} /><Chip label={t('settings.english')} selected={i18n.language === 'en'} onPress={() => setLang('en')} /></View>
+          <View style={styles.chips}><Chip label={t('settings.arabic')} selected={locale !== 'en'} onPress={() => setLang('ar')} /><Chip label={t('settings.english')} selected={locale === 'en'} onPress={() => setLang('en')} /></View>
         </Card>
 
         {/* التنبيهات */}

@@ -18,11 +18,15 @@ export function OrdersTable({ me, params = {}, initialStatus = '', initialQ = ''
   const [amount, setAmount] = useState('');
   const [reason, setReason] = useState('');
   const list = useQuery({ queryKey: ['adm-orders', params, status, q, page], queryFn: () => api.get<{ data: AdminOrder[]; meta: PageMeta }>('/admin/orders', { ...params, status: status || undefined, q: q || undefined, page, limit: 20 }) });
-  const inv = () => { qc.invalidateQueries({ queryKey: ['adm-orders'] }); qc.invalidateQueries({ queryKey: ['adm-refunds'] }); qc.invalidateQueries({ queryKey: ['overview'] }); qc.invalidateQueries({ queryKey: ['adm-user'] }); };
-  const confirmManual = useMutation({ mutationFn: ({ id, reference }: { id: number; reference: string }) => api.post(`/admin/orders/${id}/confirm-manual`, { reference }), onSuccess: () => { toast('تم التأكيد وتفعيل المحتوى'); inv(); }, onError: e => toast(errMsg(e)) });
-  const refund = useMutation({ mutationFn: () => api.post(`/admin/orders/${sel!.id}/refund`, { amount: amount ? Number(amount) : undefined, reason }), onSuccess: () => { toast('تم الاسترجاع إلى محفظة الطالب'); setSel(null); inv(); }, onError: e => toast(errMsg(e)) });
+  // الاسترجاع يسحب الوصول ويقيّد في المحفظة — تبويبا «الاستحقاقات» و«المحفظة» لصاحب الطلب يجب ألّا يبقيا قديمين ١٥ ثانية
+  const inv = (userId?: number) => {
+    for (const k of ['adm-orders', 'adm-refunds', 'overview', 'adm-user']) qc.invalidateQueries({ queryKey: [k] });
+    if (userId) { qc.invalidateQueries({ queryKey: ['adm-entitlements', userId] }); qc.invalidateQueries({ queryKey: ['adm-wallet', userId] }); qc.invalidateQueries({ queryKey: ['adm-user', userId] }); }
+  };
+  const confirmManual = useMutation({ mutationFn: ({ id, reference }: { id: number; reference: string; userId: number }) => api.post(`/admin/orders/${id}/confirm-manual`, { reference }), onSuccess: (_r, v) => { toast('تم التأكيد وتفعيل المحتوى'); inv(v.userId); }, onError: e => toast(errMsg(e)) });
+  const refund = useMutation({ mutationFn: () => api.post(`/admin/orders/${sel!.id}/refund`, { amount: amount ? Number(amount) : undefined, reason }), onSuccess: () => { toast('تم الاسترجاع إلى محفظة الطالب'); inv(sel?.userId); setSel(null); }, onError: e => toast(errMsg(e)) });
   const fin = can(me, 'finance');
-  const askManual = async (o: AdminOrder) => { const r = await confirm({ title: `تأكيد التحويل البنكي لطلب ${o.number}`, body: `${money(o.total)} — يُفعَّل المحتوى فوراً بعد التأكيد.`, fields: [{ key: 'reference', label: 'مرجع التحويل (اختياري)' }], confirmLabel: 'تأكيد التحويل' }); if (r) confirmManual.mutate({ id: o.id, reference: r.reference ?? '' }); };
+  const askManual = async (o: AdminOrder) => { const r = await confirm({ title: `تأكيد التحويل البنكي لطلب ${o.number}`, body: `${money(o.total)} — يُفعَّل المحتوى فوراً بعد التأكيد.`, fields: [{ key: 'reference', label: 'مرجع التحويل (اختياري)' }], confirmLabel: 'تأكيد التحويل' }); if (r) confirmManual.mutate({ id: o.id, reference: r.reference ?? '', userId: o.userId }); };
   const cols: Column<AdminOrder>[] = [
     { key: 'number', label: 'الرقم', className: 'num', render: o => <b>{o.number}</b> },
     { key: 'user', label: 'العميل', hide: hideCustomer, render: o => <PersonLink id={o.userId} name={o.userName} /> },
@@ -42,7 +46,7 @@ export function OrdersTable({ me, params = {}, initialStatus = '', initialQ = ''
         <span className="muted small">{list.data?.meta.total ?? 0} طلب</span>
       </div>
       <div className="card">
-        <DataTable columns={cols} rows={list.data?.data} meta={list.data?.meta} onPage={setPage} loading={list.isLoading} empty="لا طلبات" expand={o => (
+        <DataTable columns={cols} rows={list.data?.data} meta={list.data?.meta} onPage={setPage} loading={list.isLoading} error={list.error} empty="لا طلبات" expand={o => (
           <div className="grid grid-3 small">
             <div><h3>العناصر</h3>{o.items.map((i, k) => <div key={k} className="row between"><span><Badge>{ar(i.itemType)}</Badge> {i.title}</span><span className="num">{i.quantity > 1 ? `${i.quantity} × ` : ''}{money(i.unitPrice)}</span></div>)}<div className="muted" style={{ marginTop: 6 }}>المتعلّم: <LearnerChip learner={o.learner} /> · مدفوع في <span className="num">{when(o.paidAt)}</span></div></div>
             <div><h3>المدفوعات</h3>{o.payments.length ? o.payments.map((p, k) => <div key={k} className="row between"><span>{ar(p.provider)} <Badge tone={STATUS_TONE[p.status]}>{ar(p.status)}</Badge></span><span className="num">{money(p.amount)} · {when(p.createdAt)}</span></div>) : <span className="muted">—</span>}</div>

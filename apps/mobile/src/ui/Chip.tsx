@@ -16,12 +16,14 @@ export interface ChipProps {
 
 /** شريحة فلتر/تصنيف — حبّة مستديرة كبيرة، المختارة مملوءة بلونها (أو باللون المعكوس للسِمة حين لا لون لها) */
 export function Chip({ label, selected, onPress, icon, color, softColor, small }: ChipProps) {
+  // الشريحة الصغيرة أقصر من هدف اللمس (48) — hitSlop يعوّض الفارق بلا تكبير بصري
   const fg = selected ? (color ? colors.text.onPrimary : colors.text.inverse) : color ?? colors.text.primary;
   const bg = selected ? (color ?? colors.bg.inverse) : softColor ?? colors.bg.card;
   return (
     <Pressable
       onPress={onPress}
       disabled={!onPress}
+      hitSlop={small ? 9 : 4}
       accessibilityRole={onPress ? 'button' : undefined}
       accessibilityState={{ selected }}
       style={({ pressed }) => [

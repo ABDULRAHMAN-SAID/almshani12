@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { Overview as OverviewT } from '@manassah/shared';
 import { api, money, when } from '../api';
-import { Page, Kpi, Sparkline, BarSeries, HBars, Badge, TeacherLink, Empty, STATUS_TONE, ar } from '../ui';
+import { Page, Kpi, Sparkline, BarSeries, HBars, Badge, TeacherLink, Empty, ErrorState, STATUS_TONE, ar } from '../ui';
 
 const RANGES = [7, 14, 30, 90] as const;
 const tm = (iso: string) => new Intl.DateTimeFormat('ar-u-nu-latn', { timeStyle: 'short', timeZone: 'Asia/Muscat' }).format(new Date(iso));
@@ -13,7 +13,7 @@ export default function Overview() {
   const [showLive, setShowLive] = useState(false);
   const q = useQuery({ queryKey: ['overview', days], queryFn: () => api.get<OverviewT>('/admin/overview', { days }), refetchInterval: 30_000 });
   const d = q.data;
-  if (!d) return <Page title="نظرة عامة"><Empty text={q.isError ? 'تعذّر التحميل' : 'جارٍ التحميل…'} /></Page>;
+  if (!d) return <Page title="نظرة عامة">{q.isError ? <ErrorState error={q.error} /> : <Empty text="جارٍ التحميل…" />}</Page>;
   const s = d.series, br = d.breakdown, l = d.live;
   const verified = d.teachers.verified ?? 0;
   const byType = (['lesson', 'book', 'course', 'package', 'subscription'] as const).map(k => ({ key: k, label: ar(k), value: br.revenueByItemType[k] ?? 0 }));
@@ -45,7 +45,7 @@ export default function Overview() {
         <Kpi label="محتوى بانتظار المراجعة" value={d.queues.contentReview} to="/content" tone={d.queues.contentReview ? 'warn' : undefined} />
         <Kpi label="تحويلات بنكية" value={d.queues.manualPayments} to="/orders?status=pending" tone={d.queues.manualPayments ? 'warn' : undefined} />
         <Kpi label="طلبات سحب" value={d.queues.payouts} to="/payouts" tone={d.queues.payouts ? 'warn' : undefined} />
-        <Kpi label="مستندات بانتظار المراجعة" value={d.queues.pendingDocuments} to="/teachers?status=under_review" tone={d.queues.pendingDocuments ? 'warn' : undefined} />
+        <Kpi label="مستندات بانتظار المراجعة" value={d.queues.pendingDocuments} to="/teachers?status=" tone={d.queues.pendingDocuments ? 'warn' : undefined} />
       </div>
 
       <h2>المال</h2>

@@ -33,7 +33,7 @@ export function Tabs<K extends string>({ items, value, onChange, scrollable }: T
 
   if (scrollable) {
     return (
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[styles.bar, styles.scrollRow]}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.scrollBar} contentContainerStyle={[styles.bar, styles.scrollRow]}>
         {content}
       </ScrollView>
     );
@@ -45,7 +45,9 @@ const styles = themed((c) => StyleSheet.create({
   bar: { backgroundColor: c.bg.subtle, borderRadius: radius.full, padding: 4 },
   row: { flexDirection: 'row' },
   scrollRow: { flexDirection: 'row', alignSelf: 'flex-start' },
-  tab: { height: 42, justifyContent: 'center', alignItems: 'center', borderRadius: radius.full, paddingHorizontal: spacing[3] },
+  // بلا flexGrow:0 يبتلع الشريط ما تبقّى من ارتفاع العمود فتهبط القائمة لأسفل الشاشة
+  scrollBar: { flexGrow: 0 },
+  tab: { height: 44, justifyContent: 'center', alignItems: 'center', borderRadius: radius.full, paddingHorizontal: spacing[3] },
   tabFlex: { flex: 1 },
   tabScroll: { paddingHorizontal: spacing[4] },
   tabActive: { backgroundColor: c.bg.card, shadowColor: '#5A4A2A', shadowOpacity: 0.1, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1 },

@@ -39,7 +39,8 @@ export function generateSlots(teacherId: number, { from, days, durationMinutes }
     const date = `${local.getUTCFullYear()}-${pad(local.getUTCMonth() + 1)}-${pad(local.getUTCDate())}`;
     const weekday = local.getUTCDay();
     const dayRules = rules.filter(r => r.weekday === weekday);
-    const slots: Slot[] = [];
+    // قواعد متداخلة أو مكرّرة لليوم نفسه كانت تنتج الموعد ذاته مرّتين — نفهرس بالبداية
+    const byStart = new Map<string, Slot>();
 
     for (const rule of dayRules) {
       const step = rule.slot_minutes + rule.break_minutes;
@@ -50,11 +51,12 @@ export function generateSlots(teacherId: number, { from, days, durationMinutes }
         const past = sMs <= nowMs;
         const off = timeOff.some(t => overlaps(sMs, eMs, new Date(t.starts_at).getTime(), new Date(t.ends_at).getTime()));
         const taken = booked.some(b => overlaps(sMs, eMs, new Date(b.starts_at).getTime(), new Date(b.ends_at).getTime()));
-        slots.push({ startsAt, endsAt, available: !past && !off && !taken });
+        if (!byStart.has(startsAt)) byStart.set(startsAt, { startsAt, endsAt, available: !past && !off && !taken });
       }
     }
-    // حدّ الحصص اليومي: بعد بلوغه تُغلق بقية المواعيد
-    const dayBooked = booked.filter(b => b.starts_at.startsWith(new Date(dayStart.getTime() + 4 * 3_600_000).toISOString().slice(0, 10))).length;
+    const slots: Slot[] = [...byStart.values()];
+    // حدّ الحصص اليومي بتوقيت مسقط (starts_at مخزّن UTC — المقارنة بالبادئة كانت تنسب حصص ما بعد منتصف الليل لليوم السابق)
+    const dayBooked = booked.filter(b => utcToMuscatParts(b.starts_at).date === date).length;
     if (dayBooked >= maxPerDay) slots.forEach(s => { s.available = false; });
     slots.sort((a, b) => a.startsAt.localeCompare(b.startsAt));
     out.push({ date, slots });

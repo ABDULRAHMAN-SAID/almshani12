@@ -11,8 +11,9 @@ export function formatMoney(
   { currency = brand.currency.code, decimals = brand.currency.decimals, locale = 'ar' as 'ar' | 'en' } = {},
 ): string {
   const value = roundMoney(amount, decimals).toFixed(decimals);
+  // العربية: الرمز «ر.ع» بعد المبلغ — الإنجليزية: رمز العملة الدولي قبله (OMR 2.500) لا رمز عربي
   const symbol = currency === brand.currency.code ? brand.currency.symbol : currency;
-  return locale === 'ar' ? `${value} ${symbol}` : `${symbol} ${value}`;
+  return locale === 'ar' ? `${value} ${symbol}` : `${currency} ${value}`;
 }
 
 /** نسبة التوفير في الباقات — تُحسب في الخادم وتُعرض هنا فقط */

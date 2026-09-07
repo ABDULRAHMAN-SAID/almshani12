@@ -1,5 +1,5 @@
 import { q, json } from '../db/index.ts';
-import { money } from './helpers.ts';
+import { money, iso } from './helpers.ts';
 import { publicUrlFromPath } from '../services/mappers.ts';
 import { listLearners, resolveLearnerForAccount, learnerRefById } from '../services/learners.ts';
 
@@ -24,9 +24,16 @@ export function userView(userId: number) {
     } : null,
     learners, activeLearnerId: u.active_learner_id ?? null,
     teacher: tp ? { verificationStatus: tp.verification_status } : null,
-    createdAt: u.created_at,
+    createdAt: iso(u.created_at),
   };
 }
+
+/** رابط بوابة الدفع المحفوظ مع آخر دفعة معلّقة — للطلبات التي لم تُدفع بعد فقط */
+const pendingCheckoutUrl = (o: { id: number; status: string }): string | null => {
+  if (o.status !== 'pending') return null;
+  const raw = q.val<string>("SELECT raw FROM payments WHERE order_id = ? AND status = 'pending' ORDER BY id DESC LIMIT 1", o.id);
+  return json<{ checkoutUrl?: string }>(raw, {}).checkoutUrl ?? null;
+};
 
 /** الطلب كما يراه صاحبه والإدارة — يحمل learner: LearnerRef|null دائماً */
 export function orderView(o: any) {
@@ -35,11 +42,13 @@ export function orderView(o: any) {
   return {
     id: o.id, number: o.number, status: o.status,
     subtotal: money(o.subtotal), discount: money(o.discount), tax: money(o.tax), total: money(o.total), currency: o.currency,
-    provider: o.provider ?? null, items, createdAt: o.created_at, paidAt: o.paid_at ?? null, invoiceUrl: null,
+    provider: o.provider ?? null, items, createdAt: iso(o.created_at), paidAt: iso(o.paid_at) ?? null, invoiceUrl: null,
+    // طلب لم يُدفع بعد: مهلته ورابط بوابته (محفوظ مع الدفعة) كي تعرض الصفحة «افتح بوابة الدفع» أو «حاول مجدداً»
+    expiresAt: iso(o.expires_at) ?? null, checkoutUrl: pendingCheckoutUrl(o),
     learner: learnerRefById(o.learner_id), // المتعلّم المنسوب إليه الطلب (D3) — يصل كل من يعرض طلباً، بما فيه مسارات الإدارة
   };
 }
 
 export const notificationView = (n: any) => ({
-  id: n.id, type: n.type, title: n.title, body: n.body ?? null, data: json<Record<string, unknown> | null>(n.data, null), readAt: n.read_at ?? null, createdAt: n.created_at,
+  id: n.id, type: n.type, title: n.title, body: n.body ?? null, data: json<Record<string, unknown> | null>(n.data, null), readAt: iso(n.read_at) ?? null, createdAt: iso(n.created_at),
 });

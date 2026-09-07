@@ -1,7 +1,7 @@
 import { Router, raw, json as jsonBody } from 'express';
 import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
-import { AddToCart, ApplyCoupon, CheckoutRequest, OrderConfirmRequest } from '@manassah/shared';
+import { AddToCart, ApplyCoupon, CheckoutRequest, OrderConfirmRequest, formatMoney } from '@manassah/shared';
 import { config } from '../config.ts';
 import { db, q, settings, nowIso } from '../db/index.ts';
 import { AppError, asyncHandler, notFound, forbidden, badRequest } from '../lib/errors.ts';
@@ -70,7 +70,7 @@ cartRouter.post('/coupon', validate(ApplyCoupon), (req, res) => {
 /* ============ الدفع ============ */
 export const checkoutRouter = Router();
 checkoutRouter.get('/methods', requireAuth, (req, res) => {
-  const methods = providerCatalog().map(m => m.id === 'wallet' ? { ...m, description: `الرصيد المتاح: ${wallet.balance(req.user!.id)} ${config.money.currency}` } : m);
+  const methods = providerCatalog().map(m => m.id === 'wallet' ? { ...m, description: `الرصيد المتاح: ${formatMoney(wallet.balance(req.user!.id))}` } : m);
   res.json(methods);
 });
 
@@ -85,8 +85,13 @@ checkoutRouter.post('/', requireAuth, validate(CheckoutRequest), asyncHandler(as
     if (!b || b.student_id !== uid) throw notFound('الحجز غير موجود');
     if (b.status !== 'pending_payment') throw new AppError('conflict', 'هذا الحجز لا ينتظر دفعاً', 409);
     if (b.expires_at && b.expires_at < nowIso()) throw new AppError('slot_expired', 'انتهت مهلة إتمام الحجز', 409);
-    order = q.get<any>("SELECT * FROM orders WHERE id = ? AND status = 'pending'", b.order_id);
+    // طلب فشلت بوابته يُعاد فتحه للمحاولة ما دام الحجز نفسه قائماً
+    order = q.get<any>("SELECT * FROM orders WHERE id = ? AND status IN ('pending','failed')", b.order_id);
     if (!order) throw new AppError('slot_expired', 'انتهت مهلة إتمام الحجز', 409);
+    if (order.status === 'failed') {
+      q.run("UPDATE orders SET status = 'pending', expires_at = ? WHERE id = ?", b.expires_at, order.id);
+      order = q.get<any>('SELECT * FROM orders WHERE id = ?', order.id);
+    }
   } else if (c.items?.length) {
     order = createOrder(uid, { items: c.items.map(i => ({ type: i.itemType as any, id: i.itemId })), couponCode: c.couponCode ?? null, learnerId });
   } else {
@@ -102,7 +107,17 @@ checkoutRouter.post('/', requireAuth, validate(CheckoutRequest), asyncHandler(as
     return res.json({ order: orderView(paid), paid: true, requiresRedirect: false, checkoutUrl: null, awaitingReview: false });
   }
   const provider = getProvider(c.provider);
-  const session = await provider.createCheckout(order);
+  let session;
+  try {
+    session = await provider.createCheckout(order);
+  } catch (err) {
+    // لا نترك طلباً معلّقاً بلا مزوّد: يُعلَّم «فاشلاً» فوراً ليعرضه التطبيق مع «حاول مجدداً» أو «إلغاء»
+    q.run("UPDATE orders SET status = 'failed' WHERE id = ? AND status = 'pending'", order.id);
+    q.run("UPDATE payments SET status = 'failed' WHERE order_id = ? AND status = 'pending'", order.id);
+    throw err;
+  }
+  // رابط البوابة يُحفَظ مع الدفعة كي تعرضه صفحة الطلب لاحقاً («افتح بوابة الدفع») بدل ضياعه مع الاستجابة
+  if (session.checkoutUrl) q.run("UPDATE payments SET raw = json_set(COALESCE(raw, '{}'), '$.checkoutUrl', ?) WHERE order_id = ? AND status = 'pending'", session.checkoutUrl, order.id);
   if (session.settleImmediately) {
     const paid = db.transaction(() => {
       wallet.debit(uid, order.total, { type: 'purchase', refType: 'order', refId: order.id, note: `شراء ${order.number}` });
@@ -138,6 +153,21 @@ ordersRouter.get('/:number', (req, res) => {
   if (o.user_id !== req.user!.id && !req.user!.roles.some(r => ['admin', 'super_admin', 'finance', 'support'].includes(r))) throw forbidden();
   res.json(orderView(o));
 });
+/** إلغاء طلب لم يُدفع (فشل التحويل للبوابة أو عدول المستخدم) — يحرّر الحصة المعلّقة معه */
+ordersRouter.post('/:number/cancel', (req, res) => {
+  const o = q.get<any>('SELECT * FROM orders WHERE number = ?', req.params.number);
+  if (!o) throw notFound('الطلب غير موجود');
+  if (o.user_id !== req.user!.id) throw forbidden();
+  if (!['pending', 'failed'].includes(o.status)) throw new AppError('conflict', 'لا يمكن إلغاء هذا الطلب', 409);
+  db.transaction(() => {
+    q.run("UPDATE orders SET status = 'cancelled' WHERE id = ?", o.id);
+    q.run("UPDATE payments SET status = 'failed' WHERE order_id = ? AND status = 'pending'", o.id);
+    q.run("UPDATE bookings SET status = 'expired' WHERE order_id = ? AND status = 'pending_payment'", o.id);
+  })();
+  audit(req, 'order.cancelled', 'orders', o.id, { status: o.status });
+  res.json(orderView(q.get<any>('SELECT * FROM orders WHERE id = ?', o.id)));
+});
+
 /** كل تأكيد قد يسأل البوابة فعلاً — حدّ لكل مستخدم (التطبيق يستطلع كل ٤ ثوانٍ) كي لا يُخنق مفتاح التاجر عند المزوّد */
 const confirmLimiter = rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: 'draft-7', legacyHeaders: false, keyGenerator: req => `u:${req.user?.id ?? 0}`, skip: () => !config.rateLimit.enabled,
   message: { error: { code: 'rate_limited', message: 'محاولات كثيرة — انتظر قليلاً' } } });
@@ -207,9 +237,10 @@ paymentsRouter.post('/mock/confirm', jsonBody(), validate(MockConfirm), (req, re
 export const mockPayPage = Router();
 mockPayPage.get('/pay/mock/:number', attachUser, (req, res) => {
   if (config.env === 'production') return res.status(404).end();
-  const o = q.get<any>('SELECT number, total, currency, status FROM orders WHERE number = ?', req.params.number);
-  const ref = String(req.query.ref ?? '');
+  const o = q.get<any>('SELECT id, number, total, currency, status FROM orders WHERE number = ?', req.params.number);
   if (!o) return res.status(404).send('الطلب غير موجود');
+  // المرجع يُقرأ من دفعة الطلب لا من ?ref — أي انعكاس لمُدخل المستخدم داخل الصفحة كان ثغرة XSS
+  const ref = q.val<string>("SELECT provider_ref FROM payments WHERE order_id = ? AND provider = 'mock' ORDER BY id DESC LIMIT 1", o.id) ?? '';
   const back = `${config.brand.scheme}://pay/success?order=${o.number}`;
   res.type('html').send(`<!doctype html><html lang="ar" dir="rtl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>بوابة دفع تجريبية</title>

@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import multer from 'multer';
 import { z } from 'zod';
 import { CoursesQuery, LessonProgressUpdate, QuizSubmit } from '@manassah/shared';
 import { config } from '../config.ts';
@@ -7,9 +6,9 @@ import { db, q, json, nowIso } from '../db/index.ts';
 import { AppError, asyncHandler, notFound, forbidden, badRequest } from '../lib/errors.ts';
 import { validate, body, query, idParam } from '../lib/validate.ts';
 import { attachUser, requireAuth, requireVerifiedTeacher, hasRole } from '../lib/auth.ts';
-import { paginate, pageMeta, money } from '../lib/helpers.ts';
+import { paginate, pageMeta, money, iso } from '../lib/helpers.ts';
 import { checkAccess, ownedIds, favoriteIds } from '../services/access.ts';
-import { signedUrl, storeFile, publicUrl } from '../services/storage.ts';
+import { signedUrl, upload, storeUpload, publicUrl } from '../services/storage.ts';
 import { courseCard, reviewItems } from '../services/mappers.ts';
 import { scoreQuiz, quizForStudent } from '../services/quiz.ts';
 import { notifyStaff } from '../services/notifications.ts';
@@ -35,13 +34,19 @@ router.get('/', attachUser, validate(CoursesQuery, 'query'), (req, res) => {
 });
 
 router.get('/mine', requireAuth, (req, res) => {
-  const rows = q.all<any>('SELECT * FROM courses WHERE teacher_id = ? ORDER BY id DESC', req.user!.id);
-  res.json(rows.map(c => ({ ...courseCard(c, { userId: req.user!.id }), status: c.status, rejectReason: c.reject_reason })));
+  const rows = q.all<any>('SELECT * FROM courses WHERE teacher_id = ? ORDER BY id DESC LIMIT 200', req.user!.id);
+  const mineCtx = { userId: req.user!.id, enrolled: ownedIds(req.user!.id, 'course'), fav: favoriteIds(req.user!.id, 'course') };
+  res.json(rows.map(c => ({ ...courseCard(c, mineCtx), status: c.status, rejectReason: c.reject_reason })));
 });
 
-const lessonItem = (l: any, uid: number | undefined, allowed: boolean) => ({
+/** دروس الدورة المكتملة للمستخدم — استعلام واحد بدل استعلام لكل درس */
+const completedLessonIds = (uid: number | undefined, courseId: number): Set<number> =>
+  new Set(uid ? q.all<{ lesson_id: number }>(`SELECT lp.lesson_id FROM lesson_progress lp JOIN course_lessons l ON l.id = lp.lesson_id JOIN course_sections cs ON cs.id = l.section_id
+    WHERE lp.user_id = ? AND lp.completed = 1 AND cs.course_id = ?`, uid, courseId).map(r => r.lesson_id) : []);
+
+const lessonItem = (l: any, done: Set<number>, allowed: boolean) => ({
   id: l.id, title: l.title, kind: l.kind, durationSeconds: l.duration_seconds, isPreview: !!l.is_preview,
-  completed: !!uid && !!q.get('SELECT 1 FROM lesson_progress WHERE user_id = ? AND lesson_id = ? AND completed = 1', uid, l.id),
+  completed: done.has(l.id),
   locked: !allowed && !l.is_preview,
 });
 
@@ -51,9 +56,12 @@ router.get('/:id', attachUser, (req, res) => {
   const c = q.get<any>('SELECT * FROM courses WHERE id = ?', id);
   if (!c || (c.status !== 'published' && c.teacher_id !== uid && !hasRole(req.user, 'content_reviewer'))) throw notFound('الدورة غير موجودة');
   const allowed = checkAccess(uid, 'course', id, req.user?.roles ?? []).allowed;
+  // كل الدروس باستعلام واحد مرتّبة بالقسم ثم الترتيب — لا استعلام لكل قسم ولا لكل درس
+  const done = completedLessonIds(uid, id);
+  const allLessons = q.all<any>('SELECT l.* FROM course_lessons l JOIN course_sections cs ON cs.id = l.section_id WHERE cs.course_id = ? ORDER BY l."order", l.id', id);
   const sections = q.all<any>('SELECT * FROM course_sections WHERE course_id = ? ORDER BY "order", id', id).map(s => ({
     id: s.id, title: s.title,
-    lessons: q.all<any>('SELECT * FROM course_lessons WHERE section_id = ? ORDER BY "order", id', s.id).map(l => lessonItem(l, uid, allowed)),
+    lessons: allLessons.filter(l => l.section_id === s.id).map(l => lessonItem(l, done, allowed)),
   }));
   const canReview = !!uid && allowed && !q.get('SELECT 1 FROM reviews WHERE user_id = ? AND target_type = ? AND target_id = ?', uid, 'course', id);
   if (uid) q.run('INSERT INTO analytics_events (user_id, name, props) VALUES (?,?,?)', uid, 'course_view', JSON.stringify({ id }));
@@ -74,15 +82,16 @@ router.get('/:id/lessons/:lessonId', requireAuth, (req, res) => {
   const allowed = checkAccess(uid, 'course', courseId, req.user!.roles).allowed;
   if (!allowed && !l.is_preview) throw new AppError('payment_required', 'اشترك في الدورة لمشاهدة هذا الدرس', 402);
   const all = q.all<any>('SELECT l.* FROM course_lessons l JOIN course_sections cs ON cs.id = l.section_id WHERE cs.course_id = ? ORDER BY cs."order", cs.id, l."order", l.id', courseId);
+  const done = completedLessonIds(uid, courseId);
   const idx = all.findIndex(x => x.id === lessonId);
   const ttl = Math.max(3600, l.duration_seconds * 3);
   const link = l.video_file_id ? signedUrl(l.video_file_id, uid, ttl) : null;
   const pos = q.val<number>('SELECT position_seconds FROM lesson_progress WHERE user_id = ? AND lesson_id = ?', uid, lessonId) ?? 0;
   q.run('UPDATE course_enrollments SET last_lesson_id = ? WHERE user_id = ? AND course_id = ?', lessonId, uid, courseId);
   res.json({
-    lesson: lessonItem(l, uid, allowed), videoUrl: link?.url ?? null, readingBody: l.reading_body ?? null, quizId: l.quiz_id ?? null,
+    lesson: lessonItem(l, done, allowed), videoUrl: link?.url ?? null, readingBody: l.reading_body ?? null, quizId: l.quiz_id ?? null,
     positionSeconds: pos, expiresAt: link?.expiresAt ?? new Date(Date.now() + ttl * 1000).toISOString(),
-    next: all[idx + 1] ? lessonItem(all[idx + 1], uid, allowed) : null, prev: all[idx - 1] ? lessonItem(all[idx - 1], uid, allowed) : null,
+    next: all[idx + 1] ? lessonItem(all[idx + 1], done, allowed) : null, prev: all[idx - 1] ? lessonItem(all[idx - 1], done, allowed) : null,
   });
 });
 
@@ -135,8 +144,8 @@ router.post('/quizzes/:quizId/submit', requireAuth, validate(QuizSubmit), (req, 
   res.json(result);
 });
 router.get('/quizzes/:quizId/attempts', requireAuth, (req, res) => {
-  res.json(q.all<any>('SELECT id, percent, passed, duration_seconds, finished_at FROM quiz_attempts WHERE quiz_id = ? AND user_id = ? ORDER BY id DESC', idParam(req, 'quizId'), req.user!.id)
-    .map(a => ({ attemptId: a.id, percent: a.percent, passed: !!a.passed, durationSeconds: a.duration_seconds, finishedAt: a.finished_at })));
+  res.json(q.all<any>('SELECT id, percent, passed, duration_seconds, finished_at FROM quiz_attempts WHERE quiz_id = ? AND user_id = ? ORDER BY id DESC LIMIT 50', idParam(req, 'quizId'), req.user!.id)
+    .map(a => ({ attemptId: a.id, percent: a.percent, passed: !!a.passed, durationSeconds: a.duration_seconds, finishedAt: iso(a.finished_at) })));
 });
 /** اختبار سريع: أحدث اختبار وحدة/مستقل لمواد المتعلّم النشط وصفّه (بلا متعلّم: كحساب بلا مواد) */
 router.get('/quick-quiz/pick', requireAuth, (req, res) => {
@@ -197,20 +206,19 @@ router.post('/:id/lessons', requireVerifiedTeacher, validate(LessonBody), (req, 
     l.sectionId, l.title, l.kind, l.readingBody ?? null, l.quizId ?? null, l.durationSeconds, l.isPreview ? 1 : 0, order);
   res.status(201).json({ id: Number(info.lastInsertRowid), ...l });
 });
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: config.uploads.maxSizeMb * 1024 * 1024 } });
-router.post('/:id/lessons/:lessonId/video', requireVerifiedTeacher, upload.single('file'), asyncHandler(async (req, res) => {
+router.post('/:id/lessons/:lessonId/video', requireVerifiedTeacher, upload(config.uploads.maxSizeMb), asyncHandler(async (req, res) => {
   const c = ownCourse(req); const lessonId = idParam(req, 'lessonId');
   if (!req.file || !req.file.mimetype.startsWith('video/')) throw badRequest('ارفع ملف فيديو');
   if (!q.get('SELECT 1 FROM course_lessons l JOIN course_sections cs ON cs.id = l.section_id WHERE l.id = ? AND cs.course_id = ?', lessonId, c.id)) throw notFound();
-  const f = storeFile(req.file.buffer, { ownerId: req.user!.id, originalName: req.file.originalname, mime: req.file.mimetype, purpose: 'video', visibility: 'private' });
+  const f = storeUpload(req.file, { ownerId: req.user!.id, purpose: 'video', visibility: 'private' });
   const dur = Number(req.body?.durationSeconds ?? 0);
   q.run('UPDATE course_lessons SET video_file_id = ?, duration_seconds = CASE WHEN ? > 0 THEN ? ELSE duration_seconds END WHERE id = ?', f.id, dur, dur, lessonId);
   res.status(201).json({ fileId: f.id });
 }));
-router.post('/:id/cover', requireVerifiedTeacher, upload.single('file'), asyncHandler(async (req, res) => {
+router.post('/:id/cover', requireVerifiedTeacher, upload(8), asyncHandler(async (req, res) => {
   const c = ownCourse(req);
   if (!req.file || !req.file.mimetype.startsWith('image/')) throw badRequest('الغلاف يجب أن يكون صورة');
-  const f = storeFile(req.file.buffer, { ownerId: req.user!.id, originalName: req.file.originalname, mime: req.file.mimetype, purpose: 'cover', visibility: 'public' });
+  const f = storeUpload(req.file, { ownerId: req.user!.id, purpose: 'cover', visibility: 'public' });
   q.run('UPDATE courses SET cover_file_id = ?, updated_at = ? WHERE id = ?', f.id, nowIso(), c.id);
   res.status(201).json({ fileId: f.id, url: publicUrl(f.id) });
 }));

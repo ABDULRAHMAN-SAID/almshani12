@@ -1,6 +1,7 @@
 import { View, Pressable, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
-import { Ionicons } from '@expo/vector-icons';
+// استيراد العائلة مباشرة: فهرس @expo/vector-icons يُصدّر كل العائلات فتُحزَم خرائط رموزها كلها في الحزمة
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useTranslation } from 'react-i18next';
 import { colors, radius, spacing, shadow, subjectColors, subjectIcons, type SubjectColorKey, themed } from '@manassah/tokens';
 import type { CourseCard as CourseCardData } from '@manassah/shared';
@@ -22,7 +23,7 @@ export function CourseCard({ course, onPress, width }: CourseCardProps) {
     <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={course.title}
       style={({ pressed }) => [styles.card, width ? { width } : styles.fluid, pressed && styles.pressed]}>
       {course.coverUrl ? (
-        <Image source={{ uri: course.coverUrl }} style={styles.cover} contentFit="cover" transition={150} />
+        <Image source={{ uri: course.coverUrl }} style={styles.cover} contentFit="cover" transition={150} accessibilityLabel={course.title} />
       ) : (
         <View style={[styles.cover, styles.coverFallback, { backgroundColor: sc.main }]}>
           <Ionicons name={subjectIcons[key] as keyof typeof Ionicons.glyphMap} size={110} color="#FFFFFF" style={styles.watermark} />

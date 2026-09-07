@@ -119,6 +119,66 @@ export const MIGRATIONS: Migration[] = [
 )`);
     db.exec('CREATE INDEX IF NOT EXISTS idx_push_devices_user ON push_devices(user_id)');
   } },
+  { version: 5, name: '005_iso_timestamps_and_indexes', up: (db) => {
+    /* ١) الطوابع الزمنية: كانت أعمدة كثيرة تُفتَرض بـ datetime('now') فتُخزَّن 'YYYY-MM-DD HH:MM:SS'
+          بلا منطقة زمنية — تُعرض ناقصة ٤ ساعات وتُقارَن خطأً مع ISO. نصحّح القيم القديمة،
+          ثم نصحّح الافتراضي نفسه في مخطّط القاعدة (لا يغيّر تخزين الصفوف، فقط نصّ الـ DDL). */
+    const tables = (db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'").all() as { name: string }[]).map(t => t.name);
+    for (const table of tables) {
+      for (const col of db.pragma(`table_info(${table})`) as { name: string; dflt_value: string | null }[]) {
+        if (!col.dflt_value || !col.dflt_value.includes("datetime('now')")) continue;
+        db.exec(`UPDATE "${table}" SET "${col.name}" = replace("${col.name}", ' ', 'T') || 'Z'
+                 WHERE "${col.name}" IS NOT NULL AND length("${col.name}") = 19 AND "${col.name}" LIKE '____-__-__ __:__:__'`);
+      }
+    }
+    // تعديل نصّ الـ DDL وحده (لا شكل الصفوف) — يحتاج writable_schema، ويُتحقّق منه بـ integrity_check قبل الاعتماد
+    db.unsafeMode(true);
+    try {
+      db.pragma('writable_schema = ON');
+      db.exec(`UPDATE sqlite_master SET sql = replace(sql, 'datetime(''now'')', 'strftime(''%Y-%m-%dT%H:%M:%fZ'',''now'')')
+               WHERE type = 'table' AND sql LIKE '%datetime(''now'')%'`);
+      db.pragma('writable_schema = RESET');
+      const integrity = db.pragma('integrity_check', { simple: true }) as string;
+      if (integrity !== 'ok') throw new Error(`integrity_check بعد تصحيح الطوابع الزمنية: ${integrity}`);
+    } finally { db.unsafeMode(false); }
+    /* ٢) الفهارس: أعمدة تُصفّى في كل طلب وكانت تمسح الجدول كاملاً (نفسها في schema.sql) */
+    for (const sql of INDEXES_005) db.exec(sql);
+  } },
+];
+
+/** فهارس ترحيل 005 — نفسها في schema.sql */
+const INDEXES_005 = [
+  'CREATE INDEX IF NOT EXISTS idx_course_sections_course ON course_sections(course_id)',
+  'CREATE INDEX IF NOT EXISTS idx_course_lessons_section ON course_lessons(section_id)',
+  'CREATE INDEX IF NOT EXISTS idx_courses_scope ON courses(status, grade_id, subject_id)',
+  'CREATE INDEX IF NOT EXISTS idx_courses_teacher ON courses(teacher_id)',
+  'CREATE INDEX IF NOT EXISTS idx_book_files_book ON book_files(book_id, kind)',
+  'CREATE INDEX IF NOT EXISTS idx_book_toc_book ON book_toc(book_id)',
+  'CREATE INDEX IF NOT EXISTS idx_ent_item ON entitlements(item_type, item_id, created_at)',
+  'CREATE INDEX IF NOT EXISTS idx_conv_teacher ON conversations(teacher_id)',
+  'CREATE INDEX IF NOT EXISTS idx_time_off_teacher ON teacher_time_off(teacher_id, ends_at)',
+  'CREATE INDEX IF NOT EXISTS idx_packages_teacher ON lesson_packages(teacher_id)',
+  'CREATE INDEX IF NOT EXISTS idx_pkg_purchases_user ON package_purchases(user_id)',
+  'CREATE INDEX IF NOT EXISTS idx_teacher_docs_teacher ON teacher_documents(teacher_id)',
+  'CREATE INDEX IF NOT EXISTS idx_curriculum_lessons_unit ON curriculum_lessons(unit_id)',
+  'CREATE INDEX IF NOT EXISTS idx_wallet_tx_user ON wallet_transactions(user_id, id)',
+  'CREATE INDEX IF NOT EXISTS idx_payments_order ON payments(order_id)',
+  'CREATE INDEX IF NOT EXISTS idx_refunds_order ON refunds(order_id)',
+  'CREATE INDEX IF NOT EXISTS idx_room_participants_room ON room_participants(room_id, user_id)',
+  'CREATE INDEX IF NOT EXISTS idx_room_participants_hash ON room_participants(token_hash)',
+  'CREATE INDEX IF NOT EXISTS idx_room_messages_room ON room_messages(room_id, id)',
+  'CREATE INDEX IF NOT EXISTS idx_bookings_order ON bookings(order_id)',
+  'CREATE INDEX IF NOT EXISTS idx_bookings_status_ends ON bookings(status, ends_at)',
+  'CREATE INDEX IF NOT EXISTS idx_bookings_expires ON bookings(status, expires_at)',
+  'CREATE INDEX IF NOT EXISTS idx_orders_expires ON orders(status, expires_at)',
+  'CREATE INDEX IF NOT EXISTS idx_orders_coupon ON orders(coupon_id, status)',
+  'CREATE INDEX IF NOT EXISTS idx_earnings_source ON teacher_earnings(source_type, source_id)',
+  'CREATE INDEX IF NOT EXISTS idx_earnings_pending ON teacher_earnings(status, available_at)',
+  'CREATE INDEX IF NOT EXISTS idx_device_tokens_user ON device_tokens(user_id)',
+  'CREATE INDEX IF NOT EXISTS idx_subscriptions_user ON subscriptions(user_id)',
+  'CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status)',
+  'CREATE INDEX IF NOT EXISTS idx_payouts_teacher ON teacher_payouts(teacher_id, status)',
+  'CREATE INDEX IF NOT EXISTS idx_coupons_active ON coupons(active)',
 ];
 
 export const SCHEMA_VERSION = MIGRATIONS.length;

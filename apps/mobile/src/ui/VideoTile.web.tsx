@@ -7,7 +7,7 @@ import { Avatar } from './Avatar';
 import { Icon } from './Icon';
 import type { VideoTileProps } from './VideoTile';
 
-/** الويب: عنصر <video> يعرض MediaStream (محلي مكتوم الصوت) */
+/** الويب: عنصر <video> يعرض MediaStream (محلي مكتوم الصوت). البلاطة داكنة دائماً فنصّها أبيض ثابت في السِمتين */
 export function VideoTile({ stream, local, name, camOff, micOff, large, note }: VideoTileProps) {
   const { t } = useTranslation();
   const ref = useRef<HTMLVideoElement>(null);
@@ -16,8 +16,8 @@ export function VideoTile({ stream, local, name, camOff, micOff, large, note }: 
   return (
     <View style={[styles.tile, large && styles.large]}>
       <video ref={ref} autoPlay playsInline muted={!!local} style={{ width: '100%', height: '100%', objectFit: 'cover', display: show ? 'block' : 'none', transform: local ? 'scaleX(-1)' : undefined }} />
-      {!show ? <View style={styles.center}><Avatar name={name} size={large ? 'xl' : 'lg'} />{note ? <Text role="caption" tone="inverse" center style={styles.note}>{note}</Text> : null}</View> : null}
-      <View style={styles.label}><Text role="caption" tone="inverse" numberOfLines={1}>{local ? t('live.you') : name}</Text>{micOff ? <Icon name="micOff" size={12} color={colors.text.inverse} /> : null}</View>
+      {!show ? <View style={styles.center}><Avatar name={name} size={large ? 'xl' : 'lg'} />{note ? <Text role="caption" color={colors.text.onPrimary} center style={styles.note}>{note}</Text> : null}</View> : null}
+      <View style={styles.label}><Text role="caption" color={colors.text.onPrimary} numberOfLines={1}>{local ? t('live.you') : name}</Text>{micOff ? <Icon name="micOff" size={12} color={colors.text.onPrimary} /> : null}</View>
     </View>
   );
 }

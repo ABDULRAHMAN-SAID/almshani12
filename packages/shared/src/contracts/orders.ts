@@ -6,6 +6,8 @@ export const CartItemType = z.enum(['book', 'course']);
 export const OrderItemType = z.enum(['book', 'course', 'lesson', 'package', 'subscription']);
 export const OrderStatus = z.enum(['pending', 'paid', 'failed', 'refunded', 'partially_refunded', 'cancelled', 'expired']);
 export const PaymentProviderId = z.enum(['mock', 'wallet', 'manual', 'thawani', 'stripe']);
+/** وسيلة الطلب كما تُسجَّل: وسائل الدفع + «free» لطلب بقيمة صفر (كوبون كامل/محتوى مجاني) — لا تُطلب من العميل */
+export const OrderProviderId = z.enum([...PaymentProviderId.options, 'free']);
 
 export const CartItem = z.object({
   id: Id,
@@ -64,7 +66,7 @@ export const Order = z.object({
   status: OrderStatus,
   subtotal: Money, discount: Money, tax: Money, total: Money,
   currency: Currency,
-  provider: PaymentProviderId.nullable(),
+  provider: OrderProviderId.nullable(),
   items: z.array(OrderItem),
   createdAt: IsoDateTime,
   paidAt: IsoDateTime.nullable(),
@@ -129,9 +131,25 @@ export const Coupon = z.object({
     products: z.array(z.object({ type: OrderItemType, id: Id })).optional(),
     teacherId: Id.optional(),
     category: z.string().optional(),
+    /** كوبون معروض في الرئيسية بعنوانه — يقرأهما home/offers ولوحة الكوبونات */
+    featured: z.boolean().optional(),
+    title: z.string().optional(),
   }),
   active: z.boolean(),
 });
+/** إنشاء كوبون: القيمة والسقوف والنطاق تُتحقّق هنا — نسبة ١..٩٠٪ أو مبلغ ثابت موجب، وفئة معروفة */
 export const CouponUpsert = Coupon.omit({ id: true, usedCount: true }).extend({
   code: z.string().trim().min(3).max(30).transform(v => v.toUpperCase()),
-});
+  value: z.number().positive('قيمة الخصم يجب أن تكون أكبر من صفر'),
+  usageLimit: z.number().int().min(1, 'سقف الاستخدام يبدأ من ١').nullable(),
+  userLimit: z.number().int().min(1, 'سقف المستخدم يبدأ من ١').nullable(),
+  scope: z.object({
+    products: z.array(z.object({ type: OrderItemType, id: Id })).optional(),
+    teacherId: Id.optional(),
+    category: OrderItemType.optional(),
+    featured: z.boolean().optional(),
+    title: z.string().trim().min(1).max(80).optional(),
+  }),
+})
+  .refine(c => c.type !== 'percentage' || (c.value >= 1 && c.value <= 90), { message: 'نسبة الخصم بين ١٪ و٩٠٪', path: ['value'] })
+  .refine(c => !c.startsAt || !c.endsAt || c.endsAt >= c.startsAt, { message: 'تاريخ الانتهاء قبل تاريخ البداية', path: ['endsAt'] });

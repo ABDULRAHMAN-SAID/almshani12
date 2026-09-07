@@ -45,11 +45,11 @@ export default function TeacherBooks() {
   return (
     <Screen onBack={() => router.back()} title={t('teacherApp.quick.uploadBook')} loading={books.isLoading} error={books.error} onRetry={() => books.refetch()}
       right={<Button label={t('common.new')} icon="plus" size="sm" onPress={() => setSheet(true)} />}
-      empty={!!books.data && books.data.length === 0} emptyProps={{ icon: 'book', title: t('library.myLibraryEmpty'), actionLabel: t('teacherApp.quick.uploadBook'), onAction: () => setSheet(true) }}>
+      empty={!!books.data && books.data.length === 0} emptyProps={{ icon: 'book', title: t('teacherUi.noBooks'), actionLabel: t('teacherApp.quick.uploadBook'), onAction: () => setSheet(true) }}>
       <View style={styles.list}>
         {books.data?.map(b => (
           <Card key={b.id}>
-            <View style={styles.head}><Text role="bodyMedium" style={styles.flex} numberOfLines={2}>{b.title}</Text><Badge label={b.status} tone={STATUS_TONE[b.status as keyof typeof STATUS_TONE] ?? 'neutral'} /></View>
+            <View style={styles.head}><Text role="bodyMedium" style={styles.flex} numberOfLines={2}>{b.title}</Text><Badge label={t(`library.status.${b.status}`, { defaultValue: b.status })} tone={STATUS_TONE[b.status as keyof typeof STATUS_TONE] ?? 'neutral'} /></View>
             <Text role="caption" tone="secondary">{t(`library.types.${b.type}`)} · {b.subject.name} · {b.grade.name} · {money(b.price)} · {t('library.sold', { n: b.salesCount })}</Text>
             {b.rejectReason ? <Text role="small" tone="danger">{t('teacherUi.rejectedReason')}: {b.rejectReason}</Text> : null}
             <View style={styles.actions}>
@@ -65,7 +65,7 @@ export default function TeacherBooks() {
       <BottomSheet visible={sheet} onClose={() => setSheet(false)} title={t('teacherApp.quick.uploadBook')} footer={<Button label={t('common.save')} full loading={create.isPending} onPress={save} />}>
         <View style={styles.form}>
           <View style={styles.chips}>{BookType.options.map(ty => <Chip key={ty} small label={t(`library.types.${ty}`)} selected={type === ty} onPress={() => setType(ty)} />)}</View>
-          <Input label="العنوان" value={f.title} onChangeText={v => setF(s => ({ ...s, title: v }))} />
+          <Input label={t('book.titleField')} value={f.title} onChangeText={v => setF(s => ({ ...s, title: v }))} />
           <Text role="caption" tone="secondary">{t('common.subject')}</Text>
           <View style={styles.chips}>{(catalog.data?.subjects ?? []).map(s => <Chip key={s.id} small label={s.name} selected={subjectId === s.id} onPress={() => setSubjectId(s.id)} />)}</View>
           <Text role="caption" tone="secondary">{t('common.grade')}</Text>

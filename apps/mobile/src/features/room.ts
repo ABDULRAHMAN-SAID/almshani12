@@ -26,6 +26,8 @@ export function useLiveRoom(bookingId: number) {
   const peer = useRef<number | null>(null);
   const localRef = useRef<MediaStream | null>(null);
   const screenRef = useRef<MediaStream | null>(null);
+  /** مؤقّتات عرض التفاوض المؤجّلة — تُلغى عند التفكيك حتى لا يُنشأ اتصال نظير بعد المغادرة فيبقى مفتوحاً */
+  const offerTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   /* ---------- ١) الرمز ---------- */
   const load = useCallback(() => {
@@ -105,24 +107,24 @@ export function useLiveRoom(bookingId: number) {
       emit('media:state', { mic: useRoom.getState().mic, cam: useRoom.getState().cam });
       // المضيف يبدأ الاتصال المرئي مع الطرف الآخر إن كان حاضراً
       const other = w.participants.find(p => p.userId !== w.you.userId);
-      if (w.you.isHost && other && hasWebRtc() && !isDemo()) setTimeout(() => offerTo(other.userId), 300);
+      if (w.you.isHost && other && hasWebRtc() && !isDemo()) offerTimers.current.push(setTimeout(() => { if (socket.current) offerTo(other.userId); }, 300));
     });
     s.on('presence', (list: Participant[]) => {
       const me = useRoom.getState().me;
       set({ participants: list });
       const other = list.find(p => p.userId !== me?.userId);
       if (!other) closePeer();
-      else if (me?.isHost && hasWebRtc() && !isDemo() && peer.current !== other.userId) setTimeout(() => offerTo(other.userId), 300);
+      else if (me?.isHost && hasWebRtc() && !isDemo() && peer.current !== other.userId) offerTimers.current.push(setTimeout(() => { if (socket.current) offerTo(other.userId); }, 300));
     });
     s.on('chat:message', (m: RoomMessage) => useRoom.getState().addMessage(m, m.userId === useRoom.getState().me?.userId));
     s.on('room:ended', () => { set({ connection: 'ended' }); closePeer(); });
-    s.on('whiteboard:op', ({ op }: { op: unknown }) => set({ boardOps: [...useRoom.getState().boardOps, op] }));
+    s.on('whiteboard:op', ({ op }: { op: unknown }) => useRoom.getState().addBoardOp(op));
     s.on('whiteboard:clear', () => set({ boardOps: [] }));
     s.on('share:state', (st: { sharing?: boolean }) => set({ sharing: !!st?.sharing }));
     s.on('media:state', ({ userId, mic, cam }: { userId: number; mic?: boolean; cam?: boolean }) => set({ participants: useRoom.getState().participants.map(p => p.userId === userId ? { ...p, mic, cam } : p) }));
     s.on('mute:request', ({ targetUserId }: { targetUserId: number }) => { if (targetUserId === useRoom.getState().me?.userId) { localRef.current?.getAudioTracks().forEach(t => { t.enabled = false; }); set({ mic: false }); emit('media:state', { mic: false }); } });
     s.on('rtc:signal', onSignal);
-    return () => { s.removeAllListeners(); s.close(); socket.current = null; closePeer(); };
+    return () => { for (const id of offerTimers.current) clearTimeout(id); offerTimers.current = []; s.removeAllListeners(); s.close(); socket.current = null; closePeer(); };
   }, [access, bookingId, emit, offerTo, onSignal, closePeer]);
 
   /* ---------- أفعال ---------- */
@@ -130,7 +132,7 @@ export function useLiveRoom(bookingId: number) {
   const toggleCam = useCallback(() => { const on = !useRoom.getState().cam; localRef.current?.getVideoTracks().forEach(t => { t.enabled = on; }); useRoom.getState().set({ cam: on }); emit('media:state', { cam: on }); }, [emit]);
   const toggleHand = useCallback(() => { const raised = !useRoom.getState().hand; useRoom.getState().set({ hand: raised }); emit('hand:toggle', raised); }, [emit]);
   const sendChat = useCallback((body: string) => new Promise<boolean>(res => { if (!socket.current) return res(false); socket.current.emit('chat:send', { body }, (r: { ok: boolean }) => res(!!r?.ok)); }), []);
-  const boardStroke = useCallback((op: unknown) => { useRoom.getState().set({ boardOps: [...useRoom.getState().boardOps, op] }); emit('whiteboard:op', op); }, [emit]);
+  const boardStroke = useCallback((op: unknown) => { useRoom.getState().addBoardOp(op); emit('whiteboard:op', op); }, [emit]);
   const boardClear = useCallback(() => { useRoom.getState().set({ boardOps: [] }); emit('whiteboard:clear'); }, [emit]);
   const muteUser = useCallback((userId: number) => emit('mute:request', userId), [emit]);
   const endLesson = useCallback(() => emit('room:end'), [emit]);

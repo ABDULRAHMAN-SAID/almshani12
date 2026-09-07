@@ -32,6 +32,17 @@ export const addMinutes = (minutes: number, from: Date = new Date()): string => 
 export const addHours = (hours: number, from: Date = new Date()): string => addMinutes(hours * 60, from);
 export const addDays = (days: number, from: Date = new Date()): string => addMinutes(days * 1440, from);
 
+/** طابع زمني موحّد ISO-8601 UTC بلاحقة Z — يقبل صيغة SQLite القديمة 'YYYY-MM-DD HH:MM:SS' */
+export const iso = <T extends string | null | undefined>(value: T): T =>
+  (typeof value === 'string' && value.length >= 19 && value[10] === ' ' ? (`${value.slice(0, 10)}T${value.slice(11, 19)}Z` as T) : value);
+
+/** تاريخ عربي مقروء بتوقيت مسقط — «٦ نوفمبر ٢٠٢٦» */
+export function arabicDate(value: string): string {
+  const d = new Date(iso(value));
+  if (Number.isNaN(d.getTime())) return String(value).slice(0, 10);
+  return new Intl.DateTimeFormat('ar-OM', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Muscat' }).format(d);
+}
+
 /** الفرق بالساعات بين الآن ووقت مستقبلي (سالب إن مضى) */
 export const hoursUntil = (iso: string): number => (new Date(iso).getTime() - Date.now()) / 3_600_000;
 

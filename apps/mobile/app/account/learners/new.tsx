@@ -29,7 +29,7 @@ export default function NewLearner() {
   return (
     <Screen onBack={() => router.back()} title={t('learners.add')}>
       {/* خيار «أنا / ابن» يبقى ظاهراً دائماً عند الإضافة: الطالب قد يضيف صفّاً ثانياً لنفسه (D1)؛ الافتراضي «أنا» ما لم يكن للحساب أبناء */}
-      <LearnerForm mode="add" showSelfToggle isSelf={!learners.some(l => !l.isSelf)} onSubmit={submit} busy={create.isPending} error={create.error} submitLabel={t('common.save')} />
+      <LearnerForm mode="add" showSelfToggle isSelf={!learners.some(l => !l.isSelf)} onSubmit={submit} busy={create.isPending} error={create.error} submitLabel={t('learners.add')} />
       <Dialog visible={!!created} onClose={() => close(false)} title={t('learners.makeActive')} body={created?.displayName ?? ''}
         actions={<><Button label={t('common.no')} variant="secondary" onPress={() => close(false)} /><Button label={t('common.yes')} onPress={() => close(true)} /></>} />
     </Screen>

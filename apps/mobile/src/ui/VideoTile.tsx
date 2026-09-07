@@ -14,9 +14,9 @@ export function VideoTile({ local, name, camOff, micOff, large, note }: VideoTil
   return (
     <View style={[styles.tile, large && styles.large]}>
       {local && !camOff ? <CameraView style={StyleSheet.absoluteFill} facing="front" mute /> : (
-        <View style={styles.center}><Avatar name={name} size={large ? 'xl' : 'lg'} />{note ? <Text role="caption" tone="inverse" center style={styles.note}>{note}</Text> : null}</View>
+        <View style={styles.center}><Avatar name={name} size={large ? 'xl' : 'lg'} />{note ? <Text role="caption" color={colors.text.onPrimary} center style={styles.note}>{note}</Text> : null}</View>
       )}
-      <View style={styles.label}><Text role="caption" tone="inverse" numberOfLines={1}>{local ? t('live.you') : name}</Text>{micOff ? <Icon name="micOff" size={12} color={colors.text.inverse} /> : null}</View>
+      <View style={styles.label}><Text role="caption" color={colors.text.onPrimary} numberOfLines={1}>{local ? t('live.you') : name}</Text>{micOff ? <Icon name="micOff" size={12} color={colors.text.onPrimary} /> : null}</View>
     </View>
   );
 }

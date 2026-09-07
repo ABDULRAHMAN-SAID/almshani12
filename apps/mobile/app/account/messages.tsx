@@ -4,15 +4,18 @@ import { useTranslation } from 'react-i18next';
 import { colors, spacing, radius, themed } from '@manassah/tokens';
 import { Screen, Text, Avatar, EmptyState } from '@/ui';
 import { useConversations } from '@/features/queries';
+import { useAuth, isTeacher } from '@/state/auth';
 import { formatDayShort } from '@/lib/format';
 
 export default function Messages() {
   const { t } = useTranslation();
   const router = useRouter();
   const q = useConversations();
+  // المعلّم لا يبدأ محادثة من صفحة معلّم — بل من بطاقة الطالب في الحصة
+  const teacher = isTeacher(useAuth(s => s.user));
   return (
     <Screen onBack={() => router.back()} title={t('messagesUi.title')} loading={q.isLoading} error={q.error} onRetry={() => q.refetch()} refreshing={q.isRefetching} onRefresh={() => q.refetch()}
-      empty={!!q.data && q.data.length === 0} emptyProps={{ icon: 'message', title: t('messagesUi.empty'), body: t('messagesUi.emptyHint'), actionLabel: t('teachers.find'), onAction: () => router.replace('/teachers') }}>
+      empty={!!q.data && q.data.length === 0} emptyProps={{ icon: 'message', title: t('messagesUi.empty'), body: t(teacher ? 'messagesUi.emptyHintTeacher' : 'messagesUi.emptyHint'), actionLabel: t(teacher ? 'teacherUi.myLessons' : 'teachers.find'), onAction: () => (teacher ? router.replace({ pathname: '/(tabs)/lessons', params: { as: 'teacher' } }) : router.replace('/teachers')) }}>
       <View style={styles.list}>
         {q.data?.map(c => (
           <Pressable key={c.id} onPress={() => router.push(`/conversation/${c.id}`)} style={styles.row} accessibilityRole="button">

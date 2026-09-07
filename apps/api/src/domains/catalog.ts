@@ -5,6 +5,7 @@ import { q } from '../db/index.ts';
 import { validate, query } from '../lib/validate.ts';
 import { attachUser } from '../lib/auth.ts';
 import { bookCard, courseCard, teacherCard } from '../services/mappers.ts';
+import { ownedIds, favoriteIds } from '../services/access.ts';
 
 /** المنهج هرمي من قاعدة البيانات: دولة → منهج → صف → فصل → مادة → وحدة → درس */
 const router = Router();
@@ -47,9 +48,9 @@ router.get('/search', attachUser, validate(SearchQuery, 'query'), (req, res) => 
     .map(r => ({ id: r.id, title: r.title, unitTitle: r.unit_title, subjectName: r.subject }));
   if (uid) q.run('INSERT INTO analytics_events (user_id, name, props) VALUES (?,?,?)', uid, 'search', JSON.stringify({ q: term }));
   res.json({
-    books: books.map(b => bookCard(b, { userId: uid })),
-    courses: courses.map(c => courseCard(c, { userId: uid })),
-    teachers: teachers.map(t => teacherCard(t, { userId: uid, withNextSlot: false })),
+    books: books.map(b => bookCard(b, { userId: uid, owned: ownedIds(uid, 'book'), fav: favoriteIds(uid, 'book') })),
+    courses: courses.map(c => courseCard(c, { userId: uid, enrolled: ownedIds(uid, 'course'), fav: favoriteIds(uid, 'course') })),
+    teachers: teachers.map(t => teacherCard(t, { userId: uid, fav: favoriteIds(uid, 'teacher'), withNextSlot: false })),
     lessons,
   });
 });

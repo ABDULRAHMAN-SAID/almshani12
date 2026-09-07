@@ -49,6 +49,7 @@ export default function BookLesson() {
   const price = activePkg ? 0 : priceFor(duration, mode);
   const modes = useMemo(() => Array.from(new Set(p?.prices.map(x => x.mode) ?? [])), [p]);
   const canConfirm = !!subjectId && !!slot && (price != null);
+  const lateSlot = !!slot && new Date(slot).getTime() - Date.now() < 24 * 3_600_000;
 
   const confirm = () => {
     if (!canConfirm || !slot || !subjectId) return;
@@ -69,6 +70,8 @@ export default function BookLesson() {
             {activePkg ? <Badge label={t('bookingUi.paidWithPackage')} tone="gold" /> : price != null ? <Price value={price} size="lg" /> : <Text role="small" tone="tertiary">—</Text>}
             {slot ? <Text role="caption" tone="secondary" tabular numberOfLines={1}>{formatDateTime(slot)}</Text> : <Text role="caption" tone="tertiary">{t('bookingUi.chooseSlot')}</Text>}
             {learners.length > 1 && learner ? <Text role="caption" tone="brand" numberOfLines={1}>{t('learners.bookFor')} {learner.displayName}</Text> : null}
+            {/* داخل نافذة الـ٢٤ ساعة الإلغاء بلا استرجاع — يُقال قبل الدفع لا بعده */}
+            {lateSlot ? <Text role="caption" tone="warning" numberOfLines={2}>{t('bookingUi.lateCancelWarning')}</Text> : null}
           </View>
           <Button label={activePkg ? t('bookingUi.confirmBooking') : t('bookingUi.payToConfirm')} size="lg" onPress={confirm} loading={create.isPending} disabled={!canConfirm} />
         </View>

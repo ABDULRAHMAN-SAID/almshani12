@@ -126,8 +126,20 @@ export function createApp() {
       res.setHeader('Content-Disposition', 'attachment; filename="manassah.apk"');
       res.sendFile(config.app.apkPath);
     });
-    app.use(express.static(webDist, { index: 'index.html', maxAge: '1h' }));
-    app.get(/^(?!\/api\/|\/admin|\/static\/|\/pay\/mock\/).*/, (_req, res) => res.sendFile(path.join(webDist, 'index.html')));
+    /**
+     * الملفات المبصومة بالمحتوى (_expo/static و assets) تُخزَّن سنة كاملة،
+     * وindex.html لا يُخزَّن أبداً — وإلا حمّل المتصفّح فهرساً قديماً يشير إلى حزمة لم تعد موجودة بعد النشر.
+     */
+    const HASHED = /[\\/](?:_expo[\\/]static|assets)[\\/]/;
+    const sendIndex = (res: express.Response) => {
+      res.setHeader('Cache-Control', 'no-cache');
+      res.sendFile(path.join(webDist, 'index.html'));
+    };
+    app.use(express.static(webDist, {
+      index: false,
+      setHeaders: (res, filePath) => res.setHeader('Cache-Control', HASHED.test(filePath) ? 'public, max-age=31536000, immutable' : 'public, max-age=3600'),
+    }));
+    app.get(/^(?!\/api\/|\/admin|\/static\/|\/pay\/mock\/).*/, (_req, res) => sendIndex(res));
   }
 
   app.use(notFoundHandler);

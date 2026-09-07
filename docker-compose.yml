@@ -8,6 +8,7 @@ services:
       NODE_ENV: production
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost:4000}   # عنوانك العام (https://…) خلف الدومين
       CORS_ORIGINS: ${CORS_ORIGINS:-}                    # فارغ = الكل؛ في الإنتاج حدّد الدومينات
+      TRUST_PROXY: ${TRUST_PROXY:-}                      # true خلف وكيل عكسي أو نفق (Caddy/Nginx/Cloudflare): عنوان العميل من X-Forwarded-For بدل عنوان الوكيل، وإلا شارك الجميع حدّاً واحداً
       ALLOW_DEMO_SEED: ${ALLOW_DEMO_SEED:-1}             # 1 = بيانات عرض عند أول تشغيل (خادم تجريبي)
       ADMIN_PHONE: ${ADMIN_PHONE:-}                      # بديل البذر التجريبي: مدير أوّل بهذا الرقم
       OTP_FIXED_CODE: ${OTP_FIXED_CODE:-000000}          # رمز دخول ثابت حتى ربط مزوّد — اجعله none بعدها

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, TextInput, Pressable, StyleSheet, Platform, type TextInputProps } from 'react-native';
 import { colors, radius, spacing, typography, themed } from '@manassah/tokens';
 import { Text } from './Text';
@@ -9,11 +10,12 @@ export interface InputProps extends Omit<TextInputProps, 'style'> {
   error?: string | null;
   helper?: string;
   icon?: IconName;
-  /** أرقام لاتينية للهاتف والرمز */
+  /** أرقام لاتينية متساوية العرض؛ لوحة المفاتيح تبقى من `keyboardType` (الوقت والتاريخ والكسور تحتاج ':' و'-' و'.') */
   numeric?: boolean;
 }
 
 export function Input({ label, error, helper, icon, numeric, secureTextEntry, ...rest }: InputProps) {
+  const { t } = useTranslation();
   const [focused, setFocused] = useState(false);
   const [hidden, setHidden] = useState(!!secureTextEntry);
   return (
@@ -24,7 +26,7 @@ export function Input({ label, error, helper, icon, numeric, secureTextEntry, ..
         <TextInput
           {...rest}
           secureTextEntry={hidden}
-          keyboardType={numeric ? 'number-pad' : rest.keyboardType}
+          keyboardType={rest.keyboardType ?? (numeric ? 'number-pad' : undefined)}
           placeholderTextColor={colors.text.tertiary}
           onFocus={e => { setFocused(true); rest.onFocus?.(e); }}
           onBlur={e => { setFocused(false); rest.onBlur?.(e); }}
@@ -32,7 +34,7 @@ export function Input({ label, error, helper, icon, numeric, secureTextEntry, ..
           accessibilityLabel={label ?? rest.placeholder}
         />
         {secureTextEntry ? (
-          <Pressable onPress={() => setHidden(h => !h)} hitSlop={8} accessibilityLabel={hidden ? 'إظهار' : 'إخفاء'}>
+          <Pressable onPress={() => setHidden(h => !h)} hitSlop={8} accessibilityLabel={t(hidden ? 'ui.show' : 'ui.hide')}>
             <Icon name={hidden ? 'lock' : 'edit'} size={18} color={colors.text.tertiary} />
           </Pressable>
         ) : null}
@@ -50,6 +52,7 @@ export interface SearchInputProps extends Omit<TextInputProps, 'style'> {
 }
 
 export function SearchInput({ onClear, onFilter, activeFilters, value, ...rest }: SearchInputProps) {
+  const { t } = useTranslation();
   return (
     <View style={styles.searchRow}>
       <View style={[styles.field, styles.search]}>
@@ -63,13 +66,13 @@ export function SearchInput({ onClear, onFilter, activeFilters, value, ...rest }
           accessibilityRole="search"
         />
         {value ? (
-          <Pressable onPress={onClear} hitSlop={8} accessibilityLabel="مسح">
+          <Pressable onPress={onClear} hitSlop={8} accessibilityLabel={t('common.reset')}>
             <Icon name="close" size={18} color={colors.text.tertiary} />
           </Pressable>
         ) : null}
       </View>
       {onFilter ? (
-        <Pressable onPress={onFilter} style={styles.filterBtn} accessibilityLabel="تصفية">
+        <Pressable onPress={onFilter} style={styles.filterBtn} accessibilityLabel={t('common.filters')}>
           <Icon name="filter" size={20} color={colors.text.primary} />
           {activeFilters ? <View style={styles.filterDot}><Text role="caption" tone="inverse" style={styles.filterDotText}>{activeFilters}</Text></View> : null}
         </Pressable>

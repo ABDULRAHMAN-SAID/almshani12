@@ -32,7 +32,8 @@ export default function Setup() {
       onSuccess: () => {
         // «أنا طالب» على حساب بلا اسم بعد: اسم المتعلّم الذاتي هو اسم الحساب (الخادم لا يعكسه تلقائياً)
         if (input.isSelf && !user?.displayName) profile.mutate({ displayName: input.displayName });
-        if (mode === 'first' && !input.isSelf) setAskAnother(true);   // وليّ أمر: ربما لديه ابن آخر
+        // وليّ أمر داخل الإعداد الأوّلي: يُسأل بعد كل ابن، لا بعد الأول فقط
+        if (fromOnboarding && !input.isSelf) setAskAnother(true);
         else router.replace(fromOnboarding ? '/(tabs)' : '/account/learners');
       },
     });
@@ -55,6 +56,12 @@ export default function Setup() {
             <View style={styles.flex}><Text role="h2">{t('onboarding.meParent')}</Text><Text role="small" tone="secondary">{t('onboarding.parentHint')}</Text></View>
             <Icon name="forward" size={20} color={colors.text.tertiary} />
           </Card>
+          {/* هاتف جديد يريد التدريس: يذهب لطلب الانضمام مباشرة بلا إنشاء متعلّم وهمي */}
+          <Card onPress={() => router.replace('/teacher-app/apply')} style={styles.choice} accessibilityLabel={t('onboarding.meTeacher')}>
+            <View style={[styles.choiceIcon, { backgroundColor: colors.brand.goldSoft }]}><Icon name="teacher" size={30} color={colors.brand.goldDark} /></View>
+            <View style={styles.flex}><Text role="h2">{t('onboarding.meTeacher')}</Text><Text role="small" tone="secondary">{t('onboarding.teacherHint')}</Text></View>
+            <Icon name="forward" size={20} color={colors.text.tertiary} />
+          </Card>
           <Text role="caption" tone="tertiary">{t('auth.setupLater')}</Text>
         </View>
       </Screen>
@@ -63,9 +70,12 @@ export default function Setup() {
 
   return (
     <Screen title={mode === 'add' ? t('learners.add') : t('onboarding.setupTitle')} onBack={() => (!fromOnboarding ? router.back() : formKey === 0 ? setIsSelf(null) : finish())}>
-      <LearnerForm key={formKey} mode={mode} showSelfToggle={hasLearners} isSelf={isSelf}
-        defaultName={isSelf && formKey === 0 ? user?.displayName ?? '' : ''} onSubmit={submit} busy={create.isPending} error={create.error}
-        submitLabel={mode === 'add' ? t('learners.add') : t('onboarding.finish')} />
+      {/* النموذج يختفي أثناء سؤال «أضف ابناً آخر؟» حتى لا تظهر بيانات الابن السابق خلف الورقة */}
+      {!askAnother ? (
+        <LearnerForm key={formKey} mode={mode} showSelfToggle={hasLearners} isSelf={isSelf}
+          defaultName={isSelf && formKey === 0 ? user?.displayName ?? '' : ''} onSubmit={submit} busy={create.isPending} error={create.error}
+          submitLabel={mode === 'add' ? t('learners.add') : t('onboarding.finish')} />
+      ) : null}
       <BottomSheet visible={askAnother} onClose={finish} title={t('learners.addAnother')}
         footer={<View style={styles.sheetFoot}><Button label={t('learners.later')} variant="secondary" onPress={finish} /><Button label={t('learners.add')} icon="plus" onPress={addAnother} style={styles.flex} full /></View>}>
         <Text role="body" tone="secondary">{t('learners.emptyBody')}</Text>

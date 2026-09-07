@@ -4,6 +4,8 @@ import { api, demoSetLearner } from '@/api/client';
 import { tokens, useAuth, hydrateActiveLearner, needsSetup, setLearnerEffects } from '@/state/auth';
 import { queryClient } from '@/lib/queryClient';
 import { registerPush, unregisterPush } from '@/lib/push';
+import { readPrefsSync } from '@/lib/prefs';
+import { useUi } from '@/state/ui';
 
 /** تبديل المتعلّم: نُبلغ الخادم (بلا انتظار) ونسخة العرض، ثم يُعاد جلب كل ما يعتمد على المتعلّم (الرئيسية، الحصص، التقدّم، المشتريات…) */
 setLearnerEffects((id) => {
@@ -20,6 +22,8 @@ export async function bootstrapAuth(): Promise<void> {
     if (tokens.refresh) {
       const me = await api.get('/auth/me', User);
       setUser(me);
+      // لغة الحساب تُتبنّى على جهاز لم يُختَر فيه لغة بعد (اختيار الجهاز يبقى الأقوى)
+      if (!readPrefsSync().locale) useUi.getState().setLocale(me.locale);
       void registerPush(true); // إذن ممنوح سابقاً → نجدّد تسجيل الجهاز بصمت
     }
   } catch {

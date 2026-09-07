@@ -34,7 +34,7 @@ test('قرار المستند: يسجّل من راجع ومتى، والرفض 
   assert.equal(rej.json.status, 'rejected'); assert.equal(rej.json.note, 'الصورة غير واضحة، أعد الرفع'); assert.equal(rej.json.reviewedBy.id, admin.id); assert.ok(rej.json.reviewedAt); assert.ok(rej.json.url.includes('/api/files/'));
   const row = c.q.get<any>('SELECT * FROM teacher_documents WHERE id = ?', docId);
   assert.equal(row.reviewed_by, admin.id); assert.ok(row.reviewed_at);
-  const note = c.q.get<any>("SELECT * FROM notifications WHERE user_id = ? AND type = 'teacher.document_rejected'", t.id);
+  const note = c.q.get<any>("SELECT * FROM notifications WHERE user_id = ? AND type = 'teacher_document_rejected'", t.id);
   assert.ok(note); assert.equal(note.body, 'الصورة غير واضحة، أعد الرفع');
   const a = auditRows('teacher.document_rejected', t.id); assert.equal(a.length, 1); assert.equal(a[0].entity, 'teacher_documents'); assert.equal(a[0].entity_id, docId);
   const before = c.q.val<number>('SELECT COUNT(*) FROM notifications WHERE user_id = ?', t.id);

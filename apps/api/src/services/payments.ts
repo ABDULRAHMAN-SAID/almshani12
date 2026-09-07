@@ -167,6 +167,8 @@ const registry: Record<string, PaymentProvider> = { mock, wallet, manual, thawan
 
 export const availableProviders = (): string[] =>
   config.payments.providers.filter(p =>
+    // البوابة التجريبية لا تُفعَّل في الإنتاج مهما كانت المتغيّرات (صفحتها وتأكيدها معطّلان هناك أصلاً)
+    p === 'mock' ? config.env !== 'production' :
     p === 'stripe' ? !!config.payments.stripe.secretKey :
     p === 'thawani' ? !!config.payments.thawani.secretKey : !!registry[p]);
 

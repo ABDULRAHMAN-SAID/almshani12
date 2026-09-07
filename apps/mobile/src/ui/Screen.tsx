@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { View, ScrollView, Pressable, RefreshControl, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors, spacing, layout, hitTarget, radius, themed } from '@manassah/tokens';
@@ -36,9 +37,10 @@ export function Screen({
   title, subtitle, onBack, right, bare, scroll = true, padded = true,
   loading, error, onRetry, empty, emptyProps, refreshing, onRefresh, footer, contentStyle, children,
 }: ScreenProps) {
+  const { t } = useTranslation();
   let body: ReactNode = children;
   if (loading) body = <ScreenSkeleton />;
-  else if (error) body = <ErrorState error={error} onRetry={onRetry} />;
+  else if (error) body = <ErrorState error={error} onRetry={onRetry} onBack={onBack} />;
   else if (empty) body = <EmptyState {...(emptyProps ?? { title: '' })} />;
 
   const inner = (
@@ -50,7 +52,7 @@ export function Screen({
       {!bare && (title || onBack || right) && (
         <View style={styles.header}>
           {onBack ? (
-            <Pressable onPress={onBack} hitSlop={8} style={({ pressed }) => [styles.headerBtn, styles.backBtn, pressed && styles.pressed]} accessibilityRole="button" accessibilityLabel="رجوع">
+            <Pressable onPress={onBack} hitSlop={8} style={({ pressed }) => [styles.headerBtn, styles.backBtn, pressed && styles.pressed]} accessibilityRole="button" accessibilityLabel={t('common.back')}>
               <Icon name="back" size={22} />
             </Pressable>
           ) : <View style={styles.headerBtn} />}

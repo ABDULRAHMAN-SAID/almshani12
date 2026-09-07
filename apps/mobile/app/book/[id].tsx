@@ -3,7 +3,8 @@ import { View, ScrollView, Pressable, StyleSheet } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { Ionicons } from '@expo/vector-icons';
+// استيراد العائلة مباشرة: فهرس @expo/vector-icons يُصدّر كل العائلات فتُحزَم خرائط رموزها كلها في الحزمة
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors, spacing, radius, subjectColors, subjectIcons, type SubjectColorKey, themed } from '@manassah/tokens';
 import { Screen, Text, Icon, Button, IconButton, Chip, Badge, Avatar, Rating, Price, SectionHeader, BookCard, ReviewList, ReviewSheet, Expandable, VerifiedBadge } from '@/ui';
 import { useBook, useAddToCart, useCart, useToggleFavorite } from '@/features/queries';

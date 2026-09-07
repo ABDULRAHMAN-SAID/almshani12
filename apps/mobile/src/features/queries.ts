@@ -78,8 +78,19 @@ export const useBook = (id: number) => useQuery({ queryKey: keys.book(id), query
 const ReadAccess = C.BookReadAccess.extend({ previewPages: z.number().int().optional() });
 /** رابط موقّع قصير العمر — لا يُخزَّن في الذاكرة المؤقّتة */
 export const useBookRead = (id: number) => useQuery({ queryKey: keys.bookRead(id), queryFn: () => api.get(`/books/${id}/read`, ReadAccess), staleTime: 0, gcTime: 0, retry: false, enabled: id > 0 });
-export const useReaderProgress = (id: number) => useMutation({ mutationFn: (page: number) => api.put(`/books/${id}/progress`, { page }) });
-export const useToggleBookmark = (id: number) => useMutation({ mutationFn: (page: number) => api.post<{ bookmarks: number[] }>(`/books/${id}/bookmarks`, { page }) });
+/** موضع القراءة يغذّي «أكمل من حيث توقّفت» ونسبة التقدّم في المشتريات — نُبطلهما ولا نلمس رابط القراءة الموقّع كي لا يقفز القارئ */
+export const useReaderProgress = (id: number) => {
+  const qc = useQueryClient();
+  return useMutation({ mutationFn: (page: number) => api.put(`/books/${id}/progress`, { page }), onSuccess: () => { qc.invalidateQueries({ queryKey: ['home'] }); qc.invalidateQueries({ queryKey: keys.purchases }); } });
+};
+export const useToggleBookmark = (id: number) => {
+  const qc = useQueryClient();
+  // نكتب الإشارات في الذاكرة مباشرة: إبطال ['book', id] يبطل معه رابط القراءة الموقّع فيُعاد تحميل القارئ ويقفز عن صفحته
+  return useMutation({
+    mutationFn: (page: number) => api.post<{ bookmarks: number[] }>(`/books/${id}/bookmarks`, { page }),
+    onSuccess: (d) => qc.setQueryData(keys.bookRead(id), (prev?: z.infer<typeof ReadAccess>) => (prev ? { ...prev, bookmarks: d.bookmarks } : prev)),
+  });
+};
 
 /* ---------- الدورات ---------- */
 export const useCourses = (f: Filters) => useInfiniteQuery({
@@ -94,7 +105,15 @@ export const useLessonProgress = (courseId: number) => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ lessonId, ...b }: { lessonId: number; positionSeconds: number; completed?: boolean }) => api.put(`/courses/lessons/${lessonId}/progress`, b),
-    onSuccess: (_d, v) => { if (v.completed) { qc.invalidateQueries({ queryKey: keys.course(courseId) }); qc.invalidateQueries({ queryKey: ['home'] }); } },
+    // اكتمال درس يغيّر الدورة والمشغّل والمشتريات ولوحة التقدّم — لا الدورة وحدها
+    onSuccess: (_d, v) => {
+      if (!v.completed) return;
+      qc.invalidateQueries({ queryKey: keys.course(courseId) });
+      qc.invalidateQueries({ queryKey: ['play', courseId] });
+      qc.invalidateQueries({ queryKey: ['home'] });
+      qc.invalidateQueries({ queryKey: keys.purchases });
+      qc.invalidateQueries({ queryKey: ['progress'] });
+    },
   });
 };
 export const useQuiz = (id: number) => useQuery({ queryKey: keys.quiz(id), queryFn: () => api.get(`/courses/quizzes/${id}`, C.Quiz), enabled: id > 0, staleTime: 0 });
@@ -116,7 +135,8 @@ export const useAvailability = (id: number, from: string, durationMinutes: numbe
 const BookingCreatedLoose = C.BookingCreated.extend({ orderId: z.number().nullable().optional() });
 export const useCreateBooking = () => {
   const qc = useQueryClient();
-  return useMutation({ mutationFn: (b: C.CreateBooking) => api.post('/bookings', b, BookingCreatedLoose), onSuccess: () => { qc.invalidateQueries({ queryKey: ['lessons'] }); qc.invalidateQueries({ queryKey: ['availability'] }); qc.invalidateQueries({ queryKey: ['home'] }); } });
+  // ملف المعلّم يحمل معاينة التوفّر وعدد الخانات لكل يوم — يتغيّر بكل حجز
+  return useMutation({ mutationFn: (b: C.CreateBooking) => api.post('/bookings', b, BookingCreatedLoose), onSuccess: () => { qc.invalidateQueries({ queryKey: ['lessons'] }); qc.invalidateQueries({ queryKey: ['availability'] }); qc.invalidateQueries({ queryKey: ['home'] }); qc.invalidateQueries({ queryKey: ['teacher'] }); } });
 };
 /** حصص الحساب كلّها؛ `learnerId` (شريحة الترشيح) يقصرها على متعلّم واحد — الترويسة لا ترشّح هذه القائمة */
 export const useLessons = (asTeacher = false, learnerId?: number | null) => {
@@ -124,7 +144,7 @@ export const useLessons = (asTeacher = false, learnerId?: number | null) => {
   return useQuery({ queryKey: keys.lessons(asTeacher, asTeacher ? lid : learnerId ?? null), queryFn: () => api.get('/bookings', C.LessonsFeed, asTeacher ? { as: 'teacher' } : learnerId ? { learnerId } : undefined), refetchInterval: 60_000 });
 };
 export const useBooking = (id: number) => useQuery({ queryKey: keys.booking(id), queryFn: () => api.get(`/bookings/${id}`, C.Booking), enabled: id > 0, refetchInterval: 30_000 });
-const invalidateBooking = (qc: ReturnType<typeof useQueryClient>, id: number) => { qc.invalidateQueries({ queryKey: keys.booking(id) }); qc.invalidateQueries({ queryKey: ['lessons'] }); qc.invalidateQueries({ queryKey: ['home'] }); qc.invalidateQueries({ queryKey: keys.wallet }); };
+const invalidateBooking = (qc: ReturnType<typeof useQueryClient>, id: number) => { qc.invalidateQueries({ queryKey: keys.booking(id) }); qc.invalidateQueries({ queryKey: ['lessons'] }); qc.invalidateQueries({ queryKey: ['home'] }); qc.invalidateQueries({ queryKey: keys.wallet }); qc.invalidateQueries({ queryKey: ['availability'] }); qc.invalidateQueries({ queryKey: ['teacher'] }); };
 export const useCancelBooking = (id: number) => {
   const qc = useQueryClient();
   return useMutation({ mutationFn: (reason?: string) => api.post<{ ok: true; refundPercent: number }>(`/bookings/${id}/cancel`, { reason: reason ?? null }), onSuccess: () => invalidateBooking(qc, id) });
@@ -142,7 +162,7 @@ export const useSubmitReview = () => {
 };
 
 /* ---------- السلة والدفع ---------- */
-export const useCart = () => useQuery({ queryKey: keys.cart, queryFn: () => api.get('/cart', C.Cart) });
+export const useCart = (enabled = true) => useQuery({ queryKey: keys.cart, queryFn: () => api.get('/cart', C.Cart), enabled });
 export const useAddToCart = () => { const qc = useQueryClient(); return useMutation({ mutationFn: (b: z.infer<typeof C.AddToCart>) => api.post('/cart/items', b, C.Cart), onSuccess: (d) => qc.setQueryData(keys.cart, d) }); };
 export const useRemoveFromCart = () => { const qc = useQueryClient(); return useMutation({ mutationFn: (id: number) => api.delete(`/cart/items/${id}`, C.Cart), onSuccess: (d) => qc.setQueryData(keys.cart, d) }); };
 export const useApplyCoupon = () => { const qc = useQueryClient(); return useMutation({ mutationFn: (code: string | null) => api.post('/cart/coupon', { code }, C.Cart), onSuccess: (d) => qc.setQueryData(keys.cart, d) }); };
@@ -165,7 +185,7 @@ export const useAfterPurchase = () => { const qc = useQueryClient(); return () =
 export const usePurchases = () => useQuery({ queryKey: keys.purchases, queryFn: () => api.get('/me/purchases', C.PurchasesFeed) });
 export const useWallet = () => useQuery({ queryKey: keys.wallet, queryFn: () => api.get('/me/wallet', C.Wallet) });
 const NotificationsFeed = z.object({ data: z.array(C.Notification), unread: z.number().int() });
-export const useNotifications = () => useQuery({ queryKey: keys.notifications, queryFn: () => api.get('/me/notifications', NotificationsFeed), refetchInterval: 60_000 });
+export const useNotifications = (enabled = true) => useQuery({ queryKey: keys.notifications, queryFn: () => api.get('/me/notifications', NotificationsFeed), refetchInterval: 60_000, enabled });
 export const useMarkRead = () => { const qc = useQueryClient(); return useMutation({ mutationFn: (ids?: number[]) => api.post('/me/notifications/read', { ids }), onSuccess: () => { qc.invalidateQueries({ queryKey: keys.notifications }); qc.invalidateQueries({ queryKey: ['home'] }); } }); };
 const FavoritesFeed = z.object({ books: z.array(C.BookCard), courses: z.array(C.CourseCard), teachers: z.array(C.TeacherCard) });
 export const useFavorites = () => useQuery({ queryKey: keys.favorites, queryFn: () => api.get('/me/favorites', FavoritesFeed) });
@@ -221,5 +241,5 @@ export const useUploadBookFile = () => {
   });
 };
 export const useSubmitBook = () => { const qc = useQueryClient(); return useMutation({ mutationFn: (bookId: number) => api.post(`/books/${bookId}/submit`), onSuccess: () => qc.invalidateQueries({ queryKey: ['books', 'mine'] }) }); };
-/** طلاب المعلّم = متعلّمون (LearnerRef فقط — لا هاتف ولا بريد ولا معرّف حساب) */
-export const useTeacherStudents = () => useQuery({ queryKey: ['teacher', 'students'] as QueryKey, queryFn: () => api.get('/teacher/students', z.array(z.object({ learner: C.LearnerRef, lessons: z.number(), lastAt: z.string().nullable() }))) });
+/** طلاب المعلّم = متعلّمون (LearnerRef فقط — لا هاتف ولا بريد ولا معرّف حساب). المسار للمعلّم المعتمد فقط: لا نطلبه قبل الاعتماد فيردّ 403 */
+export const useTeacherStudents = (enabled = true) => useQuery({ queryKey: ['teacher', 'students'] as QueryKey, queryFn: () => api.get('/teacher/students', z.array(z.object({ learner: C.LearnerRef, lessons: z.number(), lastAt: z.string().nullable() }))), enabled });

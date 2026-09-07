@@ -1,5 +1,5 @@
 import { q, json } from '../db/index.ts';
-import { money } from '../lib/helpers.ts';
+import { money, iso } from '../lib/helpers.ts';
 import { publicUrl } from './storage.ts';
 import { config } from '../config.ts';
 import { ownedIds, favoriteIds } from './access.ts';
@@ -11,13 +11,38 @@ import { learnerRefById } from './learners.ts';
 
 /** صفوف قاعدة البيانات → أشكال العقود المشتركة. المكان الوحيد الذي يعرف الشكلين معاً. */
 
+/**
+ * المنهج (مواد/صفوف/فصول) يتغيّر بقرار إداري نادر لا مع كل طلب —
+ * يُحفظ في الذاكرة ويُفرَّغ من مسارات المنهج في لوحة الإدارة (clearCatalogCache).
+ * البشر (personRef) لا يُحفظون: الاسم والصورة وحالة التحقّق تتغيّر باستمرار.
+ */
+const subjectCache = new Map<number, { id: number; name: string; colorKey: string }>();
+const gradeCache = new Map<number, { id: number; name: string }>();
+const semesterCache = new Map<number, string | null>();
+export const clearCatalogCache = (): void => { subjectCache.clear(); gradeCache.clear(); semesterCache.clear(); };
+
 const subjectRef = (id: number) => {
+  const hit = subjectCache.get(id);
+  if (hit) return hit;
   const s = q.get<any>('SELECT id, name, color_key FROM subjects WHERE id = ?', id);
-  return s ? { id: s.id, name: s.name, colorKey: s.color_key } : { id, name: '', colorKey: 'default' };
+  const ref = s ? { id: s.id, name: s.name, colorKey: s.color_key } : { id, name: '', colorKey: 'default' };
+  if (s) subjectCache.set(id, ref);
+  return ref;
 };
 const gradeRef = (id: number) => {
+  const hit = gradeCache.get(id);
+  if (hit) return hit;
   const g = q.get<any>('SELECT id, name FROM grades WHERE id = ?', id);
-  return g ? { id: g.id, name: g.name } : { id, name: '' };
+  const ref = g ? { id: g.id, name: g.name } : { id, name: '' };
+  if (g) gradeCache.set(id, ref);
+  return ref;
+};
+const semesterName = (id: number | null | undefined): string | null => {
+  if (!id) return null;
+  if (semesterCache.has(id)) return semesterCache.get(id)!;
+  const name = q.val<string>('SELECT name FROM semesters WHERE id = ?', id) ?? null;
+  semesterCache.set(id, name);
+  return name;
 };
 const personRef = (id: number) => {
   const p = q.get<any>('SELECT p.display_name, p.avatar_path, tp.verification_status FROM profiles p LEFT JOIN teacher_profiles tp ON tp.user_id = p.user_id WHERE p.user_id = ?', id);
@@ -41,7 +66,7 @@ export function bookCard(b: any, ctx: { userId?: number; owned?: Set<number>; fa
   return {
     id: b.id, title: b.title, type: b.type,
     subject: subjectRef(b.subject_id), grade: gradeRef(b.grade_id),
-    semesterName: b.semester_id ? q.val<string>('SELECT name FROM semesters WHERE id = ?', b.semester_id) ?? null : null,
+    semesterName: semesterName(b.semester_id),
     author, price: money(b.price), currency: b.currency,
     ratingAvg: Number(b.rating_avg) || 0, ratingCount: b.rating_count ?? 0, salesCount: b.sales_count ?? 0,
     coverUrl: publicUrl(b.cover_file_id), badges: badges.slice(0, 2),
@@ -52,7 +77,7 @@ export function bookCard(b: any, ctx: { userId?: number; owned?: Set<number>; fa
 export const reviewItems = (targetType: string, targetId: number, limit = 20) =>
   q.all<any>(`SELECT r.id, r.rating, r.comment, r.created_at, p.display_name, p.avatar_path FROM reviews r JOIN profiles p ON p.user_id = r.user_id
               WHERE r.target_type = ? AND r.target_id = ? AND r.status = 'published' ORDER BY r.id DESC LIMIT ?`, targetType, targetId, limit)
-    .map(r => ({ id: r.id, rating: r.rating, comment: r.comment, userName: r.display_name, userAvatarUrl: publicUrlFromPath(r.avatar_path), createdAt: r.created_at }));
+    .map(r => ({ id: r.id, rating: r.rating, comment: r.comment, userName: r.display_name, userAvatarUrl: publicUrlFromPath(r.avatar_path), createdAt: iso(r.created_at) }));
 
 /* ---------- الدورات ---------- */
 export function courseCard(c: any, ctx: { userId?: number; enrolled?: Set<number>; fav?: Set<number> } = {}) {
@@ -103,7 +128,7 @@ export function bookingView(b: BookingRow, viewerId?: number) {
     needsReview,
     notes: notes ? { summary: notes.summary, homework: notes.homework, attachments: json<any[]>(notes.attachments, []) } : null,
     attendance: ['in_progress', 'completed', 'no_show'].includes(b.status) ? attendanceSummary(b.id) : null,
-    createdAt: b.created_at,
+    createdAt: iso(b.created_at),
   };
 }
 

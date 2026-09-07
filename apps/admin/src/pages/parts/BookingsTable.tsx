@@ -42,7 +42,7 @@ export function BookingsTable({ me, params = {}, initialStatus = '', search, hid
         <span className="muted small">{list.data?.meta.total ?? 0} حجز</span>
       </div>
       <div className="card">
-        <DataTable columns={cols} rows={list.data?.data} meta={list.data?.meta} onPage={setPage} loading={list.isLoading} empty="لا حجوزات"
+        <DataTable columns={cols} rows={list.data?.data} meta={list.data?.meta} onPage={setPage} loading={list.isLoading} error={list.error} empty="لا حجوزات"
           expand={b => <dl className="kv small"><dt>الطلب / الباقة</dt><dd className="num">{b.orderId ? `طلب #${b.orderId}` : '—'}{b.packagePurchaseId ? ` · باقة #${b.packagePurchaseId}` : ''}</dd><dt>الإلغاء</dt><dd>{b.cancelReason ?? '—'}{b.refundPercent != null ? ` · استرجاع ${b.refundPercent}٪` : ''}{b.cancelledAt ? ` · ${when(b.cancelledAt as string)}` : ''}</dd><dt>ملاحظة</dt><dd>{b.note ?? '—'}</dd><dt>مهلة الدفع</dt><dd className="num">{when(b.expiresAt)}</dd><dt>أُنشئ</dt><dd className="num">{when(b.createdAt)}</dd></dl>} />
       </div>
       {sel ? (

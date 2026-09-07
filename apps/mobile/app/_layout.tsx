@@ -1,6 +1,6 @@
 import 'react-native-gesture-handler';
 import { useEffect, useRef, useState } from 'react';
-import { I18nManager, Platform, View, useColorScheme } from 'react-native';
+import { I18nManager, View, useColorScheme } from 'react-native';
 import { Stack, SplashScreen, useRouter, useSegments, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -10,7 +10,6 @@ import * as Network from 'expo-network';
 import { useFonts, ReadexPro_400Regular, ReadexPro_500Medium, ReadexPro_600SemiBold, ReadexPro_700Bold } from '@expo-google-fonts/readex-pro';
 import { BalooBhaijaan2_700Bold, BalooBhaijaan2_800ExtraBold } from '@expo-google-fonts/baloo-bhaijaan-2';
 import { colors, setTheme, getTheme, onThemeChange, type ThemeName } from '@manassah/tokens';
-import '@/i18n';
 import { useAuth, needsSetup } from '@/state/auth';
 import { bootstrapAuth, homeFor, signOut } from '@/lib/session';
 import { queryClient } from '@/lib/queryClient';
@@ -18,12 +17,12 @@ import { useSessionSocket } from '@/features/realtime';
 import { OfflineBar, Text } from '@/ui';
 import { isDemo } from '@/api/client';
 import { useUi, hydratePrefs } from '@/state/ui';
+import { applyLocale } from '@/i18n';  // يهيّئ i18next واتجاه الواجهة عند التحميل
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
-/* RTL أصلي — العربية هي التصميم الأساسي */
-if (!I18nManager.isRTL) { I18nManager.allowRTL(true); I18nManager.forceRTL(true); }
-if (Platform.OS === 'web' && typeof document !== 'undefined') { document.documentElement.dir = 'rtl'; document.documentElement.lang = 'ar'; }
+/* الاتجاه يتبع اللغة المحفوظة (العربية افتراضاً) — يُضبط في '@/i18n' عند التحميل ويُتابَع في useLocaleSync */
+I18nManager.allowRTL(true);
 
 /** حارس التوجيه: زائر → الترحيب؛ حساب بلا متعلّم (وليس معلّماً/طاقماً) → الإعداد؛ وإلا التبويبات. شاشة الإعداد تبقى متاحة لإضافة متعلّم من الإعدادات */
 function AuthGate() {
@@ -37,8 +36,10 @@ function AuthGate() {
     if (segments[0] === 'connect' || segments[0] === 'get-app') return;
     const inAuth = segments[0] === '(auth)';
     const onSetup = inAuth && segments[1] === 'setup';
+    // طلب الانضمام كمعلّم متاح لهاتف جديد بلا متعلّم — لا يُجبَر على إنشاء متعلّم أولاً
+    const onApply = segments[0] === 'teacher-app' && segments[1] === 'apply';
     if (!user && !inAuth) router.replace('/(auth)/welcome');
-    else if (user && needsSetup(user) && !onSetup) router.replace('/(auth)/setup');
+    else if (user && needsSetup(user) && !onSetup && !onApply) router.replace('/(auth)/setup');
     else if (user && !needsSetup(user) && inAuth && !onSetup) router.replace(homeFor(user) as never);
   }, [user, ready, segments, router]);
   return null;
@@ -80,11 +81,18 @@ function useThemeSync(): ThemeName {
   return name;
 }
 
+/** اللغة المختارة تُطبَّق على i18next واتجاه الصفحة عند كل تغيير أو بعد قراءة التفضيلات */
+function useLocaleSync(): void {
+  const locale = useUi(s => s.locale);
+  useEffect(() => { applyLocale(locale); }, [locale]);
+}
+
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({ ReadexPro_400Regular, ReadexPro_500Medium, ReadexPro_600SemiBold, ReadexPro_700Bold, BalooBhaijaan2_700Bold, BalooBhaijaan2_800ExtraBold });
   const ready = useAuth(s => s.ready);
   const online = useOnline();
   const themeName = useThemeSync();
+  useLocaleSync();
   const serverUrl = useUi(s => s.serverUrl);
   const hydrated = useUi(s => s.hydrated);
   const router = useRouter();

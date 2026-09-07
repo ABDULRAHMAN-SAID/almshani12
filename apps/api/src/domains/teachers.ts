@@ -2,11 +2,12 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { TeachersQuery, AvailabilityQuery, AvailabilityRules, TimeOff, TeacherApplication, LessonPrice, savePercent } from '@manassah/shared';
 import { db, q, json, settings, nowIso } from '../db/index.ts';
+import { config } from '../config.ts';
 import { AppError, asyncHandler, notFound, badRequest } from '../lib/errors.ts';
 import { validate, body, query, idParam } from '../lib/validate.ts';
 import { attachUser, requireAuth, requireVerifiedTeacher } from '../lib/auth.ts';
-import { paginate, pageMeta, money } from '../lib/helpers.ts';
-import { favoriteIds } from '../services/access.ts';
+import { paginate, pageMeta, money, iso, muscatToUtc, utcToMuscatParts } from '../lib/helpers.ts';
+import { favoriteIds, ownedIds } from '../services/access.ts';
 import { generateSlots } from '../services/slots.ts';
 import { teacherCard, bookCard, courseCard, reviewItems, gradeRef, bookingView } from '../services/mappers.ts';
 import { summary as earningsSummary } from '../services/earnings.ts';
@@ -47,14 +48,20 @@ publicRouter.get('/', attachUser, validate(TeachersQuery, 'query'), (req, res) =
     price_asc: '(SELECT MIN(price) FROM teacher_prices WHERE teacher_id = tp.user_id) ASC', soonest: 'tp.lessons_count DESC',
   }[f.sort];
   const from = `${joins.join(' ')} WHERE ${where.join(' AND ')}`;
-  const total = q.val<number>(`SELECT COUNT(DISTINCT tp.user_id) FROM teacher_profiles tp JOIN profiles p ON p.user_id = tp.user_id ${from}`, ...params) ?? 0;
   const { limit, offset } = paginate(f.page, f.limit);
-  let rows = q.all<any>(`${TEACHER_SELECT} ${from} ORDER BY ${order} LIMIT ? OFFSET ?`, ...params, limit, offset);
   const fav = favoriteIds(req.user?.id, 'teacher');
-  let cards = rows.map(t => teacherCard(t, { userId: req.user?.id, fav }));
-  if (f.availableNow) cards = cards.filter(c => c.availableNow);
-  if (f.sort === 'soonest') cards.sort((a, b) => (a.nextSlotAt ?? '9').localeCompare(b.nextSlotAt ?? '9'));
-  res.json({ data: cards, meta: pageMeta(total, f.page, f.limit) });
+  // «متاح الآن» و«الأقرب موعداً» يعتمدان على أوّل موعد شاغر (يُحسب في JS): نطبّقهما على المرشّحين كلّهم
+  // قبل التقطيع، وإلا جاءت صفحات شبه فارغة وrتيب داخل الصفحة فقط.
+  if (f.availableNow || f.sort === 'soonest') {
+    const candidates = q.all<any>(`${TEACHER_SELECT} ${from} ORDER BY ${order} LIMIT 200`, ...params);
+    let cards = candidates.map(t => teacherCard(t, { userId: req.user?.id, fav }));
+    if (f.availableNow) cards = cards.filter(c => c.availableNow);
+    if (f.sort === 'soonest') cards.sort((a, b) => (a.nextSlotAt ?? '9').localeCompare(b.nextSlotAt ?? '9'));
+    return res.json({ data: cards.slice(offset, offset + limit), meta: pageMeta(cards.length, f.page, f.limit) });
+  }
+  const total = q.val<number>(`SELECT COUNT(DISTINCT tp.user_id) FROM teacher_profiles tp JOIN profiles p ON p.user_id = tp.user_id ${from}`, ...params) ?? 0;
+  const rows = q.all<any>(`${TEACHER_SELECT} ${from} ORDER BY ${order} LIMIT ? OFFSET ?`, ...params, limit, offset);
+  res.json({ data: rows.map(t => teacherCard(t, { userId: req.user?.id, fav })), meta: pageMeta(total, f.page, f.limit) });
 });
 
 publicRouter.get('/:id', attachUser, (req, res) => {
@@ -88,8 +95,8 @@ publicRouter.get('/:id', attachUser, (req, res) => {
     ...card, bio: t.bio ?? '', lessonsCount: t.lessons_count, grades,
     teachingStyle: json<string[]>(t.teaching_style, []), languages: json<string[]>(t.languages, ['ar']),
     prices, packages,
-    courses: q.all<any>("SELECT * FROM courses WHERE teacher_id = ? AND status = 'published' ORDER BY sales_count DESC LIMIT 6", id).map(c => courseCard(c, { userId: uid })),
-    books: q.all<any>("SELECT * FROM books WHERE author_id = ? AND status = 'published' ORDER BY sales_count DESC LIMIT 6", id).map(b => bookCard(b, { userId: uid })),
+    courses: q.all<any>("SELECT * FROM courses WHERE teacher_id = ? AND status = 'published' ORDER BY sales_count DESC LIMIT 6", id).map(c => courseCard(c, { userId: uid, enrolled: ownedIds(uid, 'course'), fav: favoriteIds(uid, 'course') })),
+    books: q.all<any>("SELECT * FROM books WHERE author_id = ? AND status = 'published' ORDER BY sales_count DESC LIMIT 6", id).map(b => bookCard(b, { userId: uid, owned: ownedIds(uid, 'book'), fav: favoriteIds(uid, 'book') })),
     reviews: reviewItems('teacher', id), canReview, availabilityPreview: preview,
     stats, availabilityRules, timeOff,
   });
@@ -143,21 +150,24 @@ selfRouter.get('/me', (req, res) => {
   const uid = req.user!.id;
   const tp = q.get<any>('SELECT * FROM teacher_profiles WHERE user_id = ?', uid);
   if (!tp) throw notFound('لم تقدّم طلب انضمام بعد');
-  const monthStart = new Date(); monthStart.setUTCDate(1); monthStart.setUTCHours(0, 0, 0, 0);
-  const today = new Date(); today.setUTCHours(0, 0, 0, 0);
-  const tomorrow = new Date(today.getTime() + 86_400_000);
+  // «اليوم» و«هذا الشهر» بتوقيت مسقط لا UTC (بين ٠٠:٠٠ و٠٤:٠٠ كان اليوم UTC ما يزال «أمس»)
+  const muscatToday = utcToMuscatParts(nowIso()).date;
+  const todayIso = muscatToUtc(muscatToday, '00:00');
+  const tomorrowIso = muscatToUtc(new Date(new Date(`${muscatToday}T00:00:00Z`).getTime() + 86_400_000).toISOString().slice(0, 10), '00:00');
+  const monthStartIso = muscatToUtc(`${muscatToday.slice(0, 7)}-01`, '00:00');
   const dashboard = {
     verificationStatus: tp.verification_status,
-    monthIncome: money(q.val<number>("SELECT COALESCE(SUM(net),0) FROM teacher_earnings WHERE teacher_id = ? AND status <> 'reversed' AND created_at >= ?", uid, monthStart.toISOString()) ?? 0),
-    todayLessons: q.val<number>("SELECT COUNT(*) FROM bookings WHERE teacher_id = ? AND status IN ('confirmed','in_progress') AND starts_at >= ? AND starts_at < ?", uid, today.toISOString(), tomorrow.toISOString()) ?? 0,
+    monthIncome: money(q.val<number>("SELECT COALESCE(SUM(net),0) FROM teacher_earnings WHERE teacher_id = ? AND status <> 'reversed' AND created_at >= ?", uid, monthStartIso) ?? 0),
+    todayLessons: q.val<number>("SELECT COUNT(*) FROM bookings WHERE teacher_id = ? AND status IN ('confirmed','in_progress') AND starts_at >= ? AND starts_at < ?", uid, todayIso, tomorrowIso) ?? 0,
     upcomingLessons: q.val<number>("SELECT COUNT(*) FROM bookings WHERE teacher_id = ? AND status IN ('confirmed','in_progress') AND ends_at >= ?", uid, nowIso()) ?? 0,
     studentsCount: tp.students_count, ratingAvg: tp.rating_avg, availableBalance: money(tp.available_balance),
     booksSold: q.val<number>("SELECT COALESCE(SUM(sales_count),0) FROM books WHERE author_id = ?", uid) ?? 0,
     coursesSold: q.val<number>("SELECT COALESCE(SUM(sales_count),0) FROM courses WHERE teacher_id = ?", uid) ?? 0,
     pendingHomeworkReviews: 0,
   };
-  const documents = q.all<any>('SELECT id, type, status, note, created_at FROM teacher_documents WHERE teacher_id = ?', uid);
+  const documents = q.all<any>('SELECT id, type, status, note, created_at FROM teacher_documents WHERE teacher_id = ?', uid).map(d => ({ ...d, created_at: iso(d.created_at) }));
   const lastDecision = q.get<any>('SELECT decision, reason, decided_at FROM teacher_verifications WHERE teacher_id = ? ORDER BY id DESC LIMIT 1', uid);
+  if (lastDecision) lastDecision.decided_at = iso(lastDecision.decided_at);
   res.json({ ...dashboard, documents, lastDecision: lastDecision ?? null });
 });
 
@@ -170,25 +180,30 @@ selfRouter.get('/availability', (req, res) => {
     maxPerDay: settings.get<number>('max_teacher_slots_per_day'),
   });
 });
-selfRouter.put('/availability', validate(AvailabilityRules), (req, res) => {
+selfRouter.put('/availability', requireVerifiedTeacher, validate(AvailabilityRules), (req, res) => {
   const rules = body<typeof AvailabilityRules>(req);
   const uid = req.user!.id;
   const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));
   for (const r of rules) if (toMin(r.endTime) <= toMin(r.startTime)) throw badRequest('وقت النهاية يجب أن يكون بعد البداية');
+  // فترتان متداخلتان في اليوم نفسه تولّدان الموعد ذاته مرّتين للطلاب
+  for (let i = 0; i < rules.length; i++) for (let j = i + 1; j < rules.length; j++) {
+    const a = rules[i]!, b = rules[j]!;
+    if (a.weekday === b.weekday && toMin(a.startTime) < toMin(b.endTime) && toMin(b.startTime) < toMin(a.endTime)) throw badRequest('فترات متداخلة في اليوم نفسه');
+  }
   db.transaction(() => {
     q.run('DELETE FROM teacher_availability WHERE teacher_id = ?', uid);
     for (const r of rules) q.run('INSERT INTO teacher_availability (teacher_id, weekday, start_time, end_time, slot_minutes, break_minutes) VALUES (?,?,?,?,?,?)', uid, r.weekday, r.startTime, r.endTime, r.slotMinutes, r.breakMinutes);
   })();
   res.json({ ok: true, count: rules.length });
 });
-selfRouter.post('/time-off', validate(TimeOff), (req, res) => {
+selfRouter.post('/time-off', requireVerifiedTeacher, validate(TimeOff), (req, res) => {
   const t = body<typeof TimeOff>(req);
   if (new Date(t.endsAt) <= new Date(t.startsAt)) throw badRequest('فترة غير صالحة');
   const info = q.run('INSERT INTO teacher_time_off (teacher_id, starts_at, ends_at, reason) VALUES (?,?,?,?)', req.user!.id, t.startsAt, t.endsAt, t.reason ?? null);
   const affected = q.all<any>("SELECT id FROM bookings WHERE teacher_id = ? AND status IN ('pending_payment','confirmed') AND starts_at < ? AND ends_at > ?", req.user!.id, t.endsAt, t.startsAt);
   res.status(201).json({ id: Number(info.lastInsertRowid), conflictingBookings: affected.map(b => b.id) });
 });
-selfRouter.delete('/time-off/:id', (req, res) => {
+selfRouter.delete('/time-off/:id', requireVerifiedTeacher, (req, res) => {
   q.run('DELETE FROM teacher_time_off WHERE id = ? AND teacher_id = ?', idParam(req), req.user!.id);
   res.json({ ok: true });
 });
@@ -225,8 +240,8 @@ selfRouter.get('/earnings', (req, res) => {
     commissionRate: q.val<number>('SELECT commission_rate FROM teacher_profiles WHERE user_id = ?', uid) ?? settings.get<number>('commission_rate'),
     minPayout: settings.get<number>('min_payout'),
     payouts: q.all<any>('SELECT id, amount, status, requested_at, processed_at FROM teacher_payouts WHERE teacher_id = ? ORDER BY id DESC LIMIT 30', uid)
-      .map(p => ({ id: p.id, amount: money(p.amount), status: p.status, requestedAt: p.requested_at, processedAt: p.processed_at })),
-    recent: q.all<any>("SELECT id, source_type, gross, commission, net, status, created_at FROM teacher_earnings WHERE teacher_id = ? ORDER BY id DESC LIMIT 40", uid),
+      .map(p => ({ id: p.id, amount: money(p.amount), status: p.status, requestedAt: iso(p.requested_at), processedAt: iso(p.processed_at) })),
+    recent: q.all<any>("SELECT id, source_type, gross, commission, net, status, created_at FROM teacher_earnings WHERE teacher_id = ? ORDER BY id DESC LIMIT 40", uid).map(r => ({ ...r, created_at: iso(r.created_at) })),
   });
 });
 const PayoutBody = z.object({ amount: z.number().positive(), method: z.enum(['bank', 'wallet']).default('bank'), details: z.record(z.string(), z.string()).default({}) });
@@ -243,7 +258,7 @@ selfRouter.post('/payouts', requireVerifiedTeacher, validate(PayoutBody), (req, 
     q.run('UPDATE teacher_profiles SET available_balance = available_balance - ? WHERE user_id = ?', money(p.amount), uid);
     return Number(info.lastInsertRowid);
   })();
-  notifyStaff(['finance', 'admin'], { type: 'system', title: 'طلب سحب جديد', body: `${p.amount} ${settings.get('currency', 'OMR')}`, data: { payoutId: id } });
+  notifyStaff(['finance', 'admin'], { type: 'system', title: 'طلب سحب جديد', body: `${p.amount} ${config.money.currency}`, data: { payoutId: id } });
   audit(req, 'payout.request', 'teacher_payouts', id, { amount: p.amount });
   res.status(201).json({ id });
 });
@@ -252,7 +267,7 @@ selfRouter.post('/payouts', requireVerifiedTeacher, validate(PayoutBody), (req, 
 selfRouter.get('/students', requireVerifiedTeacher, (req, res) => {
   const rows = q.all<any>(`SELECT b.learner_id, b.student_id, p.display_name, p.avatar_path, COUNT(*) AS lessons, MAX(b.starts_at) AS last_at
     FROM bookings b JOIN profiles p ON p.user_id = b.student_id
-    WHERE b.teacher_id = ? AND b.status IN ('completed','confirmed','in_progress') GROUP BY COALESCE(b.learner_id, -b.student_id) ORDER BY last_at DESC`, req.user!.id);
+    WHERE b.teacher_id = ? AND b.status IN ('completed','confirmed','in_progress') GROUP BY COALESCE(b.learner_id, -b.student_id) ORDER BY last_at DESC LIMIT 300`, req.user!.id);
   res.json(rows.map(r => ({
     // حجز قديم بلا متعلّم (أو متعلّم حُذف نهائياً) → مرجع اصطناعي بمعرّف سالب من الحساب، بلا أي بيانات اتصال
     learner: (r.learner_id ? learnerRefById(r.learner_id) : null) ?? { id: -r.student_id, displayName: r.display_name ?? '', gradeName: null, avatarUrl: publicUrlFromPath(r.avatar_path) },

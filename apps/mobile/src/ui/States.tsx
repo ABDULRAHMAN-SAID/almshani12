@@ -26,19 +26,22 @@ export function EmptyState({ icon = 'empty', title, body, actionLabel, onAction 
   );
 }
 
-export interface ErrorStateProps { error?: unknown; onRetry?: () => void; compact?: boolean }
+export interface ErrorStateProps { error?: unknown; onRetry?: () => void; compact?: boolean; onBack?: () => void }
 
-/** رسالة عربية مفهومة — لا "HTTP 500" — ويُسجَّل الخطأ تقنياً في العميل */
-export function ErrorState({ error, onRetry, compact }: ErrorStateProps) {
+/** رسالة عربية مفهومة — لا "HTTP 500" — ويُسجَّل الخطأ تقنياً في العميل.
+ * «غير موجود» و«ممنوع» نهائيان: يُقالان عنواناً واحداً بلا «حاول مرة أخرى» لا تنجح أبداً. */
+export function ErrorState({ error, onRetry, compact, onBack }: ErrorStateProps) {
   const { t } = useTranslation();
   const key = errorMessageKey(error);
   const offline = key === 'errors.network' || key === 'errors.offline';
+  const terminal = key === 'errors.notFound' || key === 'errors.forbidden';
   return (
     <View style={[styles.wrap, compact && styles.compact]}>
-      <View style={[styles.iconWrap, styles.warn]}><Icon name={offline ? 'wifiOff' : 'warning'} size={38} color={colors.state.warning} /></View>
-      <Text role="h2" center>{t(offline ? 'errors.offline' : 'errors.generic')}</Text>
-      {!offline ? <Text role="body" tone="secondary" center style={styles.body}>{t(key)}</Text> : null}
-      {onRetry ? <Button label={t('common.retry')} onPress={onRetry} icon="refresh" variant="secondary" style={styles.action} /> : null}
+      <View style={[styles.iconWrap, styles.warn]}><Icon name={offline ? 'wifiOff' : terminal ? 'empty' : 'warning'} size={38} color={colors.state.warning} /></View>
+      <Text role="h2" center>{t(offline ? 'errors.offline' : terminal ? key : 'errors.generic')}</Text>
+      {!offline && !terminal ? <Text role="body" tone="secondary" center style={styles.body}>{t(key)}</Text> : null}
+      {terminal ? (onBack ? <Button label={t('common.back')} onPress={onBack} icon="back" variant="secondary" style={styles.action} /> : null)
+        : onRetry ? <Button label={t('common.retry')} onPress={onRetry} icon="refresh" variant="secondary" style={styles.action} /> : null}
     </View>
   );
 }

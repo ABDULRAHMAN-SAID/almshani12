@@ -32,15 +32,23 @@ export function migrate(): void {
   migrateDb(db, config.db.file);
   const insert = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)');
   for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) insert.run(key, JSON.stringify(value));
+  settings.clearCache();
 }
 
 type Params = unknown[];
+/** ذاكرة العبارات المُجهَّزة: نفس نص SQL يُجهَّز مرة واحدة (better-sqlite3 يعيد استعمال العبارة بأمان) */
+const stmts = new Map<string, Database.Statement>();
+const prep = (sql: string): Database.Statement => {
+  let st = stmts.get(sql);
+  if (!st) { st = db.prepare(sql); stmts.set(sql, st); }
+  return st;
+};
 export const q = {
-  all: <T = any>(sql: string, ...p: Params): T[] => db.prepare(sql).all(...p) as T[],
-  get: <T = any>(sql: string, ...p: Params): T | undefined => db.prepare(sql).get(...p) as T | undefined,
-  run: (sql: string, ...p: Params) => db.prepare(sql).run(...p),
+  all: <T = any>(sql: string, ...p: Params): T[] => prep(sql).all(...p) as T[],
+  get: <T = any>(sql: string, ...p: Params): T | undefined => prep(sql).get(...p) as T | undefined,
+  run: (sql: string, ...p: Params) => prep(sql).run(...p),
   val: <T = any>(sql: string, ...p: Params): T | undefined => {
-    const row = db.prepare(sql).get(...p) as Record<string, T> | undefined;
+    const row = prep(sql).get(...p) as Record<string, T> | undefined;
     return row ? (Object.values(row)[0] as T) : undefined;
   },
 };
@@ -48,15 +56,24 @@ export const q = {
 export const tx = <T>(fn: () => T): T => db.transaction(fn)();
 
 /* ---------- الإعدادات (السياسات) ---------- */
+/** الإعدادات تُقرأ من القرص مرة واحدة وتُحفظ في الذاكرة — كانت تُقرأ عشرات المرات في الطلب الواحد */
+const settingsCache = new Map<string, unknown>();
 export const settings = {
   get<T = unknown>(key: keyof typeof DEFAULT_SETTINGS | string, fallback?: T): T {
+    if (settingsCache.has(key)) return settingsCache.get(key) as T;
     const row = q.get<{ value: string }>('SELECT value FROM settings WHERE key = ?', key);
     if (!row) return (fallback ?? (DEFAULT_SETTINGS as Record<string, unknown>)[key]) as T;
-    try { return JSON.parse(row.value) as T; } catch { return row.value as unknown as T; }
+    let parsed: unknown;
+    try { parsed = JSON.parse(row.value); } catch { parsed = row.value; }
+    settingsCache.set(key, parsed);
+    return parsed as T;
   },
   set(key: string, value: unknown): void {
     q.run('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value', key, JSON.stringify(value));
+    settingsCache.delete(key);
   },
+  /** تُفرَّغ بعد الترحيل/البذر أو أي كتابة مباشرة على جدول settings */
+  clearCache(): void { settingsCache.clear(); },
   all(): Record<string, unknown> {
     return Object.fromEntries(q.all<{ key: string; value: string }>('SELECT key, value FROM settings').map(r => {
       try { return [r.key, JSON.parse(r.value)]; } catch { return [r.key, r.value]; }

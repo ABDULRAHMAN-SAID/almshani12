@@ -9,6 +9,7 @@ import { useBooks, useCatalog, usePurchases } from '@/features/queries';
 import { useAuth, useActiveLearner } from '@/state/auth';
 import { useUi } from '@/state/ui';
 import { useDebounced } from '@/lib/hooks';
+import { formatDayShort } from '@/lib/format';
 
 const TYPES = BookType.options;
 const SORTS = ['bestselling', 'newest', 'rating', 'price_asc', 'price_desc'] as const;
@@ -90,7 +91,7 @@ export default function Library() {
               <View style={styles.mineIcon}><Icon name="bookSolid" size={24} color={colors.brand.green} /></View>
               <View style={styles.flex}>
                 <Text role="bodyMedium" numberOfLines={2}>{b.title}</Text>
-                <Text role="caption" tone="secondary" tabular>{card ? `${card.subject.name} · ${card.grade.name}` : b.purchasedAt.slice(0, 10)}</Text>
+                <Text role="caption" tone="secondary" tabular>{card ? `${card.subject.name} · ${card.grade.name}` : formatDayShort(b.purchasedAt)}</Text>
               </View>
               <Button label={t('library.read')} icon="book" size="sm" variant="success" onPress={() => router.push(`/book/${b.id}/read`)} />
             </View>

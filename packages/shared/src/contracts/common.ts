@@ -4,7 +4,8 @@ export const Id = z.number().int().positive();
 export const Money = z.number().nonnegative();
 export const Currency = z.string().length(3);
 export const IsoDateTime = z.string().min(10);
-export const HHmm = z.string().regex(/^\d{2}:\d{2}$/);
+/** وقت اليوم 00:00–23:59 — «99:00» أو «24:30» تُرفض قبل أن تُخزَّن */
+export const HHmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 
 export const PageQuery = z.object({
   page: z.coerce.number().int().min(1).default(1),
