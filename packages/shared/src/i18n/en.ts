@@ -221,6 +221,10 @@ export const en: Dictionary = {
     lessonEnded: 'Lesson ended', endedBody: 'Rate the teacher and see the summary and homework', waitingOther: 'Waiting for the other side…',
     connected: 'Connected', poor: 'Poor connection', failed: 'Connection failed', retry: 'Retry', camOff: 'Camera off',
     muteAll: 'Mute all', participantsN: '{{n}} participants', tools: 'Tools', video: 'Video',
+    server: {
+      connect: 'Connect to the test server', connecting: 'Looking for the test server…', connected: 'Connected to the test server',
+      down: 'The test server is stopped right now — start it from GitHub, then try again', unreachable: 'The server could not be reached from your network', registry: 'Could not read the server address',
+    },
   },
   checkout: {
     title: 'Checkout', summary: 'Order summary', choose: 'Choose a payment method', payNow: 'Pay now', redirecting: 'Redirecting to the payment gateway…',

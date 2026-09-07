@@ -3,7 +3,7 @@ import { View, StyleSheet, I18nManager, Platform, Switch } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { colors, spacing, themed } from '@manassah/tokens';
-import { Screen, Text, Button, Input, Chip, Card, ListRow, Dialog, Icon, Badge } from '@/ui';
+import { Screen, Text, Button, Input, Chip, Card, ListRow, Dialog, Icon, Badge, LiveServerButton } from '@/ui';
 import { useUpdateProfile, useDeleteAccount } from '@/features/queries';
 import { useAuth, useActiveLearner } from '@/state/auth';
 import { useUi, type ThemePref, type TextScale } from '@/state/ui';
@@ -111,6 +111,8 @@ export default function Settings() {
           </View>
           {probe.state === 'ok' ? <View style={styles.probe}><Icon name="checkCircle" size={18} color={colors.state.success} /><Text role="small" tone="success">{t('settings.connected')} · {probe.info}</Text></View> : null}
           {probe.state === 'fail' ? <View style={styles.probe}><Icon name="warning" size={18} color={colors.state.danger} /><Text role="small" tone="danger">{t('settings.connectionFailed')} · {probe.info}</Text></View> : null}
+          {/* بديل الكتابة اليدوية: عنوان الخادم التجريبي الحالي يُقرأ من السجلّ العام (نفق trycloudflare يتغيّر مع كل تشغيل) */}
+          <LiveServerButton style={styles.mt} />
         </Card>
 
         {/* الملف الشخصي */}

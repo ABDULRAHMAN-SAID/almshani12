@@ -5,6 +5,7 @@ import { ApiErrorBody, type ErrorCode } from '@manassah/shared';
 import { tokens, useAuth, defaultLearner } from '@/state/auth';
 
 import { useUi } from '@/state/ui';
+import { fetchLiveServer, probeServer } from '@/lib/registry';
 
 const ENV_BASE = ((Constants.expoConfig?.extra?.apiUrl as string | undefined) || process.env.EXPO_PUBLIC_API_URL || '').replace(/\/+$/, '');
 
@@ -97,6 +98,28 @@ function recoverLearner(): boolean {
   return true;
 }
 
+/** أنفاق trycloudflare (الخادم التجريبي على GitHub) تتغيّر مع كل تشغيل — عنوان محفوظ قديم يعني خطأ شبكة مع كل طلب */
+const isTunnel = (u: string) => /^https?:\/\/[^/?#]*\.trycloudflare\.com(?::\d+)?(?:[/?#]|$)/i.test(u);
+const RECOVERY_INTERVAL = 5 * 60_000;
+let lastRecovery = 0;
+/**
+ * عند خطأ شبكة والعنوان الحالي نفق: نقرأ السجلّ العام مرة كل ٥ دقائق على الأكثر؛ إن أعلن عنواناً جديداً يردّ على /api/health
+ * نحفظه (التخطيط الجذري يخرج عندها لأن الخادم الجديد لا يعرف الجلسة القديمة) ويُعاد الطلب مرة واحدة. السجلّ والطرق بـ fetch مباشر لا بهذا العميل.
+ */
+async function recoverTunnel(): Promise<boolean> {
+  const current = useUi.getState().serverUrl;
+  if (!isTunnel(current) || Date.now() - lastRecovery < RECOVERY_INTERVAL) return false;
+  lastRecovery = Date.now();
+  try {
+    const live = await fetchLiveServer();
+    if (live.status !== 'up' || !live.url || live.url === current) return false;
+    if (!(await probeServer(live.url)).ok) return false;
+    if (__DEV__) console.info('[api] tunnel moved', current, '→', live.url);
+    useUi.getState().setServerUrl(live.url);
+    return true;
+  } catch { return false; }
+}
+
 function finish<T>(data: unknown, path: string, schema?: z.ZodType<T>): T {
   if (!schema) return data as T;
   const parsed = schema.safeParse(data);
@@ -133,7 +156,11 @@ async function request<T>(method: string, path: string, body?: unknown, schema?:
 
   let res: Response;
   try { res = await send(); }
-  catch { throw new ApiError('network_error', 'network', 0); }
+  catch {
+    // النفق القديم مات؟ نجرّب العنوان الجديد من السجلّ ونعيد الطلب مرة واحدة (noRetry يمنع التكرار؛ الإلغاء المقصود ليس خطأ شبكة)
+    if (!opts.noRetry && !opts.signal?.aborted && await recoverTunnel()) return request<T>(method, path, body, schema, { ...opts, noRetry: true });
+    throw new ApiError('network_error', 'network', 0);
+  }
 
   if (res.status === 401 && tokens.refresh && !opts.noRetry) {
     if (await refreshSession()) {

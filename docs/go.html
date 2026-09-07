@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>منصّة — الخادم التجريبي</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; font-family: system-ui, "Segoe UI", Tahoma, sans-serif; background: #FBF7F0; color: #1f2937; }
+  @media (prefers-color-scheme: dark) { body { background: #17161a; color: #f3f4f6; } .card { background: #221f26; } }
+  .card { max-width: 420px; width: calc(100% - 32px); background: #fff; border-radius: 22px; padding: 28px 24px; box-shadow: 0 8px 30px rgba(0,0,0,.08); text-align: center; }
+  .mark { width: 72px; height: 72px; border-radius: 20px; background: #9E1B32; color: #fff; font-size: 40px; font-weight: 800; display: grid; place-items: center; margin: 0 auto 12px; }
+  h1 { font-size: 22px; margin: 8px 0; }
+  p { line-height: 1.7; margin: 8px 0; }
+  a.btn { display: block; margin-top: 16px; padding: 14px 18px; border-radius: 999px; background: #9E1B32; color: #fff; text-decoration: none; font-weight: 700; font-size: 17px; }
+  a.btn.secondary { background: transparent; color: inherit; border: 2px solid #d6d3d1; }
+  .muted { opacity: .7; font-size: 14px; }
+  code { direction: ltr; unicode-bidi: embed; font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="mark">م</div>
+  <h1 id="title">جارٍ البحث عن الخادم التجريبي…</h1>
+  <p id="msg" class="muted">لحظة واحدة</p>
+  <div id="actions"></div>
+</div>
+<script>
+  // يقرأ العنوان الحالي للخادم التجريبي من المستودع (يكتبه تشغيل live-server) ويحوّل إليه تلقائياً
+  var REGISTRY = 'https://raw.githubusercontent.com/ABDULRAHMAN-SAID/almshani12/claude/digital-education-platform-1w1zvq/.live/server.json';
+  var APK = 'https://github.com/ABDULRAHMAN-SAID/almshani12/releases/download/android-latest/manassah.apk';
+  var RUN = 'https://github.com/ABDULRAHMAN-SAID/almshani12/actions/workflows/live-server.yml';
+  var target = new URLSearchParams(location.search).get('to') || '';
+  function show(title, msg, links) {
+    document.getElementById('title').textContent = title;
+    document.getElementById('msg').textContent = msg || '';
+    document.getElementById('actions').innerHTML = (links || []).map(function (l) { return '<a class="btn ' + (l.secondary ? 'secondary' : '') + '" href="' + l.href + '">' + l.label + '</a>'; }).join('');
+  }
+  fetch(REGISTRY + '?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (s) {
+    if (s && s.url && s.status === 'up') {
+      var dest = s.url.replace(/\/$/, '') + (target ? '/' + target.replace(/^\//, '') : '');
+      show('الخادم يعمل الآن', 'يُفتح خلال لحظة… وإن لم يُفتح اضغط الزر', [{ href: dest, label: 'فتح ' + dest }]);
+      setTimeout(function () { location.replace(dest); }, 800);
+    } else {
+      show('الخادم التجريبي متوقف الآن', 'يعمل ٥ ساعات في كل تشغيل ثم يتوقف. شغّله من GitHub (Actions ← live-server ← Run workflow) وارجع إلى هذه الصفحة بعد ٥ دقائق.', [
+        { href: RUN, label: 'تشغيل الخادم من GitHub' }, { href: APK, label: 'تحميل تطبيق أندرويد (APK)', secondary: true }]);
+    }
+  }).catch(function () {
+    show('تعذّر قراءة عنوان الخادم', 'تحقّق من الإنترنت ثم أعد المحاولة.', [{ href: location.href, label: 'إعادة المحاولة' }, { href: APK, label: 'تحميل تطبيق أندرويد (APK)', secondary: true }]);
+  });
+</script>
+</body>
+</html>

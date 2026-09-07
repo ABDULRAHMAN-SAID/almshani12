@@ -3,7 +3,9 @@ import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { colors, spacing, radius, shadow, subjectColors, themed } from '@manassah/tokens';
 import { brand } from '@manassah/shared';
-import { Screen, Text, Button, Icon, type IconName } from '@/ui';
+import { Screen, Text, Button, Icon, LiveServerButton, type IconName } from '@/ui';
+import { useUi } from '@/state/ui';
+import { DEMO_FALLBACK } from '@/api/client';
 
 const features = (): { icon: IconName; key: string; bg: string; fg: string }[] => [
   { icon: 'bookSolid', key: 'library.title', bg: subjectColors.math.soft, fg: subjectColors.math.main },
@@ -15,6 +17,8 @@ const features = (): { icon: IconName; key: string; bg: string; fg: string }[] =
 export default function Welcome() {
   const { t } = useTranslation();
   const router = useRouter();
+  // = isDemo() لكن متفاعل مع تغيّر العنوان: حزمة عرض بلا خادم مضمَّن ولا عنوان محفوظ → نعرض زرّ الاتصال بالخادم التجريبي
+  const demo = useUi(s => DEMO_FALLBACK && !s.serverUrl);
   return (
     <Screen bare scroll={false} contentStyle={styles.wrap}>
       <View style={styles.top}>
@@ -37,6 +41,8 @@ export default function Welcome() {
       <View style={styles.actions}>
         <Button label={t('onboarding.start')} onPress={() => router.push('/(auth)/login')} size="lg" full iconEnd="forward" />
         <Button label={t('onboarding.haveAccount')} onPress={() => router.push('/(auth)/login')} variant="secondary" full />
+        {/* نسخة العرض: زرّ يقرأ عنوان الخادم التجريبي الحالي من السجلّ ويتّصل به — على الويب والجوال معاً */}
+        {demo ? <LiveServerButton full /> : null}
         <Text role="caption" tone="tertiary" center>{t('onboarding.terms')}</Text>
         {/* رابط تحميل تطبيق أندرويد — على الويب فقط؛ داخل التطبيق لا معنى له */}
         {Platform.OS === 'web' ? (

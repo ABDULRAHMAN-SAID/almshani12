@@ -32,3 +32,4 @@ export { LearnerAvatar, shortGrade, type LearnerAvatarProps } from './LearnerAva
 export { LearnerSwitcher } from './LearnerSwitcher';
 export { LearnerForm, type LearnerFormProps } from './LearnerForm';
 export { LearnerPicker, type LearnerPickerProps } from './LearnerPicker';
+export { LiveServerButton, type LiveServerButtonProps } from './LiveServerButton';
