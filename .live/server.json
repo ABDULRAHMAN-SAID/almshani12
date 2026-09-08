@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://ipod-sacred-returns-fuzzy.trycloudflare.com",
-  "startedAt": "2026-09-08T09:59:34Z",
-  "expiresAt": "2026-09-08T14:59:34Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/34212911159",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
