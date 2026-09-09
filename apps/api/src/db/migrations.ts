@@ -144,6 +144,17 @@ export const MIGRATIONS: Migration[] = [
     /* ٢) الفهارس: أعمدة تُصفّى في كل طلب وكانت تمسح الجدول كاملاً (نفسها في schema.sql) */
     for (const sql of INDEXES_005) db.exec(sql);
   } },
+
+  { version: 6, name: '006_refresh_token_families', up: (db) => {
+    /* إعادة استخدام رمز تجديد مُدوَّر كانت تُنهي جلسات المستخدم على كل أجهزته — ردّ ضاع في الطريق
+       يُخرج المستخدم من هاتفه وحاسوبه معاً. السلسلة تحصر الإنهاء في الجهاز المعنيّ وحده،
+       وrotated_at يميّز إعادة المحاولة البريئة (خلال ثوانٍ) من السرقة. */
+    addColumn(db, 'refresh_tokens', 'family', 'TEXT');
+    addColumn(db, 'refresh_tokens', 'rotated_at', 'INTEGER');
+    // كل رمز قائم يصير سلسلة قائمة بذاتها: لا نعرف تاريخ تدويره فلا نجمعه بغيره
+    db.exec("UPDATE refresh_tokens SET family = 'legacy-' || id WHERE family IS NULL");
+    db.exec('CREATE INDEX IF NOT EXISTS idx_rt_family ON refresh_tokens(family, revoked)');
+  } },
 ];
 
 /** فهارس ترحيل 005 — نفسها في schema.sql */

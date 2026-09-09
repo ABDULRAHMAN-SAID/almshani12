@@ -51,14 +51,16 @@ export interface DialogProps {
 export function Dialog({ visible, onClose, title, body, children, actions }: DialogProps) {
   return (
     <RNModal visible={visible} transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
-      <Pressable style={[styles.backdrop, styles.center]} onPress={onClose}>
-        <Pressable style={styles.dialog} onPress={() => {}}>
+      {/* الخلفية أخت الحوار لا أبوه: كانت زرّاً يلفّ زرّاً يلفّ أزرار الإجراءات — غير صالح في HTML */}
+      <View style={[styles.backdrop, styles.center]}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="إغلاق" />
+        <View style={styles.dialog}>
           <Text role="h3">{title}</Text>
           {body ? <Text role="small" tone="secondary" style={styles.dialogBody}>{body}</Text> : null}
           {children}
           {actions ? <View style={styles.dialogActions}>{actions}</View> : null}
-        </Pressable>
-      </Pressable>
+        </View>
+      </View>
     </RNModal>
   );
 }

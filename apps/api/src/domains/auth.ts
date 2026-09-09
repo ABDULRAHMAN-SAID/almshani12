@@ -48,12 +48,13 @@ export function normalizeTarget(channel: 'phone' | 'email', raw: string): string
 }
 
 /* ---------- الجلسات ---------- */
-export function issueSession(userId: number, req: { ip?: string; headers: Record<string, unknown> }, isNew = false) {
+/** family: سلسلة الجهاز الواحد. دخول جديد يبدأ سلسلة، والتجديد يبقى في سلسلته — فإنهاؤها لا يمسّ بقيّة الأجهزة. */
+export function issueSession(userId: number, req: { ip?: string; headers: Record<string, unknown> }, isNew = false, family?: string) {
   const roles = q.all<{ role: any }>('SELECT role FROM user_roles WHERE user_id = ?', userId).map(r => r.role);
   const accessToken = signAccessToken(userId, roles);
   const refreshToken = randomToken(48);
-  q.run('INSERT INTO refresh_tokens (user_id, token_hash, device, ip, expires_at) VALUES (?,?,?,?,?)',
-    userId, sha256(refreshToken), String(req.headers['user-agent'] ?? '').slice(0, 200), req.ip ?? null,
+  q.run('INSERT INTO refresh_tokens (user_id, token_hash, family, device, ip, expires_at) VALUES (?,?,?,?,?,?)',
+    userId, sha256(refreshToken), family ?? randomToken(16), String(req.headers['user-agent'] ?? '').slice(0, 200), req.ip ?? null,
     Math.floor(Date.now() / 1000) + config.jwt.refreshTtlDays * 86_400);
   q.run('UPDATE users SET last_login_at = ? WHERE id = ?', nowIso(), userId);
   return { user: userView(userId)!, accessToken, refreshToken, isNew };
@@ -106,27 +107,42 @@ router.post('/apple', requireSocial('apple'), validate(AppleLogin), asyncHandler
 }));
 
 /* ---------- تجديد الجلسة (تدوير + كشف إعادة الاستخدام) ---------- */
+/** مهلة سماح للتدوير: الشبكة تُسقط ردّاً أحياناً فيُعيد العميل الرمز نفسه خلال ثوانٍ — هذه ليست سرقة.
+ *  قصيرة عمداً: كل ثانية زيادة هي ثانية يمرّ فيها رمز مسروق مُدوَّر. */
+const REFRESH_GRACE_SECONDS = 10;
 router.post('/refresh', validate(RefreshRequest), asyncHandler(async (req, res) => {
   const { refreshToken } = body<typeof RefreshRequest>(req);
   const row = q.get<any>('SELECT * FROM refresh_tokens WHERE token_hash = ?', sha256(refreshToken));
   if (!row) throw unauthorized('جلسة غير صالحة');
+  const now = Math.floor(Date.now() / 1000);
   if (row.revoked) {
-    // رمز مُلغى يُقدَّم مجدداً → سرقة محتملة: نُنهي كل جلسات المستخدم
-    q.run('UPDATE refresh_tokens SET revoked = 1 WHERE user_id = ?', row.user_id);
-    audit(req, 'auth.refresh_reuse', 'user', row.user_id);
-    throw new AppError('auth_expired', 'انتهت الجلسة', 401);
+    // رمز دُوِّر قبل ثوانٍ يُقدَّم مجدداً وسلسلته ما زالت حيّة: ردّ ضاع في الطريق — لا سرقة، فلا نُسقط شيئاً.
+    // شرط «حيّة» ضروري: بعد الخروج أو بعد كشف سرقة تُبطَل السلسلة كلّها، فلا تُحيي المهلةُ رمزاً منها.
+    const chainAlive = !!q.val<number>('SELECT 1 FROM refresh_tokens WHERE family = ? AND revoked = 0 LIMIT 1', row.family);
+    if (chainAlive && row.rotated_at && now - row.rotated_at <= REFRESH_GRACE_SECONDS) {
+      audit(req, 'auth.refresh_grace', 'user', row.user_id);
+    } else {
+      // خارج المهلة → سرقة محتملة: نُنهي سلسلة هذا الجهاز وحدها. إنهاء كل السلاسل كان يُخرج
+      // المستخدم من هاتفه وحاسوبه لأن كتابة رمز واحدة فشلت على جهاز واحد.
+      q.run('UPDATE refresh_tokens SET revoked = 1 WHERE family = ? AND revoked = 0', row.family);
+      audit(req, 'auth.refresh_reuse', 'user', row.user_id);
+      throw new AppError('auth_expired', 'انتهت الجلسة', 401);
+    }
   }
-  if (row.expires_at < Math.floor(Date.now() / 1000)) throw new AppError('auth_expired', 'انتهت الجلسة', 401);
+  if (row.expires_at < now) throw new AppError('auth_expired', 'انتهت الجلسة', 401);
   const user = q.get<{ status: string }>('SELECT status FROM users WHERE id = ?', row.user_id);
   if (!user || user.status !== 'active') throw new AppError('forbidden', 'هذا الحساب موقوف', 403);
-  q.run('UPDATE refresh_tokens SET revoked = 1 WHERE id = ?', row.id);
-  const session = issueSession(row.user_id, req);
+  q.run('UPDATE refresh_tokens SET revoked = 1, rotated_at = ? WHERE id = ?', now, row.id);
+  const session = issueSession(row.user_id, req, false, row.family);
   res.json({ accessToken: session.accessToken, refreshToken: session.refreshToken, user: session.user });
 }));
 
 router.post('/logout', requireAuth, asyncHandler(async (req, res) => {
   const token = typeof req.body?.refreshToken === 'string' ? req.body.refreshToken : null;
-  if (token) q.run('UPDATE refresh_tokens SET revoked = 1 WHERE token_hash = ? AND user_id = ?', sha256(token), req.user!.id);
+  // الخروج ينهي سلسلة هذا الجهاز كلّها: إبطال البصمة وحدها كان يترك سابقاتها في السلسلة قابلة لإعادة الاستخدام
+  if (token) q.run(`UPDATE refresh_tokens SET revoked = 1 WHERE user_id = ?
+                    AND family = (SELECT family FROM refresh_tokens WHERE token_hash = ? AND user_id = ?)`,
+    req.user!.id, sha256(token), req.user!.id);
   else q.run('UPDATE refresh_tokens SET revoked = 1 WHERE user_id = ?', req.user!.id);
   res.json({ ok: true });
 }));

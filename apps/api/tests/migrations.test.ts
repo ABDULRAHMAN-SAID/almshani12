@@ -119,7 +119,7 @@ test('قاعدة v0: نسخة احتياطية، متعلّم لكل student_pro
 test('قاعدة جديدة: user_version نهائي والترحيلات لا تفعل شيئاً و/api/health يعلن الإصدار', async () => {
   const mig = await import('../src/db/migrations.ts');
   assert.equal(c.db.pragma('user_version', { simple: true }), mig.SCHEMA_VERSION);
-  assert.equal(mig.SCHEMA_VERSION, 5);
+  assert.equal(mig.SCHEMA_VERSION, 6); // رقم مثبّت عمداً: إضافة ترحيل جديد تُسقط هذا الاختبار حتى تُراجَع
   const h = await c.api('/api/health');
   assert.equal(h.status, 200); assert.equal(h.json.schemaVersion, mig.SCHEMA_VERSION);
   assert.equal(c.q.val('SELECT COUNT(*) FROM sqlite_master WHERE type = ? AND name IN (?, ?)', 'table', 'learners', 'learner_subjects'), 2);

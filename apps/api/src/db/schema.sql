@@ -64,9 +64,16 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
   ip         TEXT,
   expires_at INTEGER NOT NULL,
   revoked    INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  -- الأخيران يُضافان بترحيل ٠٠٦ فيقعان في آخر الجدول — وترتيبهما هنا يطابقه عمداً.
+  -- family: سلسلة الجهاز الواحد (كل دخول يبدأ سلسلة والتجديد يبقى فيها) — بدونها كان
+  -- إعادة استخدام رمز مُدوَّر يُنهي جلسات المستخدم على كل أجهزته.
+  -- rotated_at: لحظة التدوير — إعادة تقديم رمز دُوِّر قبل ثوانٍ ردّ ضاع في الطريق لا سرقة.
+  family     TEXT,
+  rotated_at INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_rt_user ON refresh_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_rt_family ON refresh_tokens(family, revoked);
 
 CREATE TABLE IF NOT EXISTS profiles (
   user_id      INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,

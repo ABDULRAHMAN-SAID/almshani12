@@ -36,8 +36,10 @@ export function LessonCard({ booking, onPress, onJoin, hero, asTeacher, showLear
   const soon = booking.status === 'confirmed' && mins > 0 && mins <= 60;
 
   return (
-    <Pressable onPress={onPress} accessibilityRole="button"
-      style={({ pressed }) => [styles.card, hero && styles.hero, pressed && styles.pressed]}>
+    // البطاقة ليست زرّاً يلفّ زرّي «انضم» و«التفاصيل»: كان الضغط على «انضم» يشغّل الاثنين، وهو غير صالح في HTML
+    <View style={[styles.card, hero && styles.hero]}>
+      <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={booking.subject.name}
+        style={({ pressed }) => [pressed && styles.pressed]}>
       <View style={[styles.band, { backgroundColor: sc.soft }]}>
         <View style={styles.subject}>
           <View style={[styles.dot, { backgroundColor: sc.main }]} />
@@ -68,6 +70,10 @@ export function LessonCard({ booking, onPress, onJoin, hero, asTeacher, showLear
           {hero && soon ? <Badge label={t('home.remaining', { m: mins })} tone="brand" icon="timer" /> : null}
         </View>
 
+      </View>
+      </Pressable>
+
+      <View style={[styles.body, styles.actionsWrap]}>
         <View style={styles.actions}>
           {booking.canJoin && onJoin ? (
             <Button label={live ? t('lessons.join') : t('home.join')} onPress={onJoin} variant={live ? 'primary' : 'info'} icon="video" size={hero ? 'md' : 'sm'} full={hero} style={hero ? styles.flex : undefined} />
@@ -75,7 +81,7 @@ export function LessonCard({ booking, onPress, onJoin, hero, asTeacher, showLear
           <Button label={t('lessons.details')} onPress={onPress} variant="ghost" size="sm" />
         </View>
       </View>
-    </Pressable>
+    </View>
   );
 }
 
@@ -94,5 +100,7 @@ const styles = themed((c) => StyleSheet.create({
   timeRow: { flexDirection: 'row', gap: spacing[4], flexWrap: 'wrap', alignItems: 'center' },
   time: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
   actions: { flexDirection: 'row', alignItems: 'center', gap: spacing[2] },
+  /** صفّ الأزرار خرج من منطقة الضغط: يحمل الحشو الجانبي نفسه بلا الفجوة العلوية المكرّرة */
+  actionsWrap: { paddingTop: 0 },
   flex: { flex: 1 },
 }));

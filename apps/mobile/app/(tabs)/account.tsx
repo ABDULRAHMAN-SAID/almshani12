@@ -1,4 +1,4 @@
-import { View, Linking, StyleSheet } from 'react-native';
+import { View, Pressable, Linking, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import Constants from 'expo-constants';
@@ -27,7 +27,10 @@ export default function Account() {
 
   return (
     <Screen title={t('account.title')} padded right={<HeaderActions cart={false} bell={false} />}>
-      <Card style={styles.profile} onPress={() => router.push('/account/settings')}>
+      {/* منطقة الفتح أخت زرّ التعديل لا أبوه: زرّ داخل زرّ غير صالح في HTML ويشغّل المعالجَين معاً */}
+      <Card style={styles.profile}>
+        <Pressable onPress={() => router.push('/account/settings')} accessibilityRole="button"
+          accessibilityLabel={user.displayName || t('ui.guest')} style={styles.profileTap}>
         <Avatar name={user.displayName} url={user.avatarUrl} size="xl" />
         <View style={styles.flex}>
           <Text role="h2" numberOfLines={1}>{user.displayName || t('ui.guest')}</Text>
@@ -36,6 +39,7 @@ export default function Account() {
             : active && !active.isSelf ? <Text role="small" tone="secondary" numberOfLines={1}>{t('home.followingLearner', { name: active.displayName })}</Text> : null}
           <Text role="caption" tone="tertiary" tabular numberOfLines={1}>{user.phone ?? user.email}</Text>
         </View>
+        </Pressable>
         <IconButton icon="edit" label={t('account.edit')} variant="soft" size={44} color={colors.brand.primary} onPress={() => router.push('/account/settings')} />
       </Card>
 
@@ -91,6 +95,7 @@ export default function Account() {
 
 const styles = themed((c) => StyleSheet.create({
   profile: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], marginTop: spacing[2] },
+  profileTap: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
   flex: { flex: 1, minWidth: 0 },
   teacher: { flexDirection: 'row', alignItems: 'center', gap: spacing[3], marginTop: spacing[3] },
   menu: { marginTop: spacing[3] },
