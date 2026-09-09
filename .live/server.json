@@ -1,8 +1,8 @@
 {
-  "status": "down",
-  "url": null,
-  "startedAt": null,
-  "expiresAt": null,
-  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/34272354926",
+  "status": "up",
+  "url": "https://subjective-interior-leaf-acdbentity.trycloudflare.com",
+  "startedAt": "2026-09-09T01:04:29Z",
+  "expiresAt": "2026-09-09T06:04:29Z",
+  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/34297579599",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
