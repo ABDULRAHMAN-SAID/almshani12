@@ -206,13 +206,25 @@ export const useUploadFile = () => useMutation({
 
 /* ---------- الرسائل ---------- */
 export const useConversations = () => useQuery({ queryKey: keys.conversations, queryFn: () => api.get('/conversations', z.array(C.Conversation)), refetchInterval: 30_000 });
-export const useMessages = (id: number) => useQuery({ queryKey: keys.messages(id), queryFn: () => api.get(`/conversations/${id}/messages`, z.array(C.Message)), enabled: id > 0, refetchInterval: 5_000 });
+/** الخادم يردّ بأحدث ٥٠ رسالة فقط؛ بلا مؤشّر before يبقى ما قبلها بعيداً عن التطبيق إلى الأبد */
+const MESSAGES_PAGE = 50;
+export const useMessages = (id: number) => useInfiniteQuery({
+  queryKey: keys.messages(id), initialPageParam: undefined as number | undefined,
+  // الصفحة تعود مرتّبة من الأقدم إلى الأحدث، فأوّل عنصر فيها هو مؤشّر الصفحة الأقدم منها
+  queryFn: ({ pageParam }) => api.get(`/conversations/${id}/messages`, z.array(C.Message), pageParam ? { before: pageParam } : undefined),
+  getNextPageParam: (last) => (last.length < MESSAGES_PAGE ? undefined : last[0].id),
+  enabled: id > 0, refetchInterval: 5_000,
+});
 export const useSendMessage = (id: number) => { const qc = useQueryClient(); return useMutation({ mutationFn: (b: z.infer<typeof C.SendMessage>) => api.post(`/conversations/${id}/messages`, b, C.Message), onSuccess: () => { qc.invalidateQueries({ queryKey: keys.messages(id) }); qc.invalidateQueries({ queryKey: keys.conversations }); } }); };
 export const useStartConversation = () => { const qc = useQueryClient(); return useMutation({ mutationFn: (b: { userId: number; context?: { type: 'booking' | 'book' | 'course'; id: number } | null }) => api.post('/conversations', b, C.Conversation), onSuccess: () => qc.invalidateQueries({ queryKey: keys.conversations }) }); };
 
 /* ---------- تطبيق المعلّم ---------- */
-const TeacherMe = C.TeacherDashboard.extend({ documents: z.array(z.any()), lastDecision: z.object({ decision: z.string(), reason: z.string().nullable(), decided_at: z.string() }).nullable() });
+const TeacherDocument = z.object({ id: z.number().int(), type: C.TeacherDocumentType, status: z.string(), note: z.string().nullable(), created_at: z.string() });
+export type TeacherDocument = z.infer<typeof TeacherDocument>;
+const TeacherMe = C.TeacherDashboard.extend({ documents: z.array(TeacherDocument), lastDecision: z.object({ decision: z.string(), reason: z.string().nullable(), decided_at: z.string() }).nullable() });
 export const useTeacherMe = () => useQuery({ queryKey: keys.teacherMe, queryFn: () => api.get('/teacher/me', TeacherMe), retry: false });
+/** إعادة رفع مستند بعينه بعد رفضه — يعود «مُقدَّماً» ويدخل طابور المراجعة من جديد */
+export const useUploadTeacherDocument = () => { const qc = useQueryClient(); return useMutation({ mutationFn: (b: { type: z.infer<typeof C.TeacherDocumentType>; fileId: number }) => api.post('/teacher/documents', b), onSuccess: () => qc.invalidateQueries({ queryKey: keys.teacherMe }) }); };
 const TeacherAvailability = z.object({ rules: z.array(C.AvailabilityRule), timeOff: z.array(C.TimeOff), maxPerDay: z.number() });
 export const useTeacherAvailability = () => useQuery({ queryKey: keys.teacherAvailability, queryFn: () => api.get('/teacher/availability', TeacherAvailability) });
 export const useSaveAvailability = () => { const qc = useQueryClient(); return useMutation({ mutationFn: (rules: z.infer<typeof C.AvailabilityRules>) => api.put('/teacher/availability', rules), onSuccess: () => qc.invalidateQueries({ queryKey: keys.teacherAvailability }) }); };

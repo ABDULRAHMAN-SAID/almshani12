@@ -85,12 +85,13 @@ export async function issueRoomAccess(bookingId: number, user: { id: number; rol
   }
 
   const ttl = Math.min(config.rooms.tokenTtlSeconds, Math.max(60, Math.floor((new Date(room.closes_at).getTime() - now) / 1000)));
-  const { token, joinUrl } = await provider.issueToken(providerRoomId, { id: user.id, name: user.name, isHost: isTeacher || isAdmin }, ttl);
+  // الإدارة تدخل مراقبةً لا مضيفة: صفة المضيف تُنهي الحصة وتكتم وتمسح السبّورة، وهي صلاحية المعلّم صاحب الحصة وحده
+  const { token, joinUrl } = await provider.issueToken(providerRoomId, { id: user.id, name: user.name, isHost: isTeacher }, ttl);
   db.transaction(() => {
     q.run('INSERT INTO room_participants (room_id, user_id, token_hash, token_expires_at) VALUES (?,?,?,?)', room.id, user.id, sha256(token), Math.floor(now / 1000) + ttl);
   })();
 
-  return { provider: provider.id, roomId: providerRoomId, token, expiresAt: new Date(now + ttl * 1000).toISOString(), joinUrl, isHost: isTeacher || isAdmin, booking, roomRowId: room.id as number, iceServers: await getIceServers() };
+  return { provider: provider.id, roomId: providerRoomId, token, expiresAt: new Date(now + ttl * 1000).toISOString(), joinUrl, isHost: isTeacher, booking, roomRowId: room.id as number, iceServers: await getIceServers() };
 }
 
 /** يتحقّق من رمز غرفة داخلية عند اتصال Socket.IO */

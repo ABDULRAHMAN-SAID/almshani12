@@ -77,27 +77,38 @@ router.get('/:id/messages', (req, res) => {
   const uid = req.user!.id;
   const before = Number(req.query.before) || null;
   const rows = q.all<any>(`SELECT * FROM messages WHERE conversation_id = ? ${before ? 'AND id < ?' : ''} ORDER BY id DESC LIMIT 50`, ...(before ? [c.id, before] : [c.id])).reverse();
+  // read_at عمود واحد مشترك لا حالة لكل قارئ: اطّلاع الدعم على المحادثة كان يختمها كلّها
+  // فيسقط «غير المقروء» عند الطرفين — لذا لا نختم إلا حين يكون القارئ طرفاً في المحادثة.
+  const participant = c.student_id === uid || c.teacher_id === uid;
   // التطبيق يستطلع كل بضع ثوانٍ: لا نفتح معاملة كتابة إلا إذا كان هناك غير مقروء فعلاً
-  if (rows.some(m => m.sender_id !== uid && !m.read_at)) q.run('UPDATE messages SET read_at = ? WHERE conversation_id = ? AND sender_id <> ? AND read_at IS NULL', nowIso(), c.id, uid);
+  if (participant && rows.some(m => m.sender_id !== uid && !m.read_at)) q.run('UPDATE messages SET read_at = ? WHERE conversation_id = ? AND sender_id <> ? AND read_at IS NULL', nowIso(), c.id, uid);
   res.json(rows.map(m => msgView(m, uid)));
 });
 router.post('/:id/messages', validate(SendMessage), (req, res) => {
   const c = loadConv(req);
   const uid = req.user!.id;
   const m = body<typeof SendMessage>(req);
+  // القراءة مسموحة للدعم، أما الكتابة فبين الطرفين فقط: الرسالة تصل الطالب باسم محاوره لا باسم الطاقم
+  if (c.student_id !== uid && c.teacher_id !== uid) throw forbidden('المراسلة بين الطالب والمعلّم فقط');
   const otherId = c.student_id === uid ? c.teacher_id : c.student_id;
   if (blocked(uid, otherId)) throw forbidden('المحادثة محظورة');
   if (m.kind === 'text' && !m.body?.trim()) throw badRequest('الرسالة فارغة');
+  // المرفق يُوقَّع رابطه في الردّ، فلا بدّ من فحص ملكيّته أياً كان نوع الرسالة؛ والنصّية لا تحمل مرفقاً
+  // أصلاً (تمرير fileId معها كان يمنح رابطاً موقّعاً لأي ملف في النظام دون أي فحص).
+  const fileId = m.kind === 'text' ? null : (m.fileId ?? null);
   if (m.kind !== 'text') {
-    const f = q.get<any>('SELECT owner_id FROM files WHERE id = ?', m.fileId ?? 0);
+    const f = q.get<any>('SELECT owner_id FROM files WHERE id = ?', fileId ?? 0);
     if (!f || f.owner_id !== uid) throw badRequest('الملف غير صالح');
   }
+  // الردّ يجب أن يشير إلى رسالة في المحادثة نفسها: معرّف غريب كان يسقط على قيد المفتاح الأجنبي بخطأ 500
+  if (m.replyToId != null && !q.get('SELECT 1 FROM messages WHERE id = ? AND conversation_id = ?', m.replyToId, c.id)) throw badRequest('الرسالة المُقتبسة غير موجودة');
   const row = db.transaction(() => {
-    const info = q.run('INSERT INTO messages (conversation_id, sender_id, kind, body, file_id, reply_to_id) VALUES (?,?,?,?,?,?)', c.id, uid, m.kind, m.body ?? null, m.fileId ?? null, m.replyToId ?? null);
+    const info = q.run('INSERT INTO messages (conversation_id, sender_id, kind, body, file_id, reply_to_id) VALUES (?,?,?,?,?,?)', c.id, uid, m.kind, m.body ?? null, fileId, m.replyToId ?? null);
     q.run('UPDATE conversations SET last_message_at = ? WHERE id = ?', nowIso(), c.id);
     return q.get<any>('SELECT * FROM messages WHERE id = ?', info.lastInsertRowid);
   })();
-  const senderName = q.val<string>('SELECT display_name FROM profiles WHERE user_id = ?', uid) ?? '';
+  // الحساب الجديد اسمه فارغ حتى يكمل ملفه: عنوان فارغ كان يُسقط الإشعار كلّه، فنضع بديلاً عاماً
+  const senderName = q.val<string>('SELECT display_name FROM profiles WHERE user_id = ?', uid)?.trim() || 'رسالة جديدة';
   notify(otherId, { type: 'message', title: senderName, body: m.kind === 'text' ? (m.body ?? '').slice(0, 100) : 'مرفق جديد', data: { conversationId: c.id } });
   res.status(201).json(msgView(row, uid));
 });

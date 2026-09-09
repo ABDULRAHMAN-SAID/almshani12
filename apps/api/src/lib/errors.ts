@@ -29,18 +29,24 @@ export function notFoundHandler(req: Request, res: Response, next: NextFunction)
 
 /** أخطاء 5xx التي تصل رسالتها كما هي إلى العميل */
 const USER_FACING_5XX = new Set<string>(['otp_send_failed', 'otp_delivery_unavailable', 'content_unavailable']);
+/** ضغط تخزين عابر (قاعدة مشغولة أو قرص ممتلئ) — 503 ليعيد العميل المحاولة، لا 500 */
+const TRANSIENT_STORAGE = /^SQLITE_(BUSY|LOCKED|FULL|IOERR|PROTOCOL|NOMEM)/;
 
 export function errorHandler(err: unknown, _req: Request, res: Response, _next: NextFunction) {
   const e = err as AppError & { statusCode?: number; type?: string };
   // أخطاء تحليل الجسم من express
   if (e.type === 'entity.parse.failed') return res.status(400).json({ error: { code: 'validation_error', message: 'صيغة الطلب غير صحيحة' } });
-  const status = e.status || e.statusCode || 500;
+  // أخطاء المكتبات تحمل رموزها الخاصة (SQLITE_BUSY، ENOENT…): رمز الخطأ عقدنا مع العميل، وتمريره كما هو يكشف محرّك التخزين وحالته
+  const ours = err instanceof AppError;
+  const transient = !ours && typeof e.code === 'string' && TRANSIENT_STORAGE.test(e.code);
+  const status = transient ? 503 : e.status || e.statusCode || 500;
   // رسائل 5xx المقصودة للمستخدم هي رموز التحقّق فقط (نصّها ثابت من عندنا)؛ غيرها يُخفى ويُسجَّل كاملاً حتى لا يتسرّب نصّ بوابة خارجية
-  const intended = err instanceof AppError && USER_FACING_5XX.has(e.code);
+  const intended = ours && USER_FACING_5XX.has(e.code);
   if (status >= 500) { console.error('[error]', intended ? `${e.code}: ${e.message}` : err); if (!intended) captureException(err); }
   res.status(status).json({
     error: {
-      code: e.code || 'server_error',
+      // ضغط تخزين عابر يستحقّ رمزاً يفهمه العميل («حاول بعد لحظات») دون كشف محرّك التخزين ولا رمزه الأصلي
+      code: ours ? e.code || 'server_error' : transient ? 'service_unavailable' : 'server_error',
       message: status >= 500 && !intended ? 'تعذّر إكمال العملية. حاول مرة أخرى.' : e.message,
       ...(e.details ? { details: e.details } : {}),
     },

@@ -9,12 +9,15 @@ export interface NotifyInput { type: string; title: string; body?: string | null
 
 /** يُنشئ إشعاراً ويبثّه فوراً لمن هو متصل، ثم يدفعه لأجهزة المستخدم (متصفح/Expo) دون انتظار */
 export function notify(userId: number, { type, title, body = null, data = null }: NotifyInput) {
-  if (!userId || !title) return null;
+  if (!userId) return null;
+  // عنوان فارغ (اسم مرسِل لم يُضبط بعد) كان يُسقط الإشعار والبثّ والدفع معاً فلا يصل المستخدم شيء:
+  // نضع عنواناً عاماً بدل إسقاط الإشعار.
+  const heading = title?.trim() || 'إشعار جديد';
   const info = q.run('INSERT INTO notifications (user_id, type, title, body, data) VALUES (?,?,?,?,?)',
-    userId, type, title, body, data ? JSON.stringify(data) : null);
+    userId, type, heading, body, data ? JSON.stringify(data) : null);
   const row = q.get<any>('SELECT * FROM notifications WHERE id = ?', info.lastInsertRowid);
   io?.to(`user:${userId}`).emit('notification', { ...row, data });
-  void sendPush(userId, { title, body, data: { ...(data ?? {}), type, notificationId: row.id } });
+  void sendPush(userId, { title: heading, body, data: { ...(data ?? {}), type, notificationId: row.id } });
   return row;
 }
 

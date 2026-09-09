@@ -22,6 +22,19 @@ export function resolveBase(): string {
   return Platform.OS === 'android' ? 'http://10.0.2.2:4000' : 'http://localhost:4000';
 }
 
+/**
+ * الخادم الذي أُرسل إليه رمز الدخول الحالي. تبديل الخادم يغيّر ما يعيده resolveBase فوراً، فلو خرجنا بعد التبديل
+ * لذهب رمز التجديد الطويل العمر إلى خادم آخر وبقيت الجلسة القديمة صالحة عليه — لذا نثبّت مُصدِر الرموز.
+ * يُقرن بالرمز نفسه كي لا يبقى عنوان قديم بعد الدخول على خادم آخر.
+ */
+let authBase: { token: string; base: string } | null = null;
+export const sessionBase = (): string => (authBase && authBase.token === tokens.access ? authBase.base : resolveBase());
+
+/** مهلة كل محاولة: مسار يقبل الاتصال ولا يردّ (نفق ميت، بوّابة شبكة) يجب أن ينتهي بخطأ شبكة لا أن يعلّق الشاشة بلا نهاية */
+const TIMEOUT_MS = 15_000;
+/** الرفع (الصور والمرفقات) يحتاج نفَساً أطول على شبكات الجوال */
+const UPLOAD_TIMEOUT_MS = 60_000;
+
 export class ApiError extends Error {
   constructor(public code: ErrorCode | string, message: string, public status: number, public details?: { field: string; message: string }[]) {
     super(message);
@@ -40,6 +53,7 @@ export function errorMessageKey(err: unknown): string {
       learner_forbidden: 'errors.learnerForbidden', learner_required: 'errors.learnerRequired', learner_limit: 'learners.limit',
       learner_has_upcoming: 'learners.hasUpcoming', last_learner: 'learners.lastLearner',
       otp_delivery_unavailable: 'errors.otpDeliveryUnavailable', otp_send_failed: 'errors.otpSendFailed', otp_country_not_allowed: 'errors.otpCountryNotAllowed',
+      file_too_large: 'errors.fileTooLarge', quota_exceeded: 'errors.quotaExceeded', service_unavailable: 'errors.serviceUnavailable',
     };
     return map[err.code] ?? 'errors.generic';
   }
@@ -48,16 +62,17 @@ export function errorMessageKey(err: unknown): string {
 }
 
 let refreshing: Promise<boolean> | null = null;
-async function refreshSession(): Promise<boolean> {
+async function refreshSession(base: string): Promise<boolean> {
   if (!tokens.refresh) return false;
   if (!refreshing) {
-    refreshing = fetch(`${resolveBase()}/api/auth/refresh`, {
+    refreshing = fetch(`${base}/api/auth/refresh`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refreshToken: tokens.refresh }),
     })
       .then(async res => {
         if (!res.ok) { await tokens.clear(); return false; }
         const data = await res.json();
+        // فشل الحفظ يمسح الرموز من القرص: الجلسة تكمل في الذاكرة، وإقلاع جديد يبدأ زائراً بدل أن يعيد استخدام رمز قديم
         await tokens.set(data.accessToken, data.refreshToken);
         return true;
       })
@@ -67,7 +82,8 @@ async function refreshSession(): Promise<boolean> {
   return refreshing;
 }
 
-interface RequestOptions { auth?: boolean; noRetry?: boolean; signal?: AbortSignal }
+/** base: يثبّت خادم هذا الطلب بعينه (الخروج يصل إلى مُصدِر الرموز حتى لو بُدِّل الخادم للتوّ) */
+interface RequestOptions { auth?: boolean; noRetry?: boolean; signal?: AbortSignal; base?: string }
 
 /** وضع العرض: التطبيق كاملاً بلا خادم (EXPO_PUBLIC_DEMO=1) — انظر ./demo.ts */
 export const DEMO = process.env.EXPO_PUBLIC_DEMO === '1';
@@ -115,6 +131,8 @@ async function recoverTunnel(): Promise<boolean> {
     if (live.status !== 'up' || !live.url || live.url === current) return false;
     if (!(await probeServer(live.url)).ok) return false;
     if (__DEV__) console.info('[api] tunnel moved', current, '→', live.url);
+    // رموز النفق الميت لا تُرسَل إلى العنوان الجديد: نمسحها قبل التبديل (التخطيط الجذري يُكمل الخروج)
+    await tokens.clear();
     useUi.getState().setServerUrl(live.url);
     return true;
   } catch { return false; }
@@ -142,16 +160,24 @@ async function request<T>(method: string, path: string, body?: unknown, schema?:
     }
     return finish<T>(r.body, path, schema);
   }
+  const base = opts.base ?? resolveBase();
   const send = async () => {
     const headers: Record<string, string> = { Accept: 'application/json' };
     if (body !== undefined && !(body instanceof FormData)) headers['Content-Type'] = 'application/json';
-    if (tokens.access && opts.auth !== false) headers.Authorization = `Bearer ${tokens.access}`;
+    if (tokens.access && opts.auth !== false) { headers.Authorization = `Bearer ${tokens.access}`; authBase = { token: tokens.access, base }; }
     // المتعلّم النشط على هذا الجهاز — الخادم يرجع إلى users.active_learner_id ثم الافتراضي عند غيابها
     if (learnerId && opts.auth !== false) headers['X-Learner-Id'] = String(learnerId);
-    return fetch(`${resolveBase()}/api${path}`, {
-      method, headers, signal: opts.signal,
-      body: body instanceof FormData ? body : body !== undefined ? JSON.stringify(body) : undefined,
-    });
+    // مهلة داخلية لكل محاولة، مدموجة مع إلغاء المستدعي
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), body instanceof FormData ? UPLOAD_TIMEOUT_MS : TIMEOUT_MS);
+    const onAbort = () => ctrl.abort();
+    if (opts.signal?.aborted) ctrl.abort(); else opts.signal?.addEventListener('abort', onAbort);
+    try {
+      return await fetch(`${base}/api${path}`, {
+        method, headers, signal: ctrl.signal,
+        body: body instanceof FormData ? body : body !== undefined ? JSON.stringify(body) : undefined,
+      });
+    } finally { clearTimeout(timer); opts.signal?.removeEventListener('abort', onAbort); }
   };
 
   let res: Response;
@@ -163,7 +189,7 @@ async function request<T>(method: string, path: string, body?: unknown, schema?:
   }
 
   if (res.status === 401 && tokens.refresh && !opts.noRetry) {
-    if (await refreshSession()) {
+    if (await refreshSession(base)) {
       try { res = await send(); } catch { throw new ApiError('network_error', 'network', 0); }
     }
   }
@@ -195,7 +221,7 @@ export const api = {
     request<T>('GET', path + qs(params), undefined, schema, opts),
   post: <T>(path: string, body?: unknown, schema?: z.ZodType<T>, opts?: RequestOptions) =>
     request<T>('POST', path, body ?? {}, schema, opts),
-  patch: <T>(path: string, body?: unknown, schema?: z.ZodType<T>) => request<T>('PATCH', path, body ?? {}, schema),
-  put: <T>(path: string, body?: unknown, schema?: z.ZodType<T>) => request<T>('PUT', path, body ?? {}, schema),
-  delete: <T>(path: string, schema?: z.ZodType<T>, body?: unknown) => request<T>('DELETE', path, body, schema),
+  patch: <T>(path: string, body?: unknown, schema?: z.ZodType<T>, opts?: RequestOptions) => request<T>('PATCH', path, body ?? {}, schema, opts),
+  put: <T>(path: string, body?: unknown, schema?: z.ZodType<T>, opts?: RequestOptions) => request<T>('PUT', path, body ?? {}, schema, opts),
+  delete: <T>(path: string, schema?: z.ZodType<T>, body?: unknown, opts?: RequestOptions) => request<T>('DELETE', path, body, schema, opts),
 };

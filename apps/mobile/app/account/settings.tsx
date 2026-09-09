@@ -48,8 +48,9 @@ export default function Settings() {
       else setProbe({ state: 'fail', info: `HTTP ${r.status}` });
     } catch (e) { setProbe({ state: 'fail', info: e instanceof Error && e.name === 'AbortError' ? t('settings.serverTimeout') : t('errors.network') }); }
   };
-  const save = () => { setServerUrl(url); setProbe({ state: 'idle' }); };
-  const useDemo = () => { setUrl(''); setServerUrl(''); setProbe({ state: 'idle' }); };
+  // الخروج أوّلاً ثم التبديل: أي استعلام موثّق ما زال طائراً سيُعاد توجيهه إلى العنوان الجديد برمز خادم آخر
+  const save = async () => { if (useAuth.getState().user) await signOut(); setServerUrl(url); setProbe({ state: 'idle' }); };
+  const useDemo = async () => { if (useAuth.getState().user) await signOut(); setUrl(''); setServerUrl(''); setProbe({ state: 'idle' }); };
 
   const themeOptions: { key: ThemePref; label: string; icon: 'sun' | 'moonOutline' | 'settings' }[] = [
     { key: 'light', label: t('settings.light'), icon: 'sun' }, { key: 'dark', label: t('settings.dark'), icon: 'moonOutline' }, { key: 'system', label: t('settings.system'), icon: 'settings' },

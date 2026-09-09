@@ -59,7 +59,8 @@ export const Booking = z.object({
   notes: z.object({
     summary: z.string().nullable(),
     homework: z.string().nullable(),
-    attachments: z.array(z.object({ name: z.string(), url: z.string() })),
+    /** ما يُخزَّن فعلاً: معرّف الملف واسمه — الرابط موقّت ويُطلب من GET /bookings/:id/notes/files/:fileId */
+    attachments: z.array(z.object({ fileId: Id, name: z.string() })),
   }).nullable(),
   attendance: z.object({
     studentSeconds: z.number().int(),
@@ -129,5 +130,7 @@ export const PostLessonNotes = z.object({
   summary: z.string().trim().max(3000).nullable(),
   homework: z.string().trim().max(3000).nullable(),
   attachmentFileIds: z.array(Id).max(10).default([]),
+  /** الخادم يدمج المرفقات مع المحفوظ، فالحذف المتعمّد يحتاج ذكراً صريحاً — قائمة فارغة لا تعني «احذف الكل» */
+  removeFileIds: z.array(Id).max(10).default([]),
   suggestNext: z.boolean().default(false),
 });

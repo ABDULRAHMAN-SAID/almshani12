@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
+import { Platform } from 'react-native';
 import { User, type AuthSession } from '@manassah/shared';
-import { api, demoSetLearner } from '@/api/client';
+import { api, demoSetLearner, sessionBase } from '@/api/client';
 import { tokens, useAuth, hydrateActiveLearner, needsSetup, setLearnerEffects } from '@/state/auth';
 import { queryClient } from '@/lib/queryClient';
 import { registerPush, unregisterPush } from '@/lib/push';
@@ -14,9 +15,16 @@ setLearnerEffects((id) => {
   queryClient.invalidateQueries();
 });
 
+/**
+ * الويب: التبويبات تتشارك التخزين نفسه، وتبويب يجدّد الجلسة يُدوّر رمز التجديد. الخادم يعتبر إعادة استخدام رمز
+ * مُدوَّر سرقةً فيُبطل جلسات الحساب على كل أجهزته — لذا نُزامن نسخة الذاكرة مع التخزين فور كتابته من تبويب آخر.
+ */
+if (Platform.OS === 'web' && typeof window !== 'undefined') window.addEventListener('storage', () => { void tokens.load(); });
+
 /** يُستدعى مرة عند الإقلاع: يحمّل الرموز والمتعلّم المحفوظ ويجلب المستخدم — الجلسة تُجدَّد تلقائياً في العميل */
 export async function bootstrapAuth(): Promise<void> {
-  const { setUser, setReady } = useAuth.getState();
+  const { setUser, setReady, setBootOffline } = useAuth.getState();
+  setBootOffline(false);
   try {
     await Promise.all([tokens.load(), hydrateActiveLearner()]);
     if (tokens.refresh) {
@@ -26,15 +34,24 @@ export async function bootstrapAuth(): Promise<void> {
       if (!readPrefsSync().locale) useUi.getState().setLocale(me.locale);
       void registerPush(true); // إذن ممنوح سابقاً → نجدّد تسجيل الجهاز بصمت
     }
-  } catch {
-    // لا شبكة أو جلسة منتهية — نبدأ زائراً وتبقى الرموز حتى تُثبت صلاحيتها أو تُمسح عند 401
+  } catch (e) {
+    // جلسة منتهية (٤٠١ يمسح الرموز في العميل) → زائر. أمّا تعذّر الوصول للخادم فليس خروجاً:
+    // الرموز باقية، فنعلنها انقطاعاً بإعادة محاولة بدل أن نُلقي المستخدم على شاشة الترحيب.
+    if (tokens.refresh && !isAuthError(e)) setBootOffline(true);
   } finally {
     setReady(true);
   }
 }
 
+/** ٤٠١/٤٠٣ من الخادم = الجلسة انتهت؛ أي شيء آخر (شبكة، مهلة، نفق ميت) = انقطاع */
+const isAuthError = (e: unknown): boolean => {
+  const st = (e as { status?: number } | null)?.status;
+  return st === 401 || st === 403;
+};
+
 export async function signIn(session: AuthSession): Promise<void> {
-  await tokens.set(session.accessToken, session.refreshToken);
+  // تخزين غير متاح: الجلسة تعمل في هذه الجولة فقط ولا تُحفظ — نعلن ذلك بدل أن نتركه يظهر «خروجاً» غامضاً عند الإقلاع
+  if (!(await tokens.set(session.accessToken, session.refreshToken)) && __DEV__) console.warn('[auth] تعذّر حفظ الرموز — الجلسة في الذاكرة فقط');
   useAuth.getState().setUser(session.user);
   void registerPush(false); // الجوال يطلب الإذن هنا؛ الويب يسجّل فقط إن كان الإذن ممنوحاً (المفتاح في الإعدادات)
 }
@@ -47,8 +64,11 @@ export function signOut(): Promise<void> {
 }
 
 async function doSignOut(): Promise<void> {
-  await unregisterPush(); // قبل مسح الرموز — يفكّ ارتباط الجهاز بالحساب
-  try { if (tokens.refresh) await api.post('/auth/logout', { refreshToken: tokens.refresh }); } catch { /* يكفي مسح الرموز محلياً */ }
+  // الخروج يقصد الخادم مُصدِر الرموز لا العنوان الحالي: تبديل الخادم يُغيّر العنوان فوراً، وإرسال رمز التجديد
+  // إلى خادم آخر يسرّبه ويترك الجلسة القديمة صالحة عليه شهرين
+  const base = sessionBase();
+  await unregisterPush(base); // قبل مسح الرموز — يفكّ ارتباط الجهاز بالحساب
+  try { if (tokens.refresh) await api.post('/auth/logout', { refreshToken: tokens.refresh }, undefined, { base }); } catch { /* يكفي مسح الرموز محلياً */ }
   await useAuth.getState().signOut();
   queryClient.clear();
   router.replace('/(auth)/welcome');

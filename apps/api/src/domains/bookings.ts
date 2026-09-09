@@ -9,7 +9,7 @@ import { createBooking, cancelByStudent, cancelByTeacher, completeBooking, markL
 import { isWithinAvailability } from '../services/slots.ts';
 import { issueRoomAccess, endRoom } from '../services/rooms.ts';
 import { bookingView, personRef } from '../services/mappers.ts';
-import { signedUrl } from '../services/storage.ts';
+import { signedUrl, deleteFile } from '../services/storage.ts';
 import { notify } from '../services/notifications.ts';
 import { requireLearner, resolveLearner, listLearnerRefs } from '../services/learners.ts';
 import { audit } from '../lib/audit.ts';
@@ -144,9 +144,16 @@ router.post('/:id/notes', validate(PostLessonNotes), (req, res) => {
     if (!f || f.owner_id !== req.user!.id) throw badRequest('مرفق غير صالح');
     return { fileId: f.id, name: f.original_name ?? `ملف ${f.id}` };
   });
+  // تعديل الملخّص لاحقاً يرسل قائمة مرفقات فارغة (الشاشة لا تحمّل القديمة)، والاستبدال كان يمحو
+  // ملفات الحصة بلا رجعة للطرفين — لذا ندمج الجديد مع المحفوظ بدل استبداله.
+  const kept = JSON.parse(q.val<string>('SELECT attachments FROM booking_notes WHERE booking_id = ?', b.id) ?? '[]') as { fileId: number; name: string }[];
+  // الحذف المتعمّد يُذكر صراحةً في removeFileIds — وما يخرج من القائمة يُمحى من القرص، وإلا بقي مقروءاً بلا مرجع
+  const dropped = kept.filter(k => n.removeFileIds.includes(k.fileId) && !attachments.some(a => a.fileId === k.fileId));
+  const merged = [...kept.filter(k => !dropped.some(x => x.fileId === k.fileId)), ...attachments.filter(a => !kept.some(k => k.fileId === a.fileId))];
   q.run(`INSERT INTO booking_notes (booking_id, summary, homework, attachments, suggest_next, updated_at) VALUES (?,?,?,?,?,?)
          ON CONFLICT(booking_id) DO UPDATE SET summary=excluded.summary, homework=excluded.homework, attachments=excluded.attachments, suggest_next=excluded.suggest_next, updated_at=excluded.updated_at`,
-    b.id, n.summary, n.homework, JSON.stringify(attachments), n.suggestNext ? 1 : 0, nowIso());
+    b.id, n.summary, n.homework, JSON.stringify(merged), n.suggestNext ? 1 : 0, nowIso());
+  for (const x of dropped) deleteFile(x.fileId);
   notify(b.student_id, { type: 'homework', title: n.homework ? 'واجب جديد من معلّمك' : 'ملخّص الحصة جاهز', body: (n.homework ?? n.summary ?? '').slice(0, 120) || null, data: { bookingId: b.id } });
   res.json({ ok: true });
 });

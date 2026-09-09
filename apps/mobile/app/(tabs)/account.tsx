@@ -48,7 +48,8 @@ export default function Account() {
           <Badge label={t(`teacherUi.status.${status ?? 'pending'}`)} tone={status === 'verified' ? 'success' : status === 'rejected' || status === 'suspended' ? 'danger' : 'warning'} />
         </Card>
       ) : (
-        <Card style={styles.teacher} onPress={() => router.push('/teacher-app/apply')}>
+        // البطاقة نفسها ليست زرّاً: زرّ داخل زرّ غير صالح في HTML ويشغّل الاثنين معاً — الزرّ أدناه يفتح الطلب
+        <Card style={styles.teacher}>
           <View style={styles.flex}>
             <Text role="h3">{t('account.becomeTeacher')}</Text>
             <Text role="caption" tone="secondary">{t('onboarding.teacherHint')}</Text>

@@ -11,7 +11,9 @@ services:
       TRUST_PROXY: ${TRUST_PROXY:-}                      # true خلف وكيل عكسي أو نفق (Caddy/Nginx/Cloudflare): عنوان العميل من X-Forwarded-For بدل عنوان الوكيل، وإلا شارك الجميع حدّاً واحداً
       ALLOW_DEMO_SEED: ${ALLOW_DEMO_SEED:-1}             # 1 = بيانات عرض عند أول تشغيل (خادم تجريبي)
       ADMIN_PHONE: ${ADMIN_PHONE:-}                      # بديل البذر التجريبي: مدير أوّل بهذا الرقم
-      OTP_FIXED_CODE: ${OTP_FIXED_CODE:-000000}          # رمز دخول ثابت حتى ربط مزوّد — اجعله none بعدها
+      # تحذير: رمز دخول ثابت يفتح كل حساب لمن يعرف الرقم — لا تفعّله على خادم يحمل بيانات حقيقية.
+      # الخادم يتجاهله أصلاً في الإنتاج؛ فعّله فقط لخادم عرض مؤقّت مع ALLOW_INSECURE_OTP=1.
+      # OTP_FIXED_CODE: ${OTP_FIXED_CODE:-000000}
       # رموز تحقّق حقيقية (اختيارية؛ راجع README «رموز تحقّق حقيقية») — البريد: SMTP أو Resend
       EMAIL_FROM: ${EMAIL_FROM:-}
       SMTP_HOST: ${SMTP_HOST:-}

@@ -30,21 +30,50 @@
   var REGISTRY = 'https://raw.githubusercontent.com/ABDULRAHMAN-SAID/almshani12/claude/digital-education-platform-1w1zvq/.live/server.json';
   var APK = 'https://github.com/ABDULRAHMAN-SAID/almshani12/releases/download/android-latest/manassah.apk';
   var RUN = 'https://github.com/ABDULRAHMAN-SAID/almshani12/actions/workflows/live-server.yml';
-  var target = new URLSearchParams(location.search).get('to') || '';
+  // ?to= يأتي من رابط قد يوزّعه أي أحد — لا يُلصق بعنوان الخادم إلا إن كان إحدى الوجهات التي يخدمها فعلاً
+  var ALLOWED = ['get-app', 'connect', 'admin'];
+  var asked = (new URLSearchParams(location.search).get('to') || '').replace(/^\//, '');
+  var target = ALLOWED.indexOf(asked) >= 0 ? asked : '';
+  var TIMEOUT_MS = 8000;
   function show(title, msg, links) {
     document.getElementById('title').textContent = title;
     document.getElementById('msg').textContent = msg || '';
-    document.getElementById('actions').innerHTML = (links || []).map(function (l) { return '<a class="btn ' + (l.secondary ? 'secondary' : '') + '" href="' + l.href + '">' + l.label + '</a>'; }).join('');
+    var box = document.getElementById('actions');
+    box.textContent = '';
+    // تُبنى الأزرار بـ DOM لا بـ innerHTML — العنوان والنص يحملان مدخلات من شريط العنوان فلا يجوز تفسيرهما كـ HTML
+    (links || []).forEach(function (l) {
+      var a = document.createElement('a');
+      a.className = 'btn' + (l.secondary ? ' secondary' : '');
+      a.href = l.href;
+      a.textContent = l.label;
+      box.appendChild(a);
+    });
   }
-  fetch(REGISTRY + '?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (s) {
-    if (s && s.url && s.status === 'up') {
-      var dest = s.url.replace(/\/$/, '') + (target ? '/' + target.replace(/^\//, '') : '');
+  // جلب بمهلة ٨ ثوانٍ — النفق الميت أو شبكة تحتجز الطلب يجب ألّا يُبقيا الصفحة على «جارٍ البحث…» بلا زر إعادة محاولة
+  function fetchWithTimeout(url, init) {
+    var ctrl = new AbortController();
+    var id = setTimeout(function () { ctrl.abort(); }, TIMEOUT_MS);
+    var done = function (r) { clearTimeout(id); return r; };
+    return fetch(url, Object.assign({}, init, { signal: ctrl.signal }))
+      .then(done, function (e) { done(); throw e; });
+  }
+  function showDown() {
+    show('الخادم التجريبي متوقف الآن', 'يعمل ٥ ساعات في كل تشغيل ثم يتوقف. شغّله من GitHub (Actions ← live-server ← Run workflow) وارجع إلى هذه الصفحة بعد ٥ دقائق.', [
+      { href: RUN, label: 'تشغيل الخادم من GitHub' }, { href: APK, label: 'تحميل تطبيق أندرويد (APK)', secondary: true }]);
+  }
+  fetchWithTimeout(REGISTRY + '?t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (s) {
+    // السجلّ قد يبقى «up» بعد تشغيل ألغي — تاريخ الانتهاء يكشف ذلك قبل أن نحوّل المستخدم
+    var fresh = s && typeof s.url === 'string' && /^https?:\/\//.test(s.url) && s.status === 'up'
+      && !(s.expiresAt && Date.parse(s.expiresAt) <= Date.now());
+    if (!fresh) { showDown(); return; }
+    var base = s.url.replace(/\/$/, '');
+    // يُطرق /api/health قبل التحويل: location.replace يبتلع هذه الصفحة، فالتحويل إلى نفق ميت يترك المستخدم في صفحة خطأ بلا رجعة ولا بدائل
+    return fetchWithTimeout(base + '/api/health').then(function (r) { return r.json(); }).then(function (h) {
+      if (!h || !h.ok) { showDown(); return; }
+      var dest = base + (target ? '/' + target : '');
       show('الخادم يعمل الآن', 'يُفتح خلال لحظة… وإن لم يُفتح اضغط الزر', [{ href: dest, label: 'فتح ' + dest }]);
       setTimeout(function () { location.replace(dest); }, 800);
-    } else {
-      show('الخادم التجريبي متوقف الآن', 'يعمل ٥ ساعات في كل تشغيل ثم يتوقف. شغّله من GitHub (Actions ← live-server ← Run workflow) وارجع إلى هذه الصفحة بعد ٥ دقائق.', [
-        { href: RUN, label: 'تشغيل الخادم من GitHub' }, { href: APK, label: 'تحميل تطبيق أندرويد (APK)', secondary: true }]);
-    }
+    }).catch(function () { showDown(); });
   }).catch(function () {
     show('تعذّر قراءة عنوان الخادم', 'تحقّق من الإنترنت ثم أعد المحاولة.', [{ href: location.href, label: 'إعادة المحاولة' }, { href: APK, label: 'تحميل تطبيق أندرويد (APK)', secondary: true }]);
   });

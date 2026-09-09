@@ -8,7 +8,7 @@ import { validate, body, query, idParam } from '../lib/validate.ts';
 import { attachUser, requireAuth, requireVerifiedTeacher, hasRole } from '../lib/auth.ts';
 import { paginate, pageMeta, money, iso } from '../lib/helpers.ts';
 import { checkAccess, ownedIds, favoriteIds } from '../services/access.ts';
-import { signedUrl, upload, storeUpload, publicUrl } from '../services/storage.ts';
+import { signedUrl, upload, storeUpload, publicUrl, deleteFile, RASTER_IMAGE } from '../services/storage.ts';
 import { courseCard, reviewItems } from '../services/mappers.ts';
 import { scoreQuiz, quizForStudent } from '../services/quiz.ts';
 import { notifyStaff } from '../services/notifications.ts';
@@ -210,16 +210,20 @@ router.post('/:id/lessons/:lessonId/video', requireVerifiedTeacher, upload(confi
   const c = ownCourse(req); const lessonId = idParam(req, 'lessonId');
   if (!req.file || !req.file.mimetype.startsWith('video/')) throw badRequest('ارفع ملف فيديو');
   if (!q.get('SELECT 1 FROM course_lessons l JOIN course_sections cs ON cs.id = l.section_id WHERE l.id = ? AND cs.course_id = ?', lessonId, c.id)) throw notFound();
+  const previous = q.val<number>('SELECT video_file_id FROM course_lessons WHERE id = ?', lessonId);
   const f = storeUpload(req.file, { ownerId: req.user!.id, purpose: 'video', visibility: 'private' });
   const dur = Number(req.body?.durationSeconds ?? 0);
   q.run('UPDATE course_lessons SET video_file_id = ?, duration_seconds = CASE WHEN ? > 0 THEN ? ELSE duration_seconds END WHERE id = ?', f.id, dur, dur, lessonId);
+  deleteFile(previous); // الفيديو المستبدَل (مئات الميغابايت) كان يبقى بلا مرجع
   res.status(201).json({ fileId: f.id });
 }));
 router.post('/:id/cover', requireVerifiedTeacher, upload(8), asyncHandler(async (req, res) => {
   const c = ownCourse(req);
-  if (!req.file || !req.file.mimetype.startsWith('image/')) throw badRequest('الغلاف يجب أن يكون صورة');
+  // SVG «صورة» أيضاً، لكنه يُخدَم من نطاق التطبيق فينفّذ سكربتاً على جلسة من يفتح صفحة الدورة
+  if (!req.file || !RASTER_IMAGE.test(req.file.mimetype)) throw badRequest('الغلاف يجب أن يكون صورة');
   const f = storeUpload(req.file, { ownerId: req.user!.id, purpose: 'cover', visibility: 'public' });
   q.run('UPDATE courses SET cover_file_id = ?, updated_at = ? WHERE id = ?', f.id, nowIso(), c.id);
+  deleteFile(c.cover_file_id); // الغلاف المستبدَل لا مرجع له بعد الآن
   res.status(201).json({ fileId: f.id, url: publicUrl(f.id) });
 }));
 /** اختبار داخل دورة (أسئلة مع الإجابات — لا تُرسَل للطلاب) */

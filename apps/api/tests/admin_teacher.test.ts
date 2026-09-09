@@ -43,7 +43,13 @@ test('قرار المستند: يسجّل من راجع ومتى، والرفض 
   assert.equal(c.q.val('SELECT COUNT(*) FROM notifications WHERE user_id = ?', t.id), before, 'القبول لا يُبلّغ');
   assert.equal(auditRows('teacher.document_accepted', t.id).length, 1);
   const detail = await c.api(`/api/admin/teachers/${t.id}`, { token: support.token });
+  assert.equal(detail.json.documentsVisible, true);
   assert.equal(detail.json.documents.length, 1); assert.equal(detail.json.documents[0].reviewedBy.id, admin.id); assert.equal(detail.json.documents[0].status, 'accepted');
+  // المالية لا ترى المستندات — والقائمة الفارغة وحدها تُقرأ «لم يرفع شيئاً»، فـ documentsVisible هو ما يميّز الحالتين
+  const finance = await c.staff('97000006', 'finance');
+  const forFinance = await c.api(`/api/admin/teachers/${t.id}`, { token: finance.token });
+  assert.equal(forFinance.json.documentsVisible, false);
+  assert.deepEqual(forFinance.json.documents, []);
 });
 
 test('PATCH /admin/teachers/:id: تغيير العمولة يكتب صفّ تحقّق بسبب، وبقية الحقول لا', async () => {
@@ -179,4 +185,62 @@ test('GET /admin/overview?days=: السلاسل بطول المدى، والأق
   assert.deepEqual(again.json, o);
   assert.equal((await c.api('/api/admin/overview?days=90', { token: support.token })).json.series.days.length, 90);
   assert.equal((await c.api('/api/admin/overview', { token: support.token })).json.series.days.length, 14, 'الافتراضي ١٤');
+});
+
+/** ملف مستند خاص مملوك للمعلّم (المسار وحده يكفي: التوقيع لا يقرأ القرص) */
+const documentFile = (ownerId: number, name: string) =>
+  Number(c.q.run("INSERT INTO files (owner_id, storage_path, original_name, mime, size, visibility, purpose) VALUES (?,?,?,?,?,'private','document')",
+    ownerId, `document/${ownerId}-${name}`, name, 'application/pdf', 10).lastInsertRowid);
+
+test('المعلّم المعتمد يعيد رفع مستند مرفوض: يعود «مُقدَّماً» بملفه الجديد ويُسجَّل في السجلّ', async () => {
+  const t = await c.teacher('97000101');
+  const other = await c.teacher('97000102');
+  const admin = await c.staff('97000103', 'admin');
+  const docId = document(t.id);
+  assert.equal((await post(admin.token, `/api/admin/teachers/${t.id}/documents/${docId}/decision`, { decision: 'rejected', note: 'الصورة غير واضحة' })).status, 200);
+  assert.equal((await post(t.token, '/api/teacher/apply', {})).status, 422, 'المعتمد لا يمرّ من /apply');
+  const fresh = documentFile(t.id, 'id-v2.pdf');
+  assert.equal((await post(t.token, '/api/teacher/documents', { type: 'id', fileId: documentFile(other.id, 'foreign.pdf') })).status, 400, 'ملف لا يملكه');
+  const r = await post(t.token, '/api/teacher/documents', { type: 'id', fileId: fresh });
+  assert.equal(r.status, 201, r.text);
+  assert.equal(r.json.id, docId, 'الاستبدال بحسب النوع لا صفّ جديد');
+  assert.equal(r.json.status, 'submitted'); assert.equal(r.json.note, null);
+  const row = c.q.get<any>('SELECT * FROM teacher_documents WHERE id = ?', docId);
+  assert.equal(row.file_id, fresh); assert.equal(row.reviewed_by, null); assert.equal(row.reviewed_at, null);
+  const detail = await c.api(`/api/admin/teachers/${t.id}`, { token: admin.token });
+  assert.equal(detail.json.documents.length, 1); assert.equal(detail.json.documents[0].name, 'id-v2.pdf'); assert.equal(detail.json.documents[0].status, 'submitted');
+  assert.equal(auditRows('teacher.document_upload', t.id).length, 1);
+  const s = await c.student('97000104');
+  assert.equal((await post(s.token, '/api/teacher/documents', { type: 'id', fileId: documentFile(s.id, 'x.pdf') })).status, 404, 'من لم يقدّم طلباً أصلاً');
+});
+
+test('إعادة التقديم لا تمحو المستندات المراجَعة: الاستبدال بحسب النوع فقط', async () => {
+  const t = await c.teacher('97000111', { status: 'pending' });
+  const admin = await c.staff('97000112', 'admin');
+  const idDoc = document(t.id, 'id');
+  const degreeDoc = document(t.id, 'degree');
+  assert.equal((await post(admin.token, `/api/admin/teachers/${t.id}/documents/${degreeDoc}/decision`, { decision: 'accepted' })).status, 200);
+  const application = (documents: unknown[]) => ({
+    displayName: 'معلّم الاختبار', headline: 'معلّم فيزياء للثاني عشر', bio: 'خبرة طويلة في تدريس الفيزياء لطلاب الدبلوم العام في سلطنة عُمان.',
+    yearsExp: 6, qualification: 'بكالوريوس فيزياء', specialty: 'فيزياء', subjectIds: [c.cat.subjects.physics], gradeIds: [c.cat.grades[12]],
+    prices: [{ durationMinutes: 60, mode: 'individual', price: 6 }], languages: ['ar'], documents,
+  });
+  const replacement = documentFile(t.id, 'id-v2.pdf');
+  assert.equal((await post(t.token, '/api/teacher/apply', application([{ type: 'id', fileId: replacement }]))).status, 201);
+  const rows = c.q.all<any>('SELECT * FROM teacher_documents WHERE teacher_id = ? ORDER BY id', t.id);
+  assert.equal(rows.length, 2, 'الشهادة المقبولة لا تُحذف');
+  assert.equal(rows[0].id, idDoc); assert.equal(rows[0].file_id, replacement); assert.equal(rows[0].status, 'submitted');
+  assert.equal(rows[1].id, degreeDoc); assert.equal(rows[1].status, 'accepted', 'ما لم يُذكر يبقى بحالته');
+  assert.equal(rows[1].reviewed_by, admin.id);
+});
+
+test('المالية لا ترى المستندات ويميّزها documentsVisible عن «لم يرفع شيئاً»', async () => {
+  const t = await c.teacher('97000121');
+  const finance = await c.staff('97000122', 'finance');
+  const support = await c.staff('97000123', 'support');
+  document(t.id);
+  const fin = await c.api(`/api/admin/teachers/${t.id}`, { token: finance.token });
+  assert.equal(fin.status, 200); assert.equal(fin.json.documentsVisible, false); assert.deepEqual(fin.json.documents, []);
+  const sup = await c.api(`/api/admin/teachers/${t.id}`, { token: support.token });
+  assert.equal(sup.json.documentsVisible, true); assert.equal(sup.json.documents.length, 1);
 });

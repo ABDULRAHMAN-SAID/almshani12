@@ -14,6 +14,8 @@ export function DocumentsTab({ me, d }: { me: Me; d: TeacherAdminDetail }) {
   const accept = async (x: Doc) => { const r = await confirm({ title: `قبول ${ar(x.type)}`, body: x.name ?? undefined, fields: [{ key: 'note', label: 'ملاحظة (اختياري)' }], confirmLabel: 'قبول' }); if (r) decide.mutate({ docId: x.id, decision: 'accepted', note: r.note?.trim() || undefined }); };
   const reject = async (x: Doc) => { const r = await confirm({ title: `رفض ${ar(x.type)}`, body: 'تصل الملاحظة للمعلّم مع طلب إعادة الرفع.', reasonRequired: true, reasonLabel: 'الملاحظة (تصل للمعلّم)', danger: true, confirmLabel: 'رفض' }); if (r) decide.mutate({ docId: x.id, decision: 'rejected', note: r.reason }); };
   const admin = can(me, 'admin');
+  // القائمة تصل فارغة أيضاً لمن لا يملك صلاحية رؤيتها — التمييز يأتي من documentsVisible لا من طولها
+  if (!d.documentsVisible) return <div className="card"><Empty text="لا تملك صلاحية عرض المستندات" /></div>;
   if (!d.documents.length) return <div className="card"><Empty text="لم يرفع المعلّم مستندات بعد" /></div>;
   return (
     <>

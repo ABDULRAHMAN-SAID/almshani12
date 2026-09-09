@@ -120,17 +120,17 @@ export async function enablePush(opts: { silent?: boolean } = {}): Promise<PushS
 }
 
 /** إلغاء تسجيل هذا الجهاز عن الحساب الحالي (يُستدعى قبل مسح الرموز عند الخروج) وإلغاء اشتراك المتصفح */
-export async function disablePush(opts: { keepSubscription?: boolean } = {}): Promise<PushState> {
+export async function disablePush(opts: { keepSubscription?: boolean; base?: string } = {}): Promise<PushState> {
   try {
     if (Platform.OS === 'web') {
       if (!webSupported()) return 'unsupported';
       const sub = await (await navigator.serviceWorker.getRegistration(SW_PATH))?.pushManager.getSubscription();
       if (!sub) return 'off';
-      if (tokens.access && !isDemo()) await api.delete('/me/push', undefined, { kind: 'web', endpoint: sub.endpoint }).catch(() => null);
+      if (tokens.access && !isDemo()) await api.delete('/me/push', undefined, { kind: 'web', endpoint: sub.endpoint }, { base: opts.base }).catch(() => null);
       if (!opts.keepSubscription) await sub.unsubscribe().catch(() => false);
       return opts.keepSubscription ? 'on' : 'off';
     }
-    if (nativeToken && tokens.access && !isDemo()) await api.delete('/me/push', undefined, { kind: 'expo', token: nativeToken }).catch(() => null);
+    if (nativeToken && tokens.access && !isDemo()) await api.delete('/me/push', undefined, { kind: 'expo', token: nativeToken }, { base: opts.base }).catch(() => null);
     nativeToken = null;
     return 'off';
   } catch { return 'off'; }
@@ -138,5 +138,5 @@ export async function disablePush(opts: { keepSubscription?: boolean } = {}): Pr
 
 /** عند الدخول/الإقلاع: تسجيل صامت (لا يطلب الإذن على الويب؛ يطلبه على الجوال عند الدخول فقط) */
 export const registerPush = (silent = true) => enablePush({ silent: Platform.OS === 'web' || silent }).catch(() => 'off' as PushState);
-/** عند الخروج: فكّ ارتباط الجهاز بالحساب مع إبقاء اشتراك المتصفح للدخول التالي */
-export const unregisterPush = () => disablePush({ keepSubscription: true }).catch(() => 'off' as PushState);
+/** عند الخروج: فكّ ارتباط الجهاز بالحساب (على الخادم مُصدِر الرموز) مع إبقاء اشتراك المتصفح للدخول التالي */
+export const unregisterPush = (base?: string) => disablePush({ keepSubscription: true, base }).catch(() => 'off' as PushState);

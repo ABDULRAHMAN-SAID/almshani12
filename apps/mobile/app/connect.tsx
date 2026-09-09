@@ -21,7 +21,7 @@ type Probe = { state: 'idle' | 'testing' | 'ok' | 'fail'; info?: string };
 
 /**
  * الاتصال بخادم: يُفتح من صفحة الخادم (…/connect?url=https://…&name=…) على الويب، أو من الرابط العميق
- * manassah://connect?url=… في التطبيق. يتحقّق من العنوان، يجرّب /api/health، ثم يحفظ العنوان ويخرج ليُعاد الدخول على الخادم الجديد.
+ * manassah://connect?url=… في التطبيق. يتحقّق من العنوان، يجرّب /api/health، ثم يخرج ويحفظ العنوان ليُعاد الدخول على الخادم الجديد.
  * يعمل في حزمة العرض أيضاً: الجلب هنا مباشر بالعنوان الكامل ولا يمرّ بعميل الـ API.
  */
 export default function Connect() {
@@ -48,12 +48,14 @@ export default function Connect() {
     } catch (e) { setProbe({ state: 'fail', info: e instanceof Error && e.name === 'AbortError' ? t('settings.serverTimeout') : t('errors.network') }); }
   };
 
-  /** يحفظ العنوان ثم يخرج — الخروج نفسه يعيد إلى الترحيب (والتخطيط الجذري يخرج أيضاً عند تغيّر الخادم؛ الاستدعاءان يُدمجان) */
+  /**
+   * يخرج ثم يحفظ العنوان — الخروج نفسه يعيد إلى الترحيب (والتخطيط الجذري يخرج أيضاً عند تغيّر الخادم؛ الاستدعاءان يُدمجان).
+   * الترتيب مقصود: العنوان يأتي من رابط خارجي، فلا يصير وجهةً إلا بعد مسح رموز الخادم القديم كي لا تُرسَل إليه.
+   */
   const connect = async () => {
     if (!url) return;
     setBusy(true);
-    setServerUrl(url);
-    try { await signOut(); } finally { setBusy(false); }
+    try { await signOut(); setServerUrl(url); } finally { setBusy(false); }
   };
   const cancel = () => { if (router.canGoBack()) router.back(); else router.replace(homeFor(useAuth.getState().user) as never); };
 

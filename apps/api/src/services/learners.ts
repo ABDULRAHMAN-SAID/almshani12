@@ -9,6 +9,7 @@ import type { Learner, LearnerRef, LearnerUpsert, LearnerPatch } from '@manassah
 import { config } from '../config.ts';
 import { db, q, nowIso } from '../db/index.ts';
 import { AppError, badRequest, conflict } from '../lib/errors.ts';
+import { publicFileIdOf, RASTER_IMAGE } from './storage.ts';
 
 export type LearnerRow = {
   id: number; account_id: number; display_name: string; gender: 'male' | 'female' | null; avatar_path: string | null;
@@ -118,10 +119,14 @@ function validateScope(curriculumId: number, gradeId: number | null, semesterId:
 }
 
 /** صورة المتعلّم: ملف صورة يملكه الحساب (أو المنفّذ الإداري) يُجعل عاماً — كما في PATCH /me */
-function avatarPathFor(accountId: number, fileId: number | null, actorId: number | null): string | null {
+function avatarPathFor(accountId: number, fileId: number | null, actorId: number | null, prevPath: string | null = null): string | null {
+  const prev = publicFileIdOf(prevPath);
+  // إزالة الصورة أو استبدالها يجب أن يقطع الرابط العام للقديمة، وإلا بقيت صورة الطفل مقروءة للجميع بعد حذفها
+  if (prev && prev !== fileId) q.run("UPDATE files SET visibility = 'private' WHERE id = ?", prev);
   if (!fileId) return null;
-  const f = q.get<{ id: number; owner_id: number | null; mime: string }>('SELECT id, owner_id, mime FROM files WHERE id = ?', fileId);
-  if (!f || (f.owner_id !== accountId && f.owner_id !== actorId) || !f.mime.startsWith('image/')) throw badRequest('الصورة غير صالحة');
+  const f = q.get<{ id: number; owner_id: number | null; mime: string; purpose: string }>('SELECT id, owner_id, mime, purpose FROM files WHERE id = ?', fileId);
+  // الصورة تُنشر للعموم بلا توقيع، فلا تُقبل إلا ملفاً رُفع لهذا الغرض: قلبُ وثيقة هوية خاصة إلى عامة لا رجعة فيه
+  if (!f || (f.owner_id !== accountId && f.owner_id !== actorId) || f.purpose !== 'avatar' || !RASTER_IMAGE.test(f.mime)) throw badRequest('الصورة غير صالحة');
   q.run("UPDATE files SET visibility = 'public' WHERE id = ?", f.id);
   return `/api/files/public/${f.id}`;
 }
@@ -170,7 +175,7 @@ export function updateLearner(accountId: number, learnerId: number, input: Learn
       if (!curriculumId) throw badRequest('المنهج مطلوب');
       subjectIds = validateScope(curriculumId, gradeId, semesterId, input.subjectIds);
     }
-    const avatar = input.avatarFileId === undefined ? row.avatar_path : avatarPathFor(accountId, input.avatarFileId, req.user?.id ?? null);
+    const avatar = input.avatarFileId === undefined ? row.avatar_path : avatarPathFor(accountId, input.avatarFileId, req.user?.id ?? null, row.avatar_path);
     q.run(`UPDATE learners SET display_name = ?, gender = ?, avatar_path = ?, curriculum_id = ?, grade_id = ?, semester_id = ?, school = ?, updated_at = ? WHERE id = ?`,
       input.displayName ?? row.display_name, input.gender === undefined ? row.gender : input.gender, avatar,
       curriculumId, gradeId, semesterId, input.school === undefined ? row.school : input.school, nowIso(), learnerId);

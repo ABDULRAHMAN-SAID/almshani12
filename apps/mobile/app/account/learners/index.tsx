@@ -1,4 +1,4 @@
-import { View, StyleSheet } from 'react-native';
+import { View, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { colors, spacing, themed } from '@manassah/tokens';
@@ -34,19 +34,22 @@ export default function LearnersScreen() {
         {learners.length === 0 ? <EmptyState icon="people" title={t('learners.emptyTitle')} body={t('learners.emptyBody')} actionLabel={t('learners.add')} onAction={add} /> : null}
         {learners.map((l, i) => {
           const active = l.id === activeId;
+          // البطاقة ليست زرّاً: أزرار «اجعله النشط» والترتيب داخلها، وزرّ داخل زرّ غير صالح في HTML ويشغّل الاثنين
           return (
-            <Card key={l.id} accent={active} onPress={() => router.push(`/account/learners/${l.id}`)} onLongPress={() => setActiveLearner(l.id)} accessibilityLabel={l.displayName}>
+            <Card key={l.id} accent={active}>
               <View style={styles.row}>
-                <LearnerAvatar learner={l} size={56} badge={false} />
-                <View style={styles.flex}>
-                  <View style={styles.nameRow}>
-                    <Text role="h3" numberOfLines={1} style={styles.name}>{l.displayName}</Text>
-                    <Badge label={l.isSelf ? t('learners.self') : t('learners.child')} tone={l.isSelf ? 'info' : 'neutral'} />
-                    {active ? <Badge label={t('learners.active')} tone="gold" icon="check" /> : null}
+                <Pressable onPress={() => router.push(`/account/learners/${l.id}`)} onLongPress={() => setActiveLearner(l.id)}
+                  accessibilityRole="button" accessibilityLabel={l.displayName} style={styles.open}>
+                  <LearnerAvatar learner={l} size={56} badge={false} />
+                  <View style={styles.flex}>
+                    <View style={styles.nameRow}>
+                      <Text role="h3" numberOfLines={1} style={styles.name}>{l.displayName}</Text>
+                      <Badge label={l.isSelf ? t('learners.self') : t('learners.child')} tone={l.isSelf ? 'info' : 'neutral'} />
+                      {active ? <Badge label={t('learners.active')} tone="gold" icon="check" /> : null}
+                    </View>
+                    <Text role="small" tone="secondary" numberOfLines={2}>{[l.gradeName, l.semesterName].filter(Boolean).join(' · ') || '—'}</Text>
                   </View>
-                  <Text role="small" tone="secondary" numberOfLines={2}>{[l.gradeName, l.semesterName].filter(Boolean).join(' · ') || '—'}</Text>
-                  {!active ? <Button label={t('learners.setActive')} variant="ghost" size="sm" onPress={() => setActiveLearner(l.id)} style={styles.setActive} /> : null}
-                </View>
+                </Pressable>
                 {learners.length > 1 ? (
                   <View style={styles.arrows}>
                     <IconButton icon="up" label={t('learners.moveUp')} size={36} variant="soft" color={colors.text.secondary} disabled={i === 0 || reorder.isPending} onPress={() => move(i, -1)} />
@@ -54,6 +57,7 @@ export default function LearnersScreen() {
                   </View>
                 ) : null}
               </View>
+              {!active ? <Button label={t('learners.setActive')} variant="ghost" size="sm" onPress={() => setActiveLearner(l.id)} style={styles.setActive} /> : null}
             </Card>
           );
         })}
@@ -67,9 +71,11 @@ export default function LearnersScreen() {
 const styles = themed(() => StyleSheet.create({
   wrap: { gap: spacing[3], paddingTop: spacing[2] },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
+  open: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
   flex: { flex: 1, minWidth: 0 },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing[1], flexWrap: 'wrap' },
   name: { flexShrink: 1 },
-  setActive: { alignSelf: 'flex-start', marginTop: spacing[1], marginStart: -spacing[3] },
+  /** يبقى تحت الاسم بعد خروجه من عمود الاسم: عرض الصورة (٥٦) — والفجوة يضيفها الصفّ نفسه */
+  setActive: { alignSelf: 'flex-start', marginTop: spacing[1], marginStart: 56 },
   arrows: { gap: spacing[1] },
 }));

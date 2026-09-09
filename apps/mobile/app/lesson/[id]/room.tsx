@@ -26,7 +26,11 @@ export default function Room() {
   useEffect(() => { if (sheet === 'chat') st.set({ unread: 0 }); }, [sheet, st.messages.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const b = room.access?.booking;
-  const other = useMemo(() => st.participants.find(p => p.userId !== st.me?.userId) ?? null, [st.participants, st.me]);
+  // الطرف الآخر = طرف الحجز لا «أوّل من ليس أنا»: حساب إدارة قد يدخل الغرفة فيُعرض فيديوه تحت اسم الطالب
+  const other = useMemo(() => {
+    const id = b ? (st.me?.userId === b.teacher.id ? b.student.id : st.me?.userId === b.student.id ? b.teacher.id : null) : null;
+    return st.participants.find(p => (id !== null ? p.userId === id : p.userId !== st.me?.userId)) ?? null;
+  }, [st.participants, st.me, b]);
   const otherName = other?.name ?? (b ? (st.me?.role === 'teacher' ? b.student.name : b.teacher.name) : '');
   const elapsed = b ? Math.max(0, Math.floor((now - new Date(b.startsAt).getTime()) / 1000)) : 0;
   const remaining = b ? Math.max(0, Math.floor((new Date(b.endsAt).getTime() - now) / 1000)) : 0;
@@ -66,14 +70,21 @@ export default function Room() {
         <VideoTile stream={room.remote} name={otherName} large camOff={!room.remote || other?.cam === false} micOff={other?.mic === false}
           note={!other ? t('live.waitingOther') : Platform.OS !== 'web' ? t('live.nativeVideoNote') : !room.remote ? t('lessons.room.reconnecting') : null} />
         <View style={styles.pip}><VideoTile stream={room.local} local name={t('live.you')} camOff={!st.cam} micOff={!st.mic} /></View>
-        {st.sharing ? <View style={styles.shareBanner}><Icon name="screen" size={14} color={colors.text.onPrimary} /><Text role="caption" color={colors.text.onPrimary}>{t('live.sharing')}</Text></View> : null}
+        {st.mediaError ? (
+          <View style={styles.mediaBanner}>
+            <Icon name="cameraOff" size={16} color={colors.text.onPrimary} />
+            <Text role="caption" color={colors.text.onPrimary} style={styles.flex}>{t(st.mediaError)}</Text>
+            <Button label={t('live.mediaRetry')} size="sm" variant="secondary" onPress={room.retryMedia} />
+          </View>
+        ) : null}
+        {st.sharing || st.remoteSharing ? <View style={styles.shareBanner}><Icon name="screen" size={14} color={colors.text.onPrimary} /><Text role="caption" color={colors.text.onPrimary}>{t('live.sharing')}</Text></View> : null}
         {st.participants.some(p => p.hand && p.userId !== st.me?.userId) ? <View style={styles.handBanner}><Icon name="hand" size={14} color={colors.text.primary} /><Text role="caption">{st.participants.filter(p => p.hand && p.userId !== st.me?.userId).map(p => p.name).join('، ')} {t('live.handRaised')}</Text></View> : null}
       </View>
 
       {/* أزرار التحكّم — تتّسع كاملةً على شاشة 390: الأساسية دائماً ظاهرة (المغادرة وإنهاء الحصة منها) والباقي في ورقة «المزيد» */}
       <View style={styles.controls}>
-        {ctl(st.mic ? 'mic' : 'micOff', st.mic ? t('lessons.room.mute') : t('lessons.room.unmute'), room.toggleMic, { active: !st.mic })}
-        {ctl(st.cam ? 'video' : 'cameraOff', t('lessons.room.camera'), room.toggleCam, { active: !st.cam })}
+        {ctl(st.mic ? 'mic' : 'micOff', st.mic ? t('lessons.room.mute') : t('lessons.room.unmute'), room.toggleMic, { active: !st.mic, disabled: !room.local })}
+        {ctl(st.cam ? 'video' : 'cameraOff', t('lessons.room.camera'), room.toggleCam, { active: !st.cam, disabled: !room.local })}
         {ctl('chat', t('lessons.room.chat'), () => setSheet('chat'), { badge: st.unread })}
         {ctl('more', t('common.more'), () => setSheet('more'), { active: st.hand || st.sharing, badge: st.boardOps.length || undefined })}
         {st.me?.isHost ? ctl('end', t('live.endLesson'), () => setDialog('end'), { danger: true }) : null}
@@ -123,7 +134,7 @@ export default function Room() {
       <Dialog visible={dialog === 'leave'} onClose={() => setDialog(null)} title={t('live.leaveConfirm')} actions={<><Button label={t('live.stay')} variant="secondary" onPress={() => setDialog(null)} /><Button label={t('live.yesLeave')} variant="danger" onPress={exit} /></>} />
       <Dialog visible={dialog === 'end'} onClose={() => setDialog(null)} title={t('live.endLesson')} body={t('live.confirmEnd')} actions={<><Button label={t('common.cancel')} variant="secondary" onPress={() => setDialog(null)} /><Button label={t('live.endLesson')} variant="danger" onPress={() => { setDialog(null); room.endLesson(); }} /></>} />
       <Dialog visible={ended} onClose={afterEnd} title={t('live.lessonEnded')} body={t('live.endedBody')} actions={<Button label={st.me?.role === 'teacher' ? t('teacherUi.notes') : t('lessons.post.rate')} onPress={afterEnd} />} />
-      {st.connection === 'failed' ? <Dialog visible onClose={exit} title={t('live.failed')} body={t('errors.contentUnavailable')} actions={<><Button label={t('common.back')} variant="secondary" onPress={exit} /><Button label={t('live.retry')} onPress={room.reload} /></>} /> : null}
+      {st.connection === 'failed' ? <Dialog visible onClose={exit} title={t('live.failed')} body={t(st.failReason ?? 'errors.contentUnavailable')} actions={<><Button label={t('common.back')} variant="secondary" onPress={exit} /><Button label={t('live.retry')} onPress={room.reload} /></>} /> : null}
     </SafeAreaView>
   );
 }
@@ -139,6 +150,10 @@ const styles = themed((c) => StyleSheet.create({
   stage: { flex: 1, marginHorizontal: spacing[3], borderRadius: radius.lg, overflow: 'hidden' },
   pip: { position: 'absolute', bottom: spacing[3], end: spacing[3], width: 120, borderRadius: radius.md, overflow: 'hidden', borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.3)' },
   shareBanner: { position: 'absolute', top: spacing[3], start: spacing[3], flexDirection: 'row', gap: 4, alignItems: 'center', backgroundColor: c.state.info, paddingHorizontal: 8, paddingVertical: 4, borderRadius: radius.sm },
+  /** تعذّر الكاميرا/المايك — شريط فوق المسرح لا رسالة صامتة؛ المسرح داكن دائماً فنصّه أبيض ثابت */
+  mediaBanner: { position: 'absolute', top: spacing[3], insetInlineStart: spacing[3], insetInlineEnd: spacing[3],
+    flexDirection: 'row', alignItems: 'center', gap: spacing[2], paddingVertical: spacing[2], paddingHorizontal: spacing[3],
+    borderRadius: radius.md, backgroundColor: 'rgba(0,0,0,0.72)' },
   handBanner: { position: 'absolute', top: spacing[3], end: spacing[3], flexDirection: 'row', gap: 4, alignItems: 'center', backgroundColor: c.brand.goldSoft, paddingHorizontal: 8, paddingVertical: 4, borderRadius: radius.sm },
   controls: { flexDirection: 'row', gap: spacing[2], paddingHorizontal: spacing[3], paddingVertical: spacing[3] },
   moreList: { gap: spacing[2] },

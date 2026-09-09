@@ -341,3 +341,34 @@ test('الملف العام للمعلّم: stats وavailabilityRules وtimeOff�
   const after = await c.api(`/api/teachers/${t.id}`);
   assert.equal(after.json.stats.studentsCount, 2); assert.equal(after.json.stats.lessonsCount, 2); assert.equal(after.json.studentsCount, 2);
 });
+
+test('ملاحظات الحصة: إعادة الحفظ تدمج المرفقات ولا تمحوها', async () => {
+  const t = await c.teacher('94000091');
+  const s = await c.student('94000092');
+  const id = Number(c.q.run(`INSERT INTO bookings (student_id, teacher_id, subject_id, mode, duration_minutes, starts_at, ends_at, status, price) VALUES (?,?,?,'individual',60,?,?,'completed',6)`,
+    s.id, t.id, c.cat.subjects.physics, c.slotIn(-30), c.slotIn(-29)).lastInsertRowid);
+  const file = (name: string) => Number(c.q.run("INSERT INTO files (owner_id, storage_path, original_name, mime, size, visibility, purpose) VALUES (?,?,?,?,?,'private','attachment')",
+    t.id, `attachment/${name}`, name, 'application/pdf', 10).lastInsertRowid);
+  const a = file('sheet-1.pdf'), b = file('sheet-2.pdf'), d = file('sheet-3.pdf');
+  const notes = (body: unknown) => c.api(`/api/bookings/${id}/notes`, { method: 'POST', token: t.token, body });
+  const attachments = async () => (await c.api(`/api/bookings/${id}`, { token: s.token })).json.notes.attachments.map((x: any) => x.fileId);
+  assert.equal((await notes({ summary: 'ملخّص', homework: 'واجب', attachmentFileIds: [a, b] })).status, 200);
+  assert.deepEqual(await attachments(), [a, b]);
+  // شاشة الملاحظات ترسل قائمة فارغة عند تصحيح النصّ: المرفقات تبقى
+  assert.equal((await notes({ summary: 'ملخّص مصحّح', homework: 'واجب' })).status, 200);
+  assert.deepEqual(await attachments(), [a, b]);
+  assert.equal((await c.api(`/api/bookings/${id}`, { token: s.token })).json.notes.summary, 'ملخّص مصحّح');
+  assert.equal((await c.api(`/api/bookings/${id}/notes/files/${a}`, { token: s.token })).status, 200, 'الطالب ما زال يفتح المرفق');
+  // مرفق جديد يُضاف بلا تكرار القديم
+  assert.equal((await notes({ summary: 'ملخّص', homework: null, attachmentFileIds: [a, d] })).status, 200);
+  assert.deepEqual(await attachments(), [a, b, d]);
+  // الحذف المتعمّد يُذكر صراحةً — والملف يُمحى فلا يبقى مقروءاً بلا مرجع
+  assert.equal((await notes({ summary: 'ملخّص', homework: null, attachmentFileIds: [], removeFileIds: [b] })).status, 200);
+  assert.deepEqual(await attachments(), [a, d]);
+  assert.equal(c.q.val('SELECT COUNT(*) FROM files WHERE id = ?', b), 0);
+  assert.equal((await c.api(`/api/bookings/${id}/notes/files/${b}`, { token: s.token })).status, 404, 'الطالب لم يعد يفتح المحذوف');
+  // إعادة إرسال مرفق ما زال مذكوراً في القائمة لا تحذفه مهما ذُكر في removeFileIds
+  assert.equal((await notes({ summary: 'ملخّص', homework: null, attachmentFileIds: [a], removeFileIds: [a] })).status, 200);
+  assert.deepEqual(await attachments(), [a, d]);
+  assert.equal(c.q.val('SELECT COUNT(*) FROM files WHERE id = ?', a), 1);
+});

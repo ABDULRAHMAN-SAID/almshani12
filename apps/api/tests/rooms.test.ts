@@ -82,3 +82,61 @@ test('Socket.IO /room: الدخول بالرمز يسجّل الحضور، ال�
   again.disconnect();
   bad.close();
 });
+
+test('حساب الإدارة يدخل مراقباً: لا صفة مضيف ولا حضور يُسجَّل له', async () => {
+  const { io } = await import('socket.io-client');
+  const t = await c.teacher('96000031');
+  const s = await c.student('96000032');
+  const adm = await c.staff('96000033', 'admin');
+  const bookingId = confirmed(s.id, t.id, 3);
+  const ra = await c.api(`/api/bookings/${bookingId}/room`, { token: adm.token });
+  assert.equal(ra.status, 200);
+  assert.equal(ra.json.isHost, false, 'الإدارة تراقب ولا تستضيف');
+  const sock = io(`${c.base}/room`, { auth: { roomToken: ra.json.token }, transports: ['websocket'], reconnection: false });
+  const welcome: any = await new Promise(r => sock.on('room:welcome', r));
+  assert.equal(welcome.you.role, 'observer');
+  assert.equal(welcome.you.isHost, false);
+  assert.equal(c.q.val('SELECT COUNT(*) FROM booking_attendance WHERE booking_id = ?', bookingId), 0, 'المراقب لا يُكتب له حضور');
+  assert.equal(c.q.val('SELECT status FROM bookings WHERE id = ?', bookingId), 'confirmed', 'ولا يقلب الحجز إلى in_progress');
+  sock.disconnect();
+  await new Promise(r => setTimeout(r, 150));
+});
+
+test('share:state تمرّ من أي مشارك ومعها معرّف صاحبها', async () => {
+  const { io } = await import('socket.io-client');
+  const t = await c.teacher('96000041');
+  const s = await c.student('96000042');
+  const bookingId = confirmed(s.id, t.id, 3);
+  const rt = await c.api(`/api/bookings/${bookingId}/room`, { token: t.token });
+  const rs = await c.api(`/api/bookings/${bookingId}/room`, { token: s.token });
+  const teacherSock = io(`${c.base}/room`, { auth: { roomToken: rt.json.token }, transports: ['websocket'], reconnection: false });
+  await new Promise(r => teacherSock.on('room:welcome', r));
+  const studentSock = io(`${c.base}/room`, { auth: { roomToken: rs.json.token }, transports: ['websocket'], reconnection: false });
+  await new Promise(r => studentSock.on('room:welcome', r));
+  const seen: any = await new Promise(r => { teacherSock.on('share:state', r); studentSock.emit('share:state', { sharing: true }); });
+  assert.equal(seen.sharing, true, 'مشاركة الطالب تصل المعلّم — لم تعد حكراً على المضيف');
+  assert.equal(seen.userId, s.id, 'ومعها صاحبها كي يميّزها المتلقّي');
+  teacherSock.disconnect(); studentSock.disconnect();
+  await new Promise(r => setTimeout(r, 150));
+});
+
+test('مقبس واحد لكل مستخدم في الغرفة: الأحدث يكسب والأقدم يُبلَّغ ويُفصل', async () => {
+  const { io } = await import('socket.io-client');
+  const t = await c.teacher('96000051');
+  const s = await c.student('96000052');
+  const bookingId = confirmed(s.id, t.id, 3);
+  const rs = await c.api(`/api/bookings/${bookingId}/room`, { token: s.token });
+  const first = io(`${c.base}/room`, { auth: { roomToken: rs.json.token }, transports: ['websocket'], reconnection: false });
+  await new Promise(r => first.on('room:welcome', r));
+  const takenOver = new Promise(r => first.on('room:takenOver', r));
+  const second = io(`${c.base}/room`, { auth: { roomToken: rs.json.token }, transports: ['websocket'], reconnection: false });
+  const welcome: any = await new Promise(r => second.on('room:welcome', r));
+  assert.ok(await takenOver, 'التبويب الأقدم يعرف لماذا خرج');
+  assert.equal(welcome.participants.filter((p: any) => p.userId === s.id).length, 1);
+  await new Promise(r => setTimeout(r, 150));
+  assert.equal(first.connected, false);
+  assert.ok(c.q.get("SELECT 1 FROM booking_attendance WHERE booking_id = ? AND user_id = ? AND left_at IS NULL", bookingId, s.id), 'والحضور يبقى مفتوحاً لأن المستخدم ما زال في الغرفة');
+  assert.equal(c.q.val('SELECT COUNT(*) FROM booking_attendance WHERE booking_id = ? AND user_id = ?', bookingId, s.id), 1, 'ولا يُحتسب انتقال التبويب انقطاعاً وعودة');
+  second.disconnect();
+  await new Promise(r => setTimeout(r, 150));
+});

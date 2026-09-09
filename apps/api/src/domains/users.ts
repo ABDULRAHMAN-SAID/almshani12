@@ -3,14 +3,13 @@ import { z } from 'zod';
 import { StudentSetup, CreateReview, FavoriteToggle, CreateReport, AnalyticsEvent, LearnerUpsert, LearnerPatch, Id } from '@manassah/shared';
 import { config } from '../config.ts';
 import { db, q, json, nowIso } from '../db/index.ts';
-import { AppError, asyncHandler, notFound, badRequest, conflict } from '../lib/errors.ts';
+import { AppError, asyncHandler, notFound, badRequest, forbidden, conflict } from '../lib/errors.ts';
 import { validate, body, idParam } from '../lib/validate.ts';
-import { requireAuth } from '../lib/auth.ts';
+import { requireAuth, hasRole } from '../lib/auth.ts';
 import { money, iso } from '../lib/helpers.ts';
 import { ownedIds } from '../services/access.ts';
 import { userView, orderView, notificationView } from '../lib/views.ts';
-import { upload, storeUpload } from '../services/storage.ts';
-import { publicUrl } from '../services/storage.ts';
+import { upload, storeUpload, publicUrl, publicFileIdOf, RASTER_IMAGE } from '../services/storage.ts';
 import * as wallet from '../services/wallet.ts';
 import { unreadCount } from '../services/notifications.ts';
 import { bookCard, courseCard, teacherCard } from '../services/mappers.ts';
@@ -39,12 +38,18 @@ router.patch('/me', requireAuth, validate(ProfilePatch), asyncHandler(async (req
   if (p.gender !== undefined) q.run('UPDATE profiles SET gender = ? WHERE user_id = ?', p.gender, uid);
   if (p.locale) q.run('UPDATE users SET locale = ? WHERE id = ?', p.locale, uid);
   if (p.avatarFileId !== undefined) {
+    const prev = publicFileIdOf(q.val<string | null>('SELECT avatar_path FROM profiles WHERE user_id = ?', uid));
     if (p.avatarFileId) {
-      const f = q.get<any>('SELECT id, owner_id, visibility, mime FROM files WHERE id = ?', p.avatarFileId);
-      if (!f || f.owner_id !== uid || !f.mime.startsWith('image/')) throw badRequest('الصورة غير صالحة');
+      const f = q.get<any>('SELECT id, owner_id, visibility, mime, purpose FROM files WHERE id = ?', p.avatarFileId);
+      // الصورة تُنشر للعموم بلا توقيع، فلا تُقبل إلا ملفاً رُفع لهذا الغرض: قلبُ وثيقة هوية خاصة إلى عامة لا رجعة فيه
+      if (!f || f.owner_id !== uid || f.purpose !== 'avatar' || !RASTER_IMAGE.test(f.mime)) throw badRequest('الصورة غير صالحة');
+      // ونشرها من جديد: إزالة صورة سابقة تقلبها إلى private، فإعادة اختيار الملف نفسه كانت تترك avatar_path
+      // يشير إلى ملف لم يعد عاماً — رابط صورة يردّ 404 وحساب بلا صورة رغم أنّ الحفظ نجح.
       q.run("UPDATE files SET visibility = 'public' WHERE id = ?", f.id);
       q.run('UPDATE profiles SET avatar_path = ? WHERE user_id = ?', `/api/files/public/${f.id}`, uid);
     } else q.run('UPDATE profiles SET avatar_path = NULL WHERE user_id = ?', uid);
+    // إزالة الصورة يجب أن تقطع رابطها العام أيضاً، وإلا بقيت صورة الطفل مقروءة للجميع بعد حذفها
+    if (prev && prev !== p.avatarFileId) q.run("UPDATE files SET visibility = 'private' WHERE id = ? AND owner_id = ?", prev, uid);
   }
   res.json(userView(uid));
 }));
@@ -101,6 +106,8 @@ router.delete('/me', requireAuth, asyncHandler(async (req, res) => {
   db.transaction(() => {
     q.run("UPDATE users SET status = 'deleted', phone = NULL, email = ?, active_learner_id = NULL WHERE id = ?", `deleted-${uid}@removed.local`, uid);
     q.run('UPDATE profiles SET display_name = ?, avatar_path = NULL, bio = NULL WHERE user_id = ?', 'مستخدم محذوف', uid);
+    // صور الحساب كانت تبقى مقروءة للعموم بعد الحذف — تنشيف avatar_path وحده لا يقطع /api/files/public
+    q.run("UPDATE files SET visibility = 'private' WHERE owner_id = ? AND purpose = 'avatar'", uid);
     // المتعلّمون: تُمسح بياناتهم الشخصية ويُؤرشفون (الحجوزات تبقى في السجل)
     q.run("UPDATE learners SET display_name = 'محذوف', school = NULL, avatar_path = NULL, archived_at = COALESCE(archived_at, ?), updated_at = ? WHERE account_id = ?", nowIso(), nowIso(), uid);
     projectSelfLearner(uid); // لا متعلّم ذاتي فعّال → تُمسح صفوف الجدولين القديمين
@@ -114,24 +121,47 @@ router.delete('/me', requireAuth, asyncHandler(async (req, res) => {
 }));
 
 /* ---------- رفع الملفات ---------- */
-/** لكل غرض نوعه وحدّ حجمه — الفيديو وحده يستحقّ الحدّ الأقصى */
-const PURPOSES: Record<string, { mimes: RegExp; visibility: 'public' | 'private'; maxMb: number }> = {
-  avatar: { mimes: /^image\//, visibility: 'public', maxMb: 8 },
-  cover: { mimes: /^image\//, visibility: 'public', maxMb: 8 },
-  document: { mimes: /^(image\/|application\/pdf)/, visibility: 'private', maxMb: 20 },
-  book: { mimes: /^application\/pdf$/, visibility: 'private', maxMb: 60 },
-  sample: { mimes: /^(image\/|application\/pdf)/, visibility: 'private', maxMb: 20 },
-  video: { mimes: /^video\//, visibility: 'private', maxMb: config.uploads.maxSizeMb },
-  attachment: { mimes: /^(image\/|application\/pdf|text\/)/, visibility: 'private', maxMb: 20 },
+/** ما يُخدَم لاحقاً كمستند لا يُقبل إلا صورة نقطية أو PDF — text/ وSVG سكربت على نطاقنا */
+const DOC_MIMES = new RegExp(`(${RASTER_IMAGE.source})|^application/pdf$`);
+/** لكل غرض نوعه وحدّ حجمه — الفيديو وحده يستحقّ الحدّ الأقصى؛ والأغراض الثقيلة للمعلّمين */
+const PURPOSES: Record<string, { mimes: RegExp; visibility: 'public' | 'private'; maxMb: number; teacherOnly?: boolean }> = {
+  avatar: { mimes: RASTER_IMAGE, visibility: 'public', maxMb: 8 },
+  cover: { mimes: RASTER_IMAGE, visibility: 'public', maxMb: 8, teacherOnly: true },
+  document: { mimes: DOC_MIMES, visibility: 'private', maxMb: 20 },
+  book: { mimes: /^application\/pdf$/, visibility: 'private', maxMb: 60, teacherOnly: true },
+  sample: { mimes: DOC_MIMES, visibility: 'private', maxMb: 20, teacherOnly: true },
+  video: { mimes: /^video\//, visibility: 'private', maxMb: config.uploads.maxSizeMb, teacherOnly: true },
+  attachment: { mimes: DOC_MIMES, visibility: 'private', maxMb: 20 },
 };
-const uploadByPurpose = (req: Request, res: Response, next: NextFunction) =>
-  upload(PURPOSES[String(req.query.purpose ?? 'attachment')]?.maxMb ?? 20)(req, res, next);
+/**
+ * حصّة تخزين لكل حساب — بلا سقف يملأ طالب واحد القرص بفيديوهات لا يستهلكها أي شيء.
+ * والمعلّم وحده يرفع الفيديو (حدّ الملف الواحد UPLOAD_MAX_MB = ٢٠٠ م.ب افتراضاً)، فحصّته تُقاس بمضاعفاته:
+ * سقف ٥١٢ م.ب موحّد كان يقف بعد فيديوَي درسٍ اثنين فلا يُكمل معلّم دورة واحدة.
+ */
+const STUDENT_QUOTA_MB = 512;
+const quotaBytes = (user: Request['user']): number =>
+  (hasRole(user, 'teacher') ? Math.max(4096, config.uploads.maxSizeMb * 20) : STUDENT_QUOTA_MB) * 1024 * 1024;
+const ruleOf = (req: Request) => {
+  const purpose = String(req.query.purpose ?? 'attachment');
+  return { purpose, rule: Object.hasOwn(PURPOSES, purpose) ? PURPOSES[purpose] : undefined };
+};
+/**
+ * الغرض يُحسم من الاستعلام وحده وقبل قراءة أي بايت: حين كان الحدّ يُقرأ من الاستعلام
+ * والقاعدة من جسم الطلب أمكن رفع صورة حساب بحدّ المرفقات (٢٠ م.ب) بدل ٨.
+ */
+const uploadByPurpose = (req: Request, res: Response, next: NextFunction) => {
+  const { rule } = ruleOf(req);
+  if (!rule) return next(badRequest('غرض الملف غير معروف'));
+  return upload(rule.maxMb)(req, res, next);
+};
 router.post('/files', requireAuth, uploadByPurpose, asyncHandler(async (req, res) => {
-  const purpose = String(req.query.purpose ?? req.body?.purpose ?? 'attachment');
-  const rule = PURPOSES[purpose];
+  const { purpose, rule } = ruleOf(req);
   if (!rule) throw badRequest('غرض الملف غير معروف');
   if (!req.file) throw badRequest('لم يُرفق ملف');
+  if (rule.teacherOnly && !hasRole(req.user, 'teacher')) throw forbidden('هذا النوع من الرفع للمعلّمين');
   if (!rule.mimes.test(req.file.mimetype)) throw badRequest('نوع الملف غير مسموح لهذا الغرض');
+  const used = q.val<number>('SELECT COALESCE(SUM(size),0) FROM files WHERE owner_id = ?', req.user!.id) ?? 0;
+  if (used + req.file.size > quotaBytes(req.user)) throw new AppError('quota_exceeded', 'تجاوزت مساحة التخزين المتاحة لحسابك', 413);
   const f = storeUpload(req.file, { ownerId: req.user!.id, purpose, visibility: rule.visibility });
   res.status(201).json({ id: f.id, mime: f.mime, size: f.size, url: rule.visibility === 'public' ? publicUrl(f.id) : null });
 }));

@@ -45,3 +45,28 @@ test('POST /admin/system/backup للمدير فقط، وGET /admin/system يعر
   assert.equal(sys.json.backups.count, 3); assert.equal(typeof sys.json.backups.last, 'string');
   assert.equal(c.q.get<any>("SELECT action FROM audit_logs WHERE action = 'system.backup'")?.action, 'system.backup');
 });
+
+test('الملف المبتور لا يُحسب نسخة: لا يؤجّل النسخة التالية ولا يبقى بدل السليمة عند التقليم', async () => {
+  const { runBackup, listBackups, lastBackup, backupDue, pruneBackups, cleanupBrokenBackups, BACKUP_DIR } = await import('../src/services/backups.ts');
+  const good = runBackup().file;
+  assert.equal(fs.readdirSync(BACKUP_DIR).some(n => n.endsWith('.part')), false, 'النجاح لا يترك بقايا');
+  // كل النسخ الحقيقية قديمة (أحدثها قبل ٢٥ ساعة) حتى نرى أثر الملف المبتور الأحدث وحده
+  const age = (file: string, hours: number) => { const t = new Date(Date.now() - hours * 3_600_000); fs.utimesSync(file, t, t); };
+  for (const b of listBackups()) age(b.file, 30);
+  age(good, 25);
+  const intact = listBackups().length;
+  // بقايا انقطاع أثناء VACUUM: اسم نسخة صحيح، أحدث الجميع، وترويسة أصفار
+  const broken = path.join(BACKUP_DIR, 'manassah-29991231-235959.db');
+  fs.writeFileSync(broken, Buffer.alloc(40_000));
+  const part = path.join(BACKUP_DIR, 'manassah-29991231-235958.db.part');
+  fs.writeFileSync(part, Buffer.alloc(4_000));
+  assert.equal(listBackups().length, intact);
+  assert.equal(lastBackup()?.file, good);
+  assert.equal(backupDue(24), true, 'الملف المبتور لا يوقف الجدولة');
+  assert.equal(pruneBackups(1), intact - 1);
+  assert.equal(listBackups().length, 1);
+  assert.equal(lastBackup()?.file, good, 'الباقي بعد التقليم هو النسخة السليمة');
+  assert.equal(cleanupBrokenBackups(), 2);
+  assert.equal(fs.existsSync(broken), false); assert.equal(fs.existsSync(part), false);
+  assert.equal(fs.existsSync(good), true);
+});

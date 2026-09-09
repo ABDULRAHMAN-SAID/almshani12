@@ -1,8 +1,9 @@
 import 'react-native-gesture-handler';
 import { useEffect, useRef, useState } from 'react';
 import { I18nManager, View, useColorScheme } from 'react-native';
-import { Stack, SplashScreen, useRouter, useSegments, usePathname } from 'expo-router';
+import { Stack, SplashScreen, useRouter, useSegments, usePathname, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useTranslation } from 'react-i18next';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClientProvider, onlineManager } from '@tanstack/react-query';
@@ -14,7 +15,7 @@ import { useAuth, needsSetup } from '@/state/auth';
 import { bootstrapAuth, homeFor, signOut } from '@/lib/session';
 import { queryClient } from '@/lib/queryClient';
 import { useSessionSocket } from '@/features/realtime';
-import { OfflineBar, Text } from '@/ui';
+import { OfflineBar, Text, Button } from '@/ui';
 import { isDemo } from '@/api/client';
 import { useUi, hydratePrefs } from '@/state/ui';
 import { applyLocale } from '@/i18n';  // يهيّئ i18next واتجاه الواجهة عند التحميل
@@ -26,7 +27,7 @@ I18nManager.allowRTL(true);
 
 /** حارس التوجيه: زائر → الترحيب؛ حساب بلا متعلّم (وليس معلّماً/طاقماً) → الإعداد؛ وإلا التبويبات. شاشة الإعداد تبقى متاحة لإضافة متعلّم من الإعدادات */
 function AuthGate() {
-  const { user, ready } = useAuth();
+  const { user, ready, bootOffline } = useAuth();
   const segments = useSegments() as string[];
   const router = useRouter();
   useSessionSocket();
@@ -38,10 +39,12 @@ function AuthGate() {
     const onSetup = inAuth && segments[1] === 'setup';
     // طلب الانضمام كمعلّم متاح لهاتف جديد بلا متعلّم — لا يُجبَر على إنشاء متعلّم أولاً
     const onApply = segments[0] === 'teacher-app' && segments[1] === 'apply';
+    // انقطاع عند الإقلاع ليس خروجاً: الشاشة أدناه تعرضه بإعادة محاولة، والتوجيه إلى الترحيب يمحو الجلسة من نظر المستخدم
+    if (!user && bootOffline) return;
     if (!user && !inAuth) router.replace('/(auth)/welcome');
     else if (user && needsSetup(user) && !onSetup && !onApply) router.replace('/(auth)/setup');
     else if (user && !needsSetup(user) && inAuth && !onSetup) router.replace(homeFor(user) as never);
-  }, [user, ready, segments, router]);
+  }, [user, ready, bootOffline, segments, router]);
   return null;
 }
 
@@ -87,9 +90,28 @@ function useLocaleSync(): void {
   useEffect(() => { applyLocale(locale); }, [locale]);
 }
 
+/**
+ * جلسة محفوظة والخادم لا يُجاب: نعرض الانقطاع بإعادة محاولة بدل شاشة الترحيب —
+ * إلقاء المستخدم على «ابدأ» يُفهم خروجاً، وهو يظنّ أنه فقد حسابه بينما الرموز سليمة.
+ */
+function BootOffline() {
+  const { t } = useTranslation();
+  const [busy, setBusy] = useState(false);
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.bg.base, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 12 }}>
+      <Text role="h2" center>{t('errors.bootOffline')}</Text>
+      <Text role="body" tone="secondary" center>{t('errors.bootOfflineBody')}</Text>
+      <Button label={t('live.retry')} icon="refresh" loading={busy} onPress={() => { setBusy(true); bootstrapAuth().finally(() => setBusy(false)); }} />
+      <Button label={t('errors.bootOfflineOther')} variant="ghost" onPress={() => router.replace('/connect')} />
+    </View>
+  );
+}
+
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({ ReadexPro_400Regular, ReadexPro_500Medium, ReadexPro_600SemiBold, ReadexPro_700Bold, BalooBhaijaan2_700Bold, BalooBhaijaan2_800ExtraBold });
   const ready = useAuth(s => s.ready);
+  const bootOffline = useAuth(s => s.bootOffline);
+  const user = useAuth(s => s.user);
   const online = useOnline();
   const themeName = useThemeSync();
   useLocaleSync();
@@ -119,6 +141,7 @@ export default function RootLayout() {
   useEffect(() => { if (fontsLoaded && ready) SplashScreen.hideAsync().catch(() => {}); }, [fontsLoaded, ready]);
 
   if (!fontsLoaded || !ready) return <View style={{ flex: 1, backgroundColor: colors.bg.base }} />;
+  if (bootOffline && !user) return <BootOffline />;
 
   return (
     <GestureHandlerRootView key={themeName} style={{ flex: 1, backgroundColor: colors.bg.base }}>

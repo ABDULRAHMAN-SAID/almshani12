@@ -41,6 +41,8 @@ export const ErrorCode = z.enum([
   'last_super_admin', 'teacher_verified', 'phone_taken', 'email_taken', 'self_target',
   /* إيصال رموز التحقّق */
   'otp_delivery_unavailable', 'otp_send_failed', 'otp_country_not_allowed',
+  /* الرفع والتخزين — يردّها الخادم بـ 4xx/503 ليعرف الرافع سببه بدل «حاول مرة أخرى» */
+  'file_too_large', 'quota_exceeded', 'service_unavailable',
 ]);
 export type ErrorCode = z.infer<typeof ErrorCode>;
 

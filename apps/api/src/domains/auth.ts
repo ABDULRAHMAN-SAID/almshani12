@@ -67,7 +67,8 @@ router.post('/otp/request', otpLimiter, validate(OtpRequest), asyncHandler(async
   const { channel, target: raw, via, locale } = body<typeof OtpRequest>(req);
   const target = normalizeTarget(channel, raw);
   const r = await startOtp({ channel, target, via, ip: req.ip, locale });
-  res.json({ ok: true, target, ttlSeconds: r.ttlSeconds, delivery: r.delivery, ...(r.devCode ? { devCode: r.devCode } : {}) });
+  // حزام إضافي فوق تجاهل config للرمز الثابت في الإنتاج: لا يخرج رمز دخول في ردّ عام مهما كان الإعداد
+  res.json({ ok: true, target, ttlSeconds: r.ttlSeconds, delivery: r.delivery, ...(r.devCode && config.env !== 'production' ? { devCode: r.devCode } : {}) });
 }));
 
 router.post('/otp/verify', otpLimiter, validate(OtpVerify), asyncHandler(async (req, res) => {

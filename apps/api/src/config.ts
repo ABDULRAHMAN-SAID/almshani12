@@ -43,8 +43,19 @@ const jsonRecord = (v: string | undefined): Record<string, string> => {
   if (!v) return {};
   try { const o = JSON.parse(v); return o && typeof o === 'object' ? Object.fromEntries(Object.entries(o).map(([k, x]) => [k, String(x)])) : {}; } catch { return {}; }
 };
-const fixedCode: string | null = process.env.OTP_FIXED_CODE === 'none' ? null
-  : process.env.OTP_FIXED_CODE || (isTest || process.env.NODE_ENV !== 'production' ? '000000' : null);
+/**
+ * الرمز الثابت خارج الإنتاج فقط: ملفات النشر الجاهزة تمرّر OTP_FIXED_CODE=000000، ولو قبلناه على خادم إنتاج
+ * لصار أي أحد يطلب رمز رقم المدير ويستلمه في نفس الردّ. ALLOW_INSECURE_OTP=1 يفتحه صراحةً لخادم عرض.
+ */
+const fixedCode: string | null = (() => {
+  if (process.env.OTP_FIXED_CODE === 'none') return null;
+  const code = process.env.OTP_FIXED_CODE || (isTest || process.env.NODE_ENV !== 'production' ? '000000' : null);
+  if (code && process.env.NODE_ENV === 'production' && !bool(process.env.ALLOW_INSECURE_OTP, false)) {
+    console.error('[config] تجاهلنا OTP_FIXED_CODE في الإنتاج — اضبط مزوّد إرسال حقيقياً (أو ALLOW_INSECURE_OTP=1 لخادم عرض)');
+    return null;
+  }
+  return code;
+})();
 const twilio = {
   accountSid: process.env.TWILIO_ACCOUNT_SID || '', authToken: process.env.TWILIO_AUTH_TOKEN || '',
   verifyServiceSid: process.env.TWILIO_VERIFY_SERVICE_SID || '', from: process.env.TWILIO_FROM || '',
@@ -88,6 +99,17 @@ function vapidKeys(): { publicKey: string; privateKey: string } {
   return keys;
 }
 
+/**
+ * 0 يبدو كطريقة لتعطيل النسخ لكنه يحوّل المجدول إلى حلقة ضيقة تنسخ القاعدة كلّها آلاف المرات في الدقيقة —
+ * التعطيل هو BACKUP_ENABLED=0، وأي قيمة غير موجبة تعود إلى الافتراضي، وربع الساعة أقلّ فترة معقولة.
+ */
+const backupEveryHours = (() => {
+  const hours = num(process.env.BACKUP_EVERY_HOURS, 24);
+  if (hours > 0) return Math.max(0.25, hours);
+  console.warn('[config] BACKUP_EVERY_HOURS غير موجب — نعود إلى 24 ساعة (التعطيل عبر BACKUP_ENABLED=0)');
+  return 24;
+})();
+
 export const config = {
   env: process.env.NODE_ENV || 'development',
   /** الإقلاع الأول على خادم فارغ: بذر تجريبي كامل (خادم عرض) أو المنهج فقط + مدير أوّل */
@@ -118,7 +140,7 @@ export const config = {
   otp: {
     ttlSeconds: num(process.env.OTP_TTL, 300),
     maxAttempts: 5,
-    /** رمز ثابت: OTP_FIXED_CODE، وإلا 000000 خارج الإنتاج (وفي الاختبار). OTP_FIXED_CODE=none يعطّله في أي بيئة */
+    /** رمز ثابت: OTP_FIXED_CODE، وإلا 000000 خارج الإنتاج (وفي الاختبار). OTP_FIXED_CODE=none يعطّله في أي بيئة، والإنتاج يتجاهله ما لم يُضبط ALLOW_INSECURE_OTP=1 */
     fixedCode,
     /** أهداف اختبار تقبل الرمز الثابت دائماً (حتى مع مزوّد حقيقي): OTP_TEST_TARGETS (قائمة بفواصل، يسمح بـ * في النهاية كبادئة) + أنماط حسابات العرض عند ALLOW_DEMO_SEED=1: '+96890000*', '+96891000*' */
     testTargets: [...list(process.env.OTP_TEST_TARGETS, []), ...(bool(process.env.ALLOW_DEMO_SEED, false) ? ['+96890000*', '+96891000*'] : [])],
@@ -208,7 +230,7 @@ export const config = {
 
   monitoring: { sentryDsn: process.env.SENTRY_DSN || '', tracesSampleRate: num(process.env.SENTRY_TRACES, 0) },
 
-  backups: { enabled: bool(process.env.BACKUP_ENABLED, true), keep: num(process.env.BACKUP_KEEP, 7), everyHours: num(process.env.BACKUP_EVERY_HOURS, 24) },
+  backups: { enabled: bool(process.env.BACKUP_ENABLED, true), keep: num(process.env.BACKUP_KEEP, 7), everyHours: backupEveryHours },
 
   mail: { receipts: bool(process.env.MAIL_RECEIPTS, true) },
 

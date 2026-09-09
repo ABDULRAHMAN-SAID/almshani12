@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { View, ScrollView, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -22,8 +22,14 @@ export default function Conversation() {
   const [text, setText] = useState('');
   const scroll = useRef<ScrollView>(null);
   const other = convs.data?.find(c => c.id === convId)?.other;
-  useEffect(() => { scroll.current?.scrollToEnd({ animated: false }); }, [q.data?.length]);
-  const submit = () => { const body = text.trim(); if (!body) return; send.mutate({ kind: 'text', body }, { onSuccess: () => setText('') }); };
+  // الصفحات تُجلب من الأحدث إلى الأقدم، والعرض بالعكس: الأقدم أعلى الشاشة
+  const msgs = useMemo(() => [...(q.data?.pages ?? [])].reverse().flat(), [q.data]);
+  // جلب الأقدم يزيد ارتفاع المحتوى: بلا هذه الراية يقفز العرض إلى آخر المحادثة فلا يرى المستخدم ما جلبه
+  const older = useRef(false);
+  const loadOlder = () => { older.current = true; q.fetchNextPage(); };
+  useEffect(() => { if (older.current) return; scroll.current?.scrollToEnd({ animated: false }); }, [msgs.length]);
+  // مفتاح «إرسال» في لوحة المفاتيح لا يمرّ بتعطيل الزرّ: بلا هذا الحارس تُرسل الرسالة مرّتين على شبكة بطيئة
+  const submit = () => { if (send.isPending) return; const body = text.trim(); if (!body) return; send.mutate({ kind: 'text', body }, { onSuccess: () => setText('') }); };
 
   let lastDay = '';
   return (
@@ -31,9 +37,10 @@ export default function Conversation() {
       /* محادثة غير موجودة أو ممنوعة: لا نعرض حقل كتابة لا يصل إلى أحد */
       footer={q.error ? undefined : <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}><View style={styles.inputRow}><View style={styles.flex}><Input value={text} onChangeText={setText} placeholder={t('messagesUi.placeholder')} onSubmitEditing={submit} returnKeyType="send" blurOnSubmit={false} /></View><Button label={t('messagesUi.send')} icon="send" onPress={submit} loading={send.isPending} disabled={!text.trim()} /></View>{send.error ? <Text role="caption" tone="danger">{t(errorMessageKey(send.error))}</Text> : null}</KeyboardAvoidingView>}>
       {q.isLoading ? <View style={styles.px}><RowSkeleton /><RowSkeleton /></View> : q.error ? <ErrorState error={q.error} onRetry={() => q.refetch()} onBack={() => router.back()} /> : (
-        <ScrollView ref={scroll} contentContainerStyle={styles.msgs} onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: true })}>
-          {q.data?.length === 0 ? <Text role="small" tone="tertiary" center>{t('live.noMessages')}</Text> : null}
-          {q.data?.map(m => {
+        <ScrollView ref={scroll} contentContainerStyle={styles.msgs} onContentSizeChange={() => { if (older.current) { older.current = false; return; } scroll.current?.scrollToEnd({ animated: true }); }}>
+          {msgs.length === 0 ? <Text role="small" tone="tertiary" center>{t('live.noMessages')}</Text> : null}
+          {q.hasNextPage ? <Button label={t('messagesUi.loadOlder')} variant="ghost" size="sm" loading={q.isFetchingNextPage} onPress={loadOlder} /> : null}
+          {msgs.map(m => {
             const day = dayKey(m.createdAt); const showDay = day !== lastDay; lastDay = day;
             const mine = m.senderId === me?.id;
             return (

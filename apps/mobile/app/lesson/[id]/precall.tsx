@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { CameraView, useCameraPermissions, useMicrophonePermissions } from 'expo-camera';
@@ -26,7 +26,13 @@ export default function PreCall() {
   const left = useCountdown(b.data?.roomOpensAt);
   const canJoin = !!b.data?.canJoin;
 
-  useEffect(() => { if (!cam?.granted) requestCam(); if (!mic?.granted) requestMic(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const [micProbe, setMicProbe] = useState<boolean | null>(null);
+  /** طلب إذن المايك على الويب يفتح تدفّق getUserMedia ولا يُغلقه expo-camera، فيبقى التقاط صوت حيّاً طوال الحصة — نطلبه بأنفسنا ونوقف مساراته فور الإجابة */
+  const askMic = async () => {
+    if (Platform.OS !== 'web') { setMicProbe((await requestMic()).granted); return; }
+    try { (await navigator.mediaDevices.getUserMedia({ audio: true })).getTracks().forEach(tr => tr.stop()); setMicProbe(true); } catch { setMicProbe(false); }
+  };
+  useEffect(() => { if (!cam?.granted) requestCam(); if (!mic?.granted) askMic(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     let alive = true;
     const run = async () => { const t0 = Date.now(); try { await api.get('/health', undefined, undefined, { auth: false }); if (!alive) return; const ms = Date.now() - t0; setLatency(ms); setNet(ms < 1500 ? 'ok' : 'bad'); } catch { if (alive) setNet('bad'); } };
@@ -41,7 +47,9 @@ export default function PreCall() {
     </View>
   );
   const camState: Check = cam == null ? 'testing' : cam.granted ? 'ok' : 'bad';
-  const micState: Check = mic == null ? 'testing' : mic.granted ? 'ok' : 'bad';
+  // نتيجة فحصنا أصدق من permissions.query الذي لا يدعم المايك في كل المتصفّحات
+  const micGranted = micProbe ?? mic?.granted ?? null;
+  const micState: Check = micGranted == null ? 'testing' : micGranted ? 'ok' : 'bad';
 
   return (
     <Screen onBack={() => router.back()} title={b.data?.status === 'in_progress' ? t('bookingUi.inProgress') : t('lessons.precall.title')} loading={b.isLoading} error={b.error} onRetry={() => b.refetch()}
@@ -54,7 +62,7 @@ export default function PreCall() {
           {row('mic', t('lessons.precall.mic'), micState)}
           {row('wifi', t('lessons.precall.connection'), net, latency != null ? `${latency} ms · ${net === 'ok' ? t('lessons.precall.good') : t('lessons.precall.weak')}` : undefined)}
         </View></Card>
-        {(cam && !cam.granted) || (mic && !mic.granted) ? <Button label={t('common.retry')} variant="secondary" icon="refresh" onPress={() => { requestCam(); requestMic(); }} /> : null}
+        {(cam && !cam.granted) || micGranted === false ? <Button label={t('common.retry')} variant="secondary" icon="refresh" onPress={() => { requestCam(); askMic(); }} /> : null}
         {b.data ? <Text role="caption" tone="tertiary" center tabular>{b.data.subject.name} · {formatTime(b.data.startsAt)}–{formatTime(b.data.endsAt)} · {t('common.timezoneNote')}</Text> : null}
       </View>
     </Screen>

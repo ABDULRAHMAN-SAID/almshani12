@@ -194,6 +194,8 @@ export interface TeacherAdminDetail {
   packages: { id: number; lessonsCount: number; durationMinutes: number; mode: string; price: number; active: boolean }[];
   availability: { id: number; weekday: number; startTime: string; endTime: string; slotMinutes: number; breakMinutes: number }[];
   timeOff: { id: number; from: string; to: string; reason: string | null }[];
+  /** المستندات للدعم والإدارة فقط — false يعني «لا صلاحية» لا «لم يرفع شيئاً»، والقائمة تصل فارغة في الحالتين */
+  documentsVisible: boolean;
   documents: { id: number; type: string; status: string; note: string | null; mime: string; name: string | null; url: string; reviewedBy: PersonBrief | null; reviewedAt: string | null; createdAt: string }[];
   history: { decision: string; reason: string | null; decided_at: string; reviewer: string | null }[];
   content: { books: { id: number; title: string; status: string; price: number; updatedAt: string }[]; courses: { id: number; title: string; status: string; price: number; updatedAt: string }[] };

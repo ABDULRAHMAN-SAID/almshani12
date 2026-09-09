@@ -20,8 +20,10 @@ services:
         value: "true"
       - key: ALLOW_DEMO_SEED
         value: "1"
-      - key: OTP_FIXED_CODE
-        value: "000000"   # رمز ثابت حتى ربط مزوّد — اجعله none بعدها
+      # تحذير: رمز دخول ثابت يفتح كل حساب لمن يعرف الرقم — لا تفعّله على خادم يحمل بيانات حقيقية.
+      # الخادم يتجاهله أصلاً في الإنتاج؛ فعّله فقط لخادم عرض مؤقّت مع ALLOW_INSECURE_OTP=1.
+      # - key: OTP_FIXED_CODE
+      #   value: "000000"
       # رموز تحقّق حقيقية (اختيارية — تُملأ من لوحة Render؛ راجع README «رموز تحقّق حقيقية»)
       - key: EMAIL_FROM
         sync: false

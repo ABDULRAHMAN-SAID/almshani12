@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, Pressable, StyleSheet, Platform, Linking } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { colors, spacing, radius, subjectColors, type SubjectColorKey, themed } from '@manassah/tokens';
@@ -27,6 +27,7 @@ export default function LessonDetail() {
   const report = useReport();
   const [dialog, setDialog] = useState<null | 'cancel' | 'booked' | 'report'>(booked ? 'booked' : null);
   const [sheet, setSheet] = useState(false);
+  const [attachError, setAttachError] = useState<unknown>(null);
   const [day, setDay] = useState<string | null>(null);
   const [slot, setSlot] = useState<string | null>(null);
   const b = q.data;
@@ -38,6 +39,12 @@ export default function LessonDetail() {
   const live = b?.status === 'in_progress' || (b?.status === 'confirmed' && b.canJoin);
 
   const attachmentUrl = async (fileId: number) => { const r = await api.get<{ url: string }>(`/bookings/${bookingId}/notes/files/${fileId}`); return r.url; };
+  // window.open غير موجودة في React Native (window مجرّد اسم آخر لـ global) فكان الضغط يرمي بصمت — والفتح على الجوال بـ Linking
+  const openAttachment = async (fileId: number) => {
+    setAttachError(null);
+    try { const u = await attachmentUrl(fileId); if (Platform.OS === 'web') window.open(u, '_blank'); else await Linking.openURL(u); }
+    catch (e) { setAttachError(e); }
+  };
 
   return (
     <Screen onBack={() => router.back()} title={t('lessons.details')} loading={q.isLoading} error={q.error} onRetry={() => q.refetch()} refreshing={q.isRefetching} onRefresh={() => q.refetch()}
@@ -53,10 +60,14 @@ export default function LessonDetail() {
             {b.status === 'confirmed' && !b.canJoin ? <Text role="caption" tone="info" tabular>{t('lessons.precall.opensAt', { t: formatDateTime(b.roomOpensAt) })}{secondsToOpen > 0 && secondsToOpen < 3600 ? ` · ${t('live.openIn', { m: Math.ceil(secondsToOpen / 60) })}` : ''}</Text> : null}
           </Card>
 
+          {/* منطقة الفتح هي الصورة والاسم وحدهما: زرّ التواصل أخوها لا ابنها — زرّ داخل زرّ غير صالح في HTML */}
           {other ? (
-            <Card onPress={() => !asTeacher && router.push(`/teacher/${other.id}`)} style={styles.person}>
-              <Avatar name={other.name} url={other.avatarUrl} size="lg" verified={other.verified} />
-              <View style={styles.flex}><Text role="caption" tone="secondary">{asTeacher ? t('onboarding.student') : t('booking.teacher')}</Text><Text role="h3" numberOfLines={1}>{other.name}</Text></View>
+            <Card style={styles.person}>
+              <Pressable onPress={() => !asTeacher && router.push(`/teacher/${other.id}`)} disabled={asTeacher}
+                accessibilityRole="button" accessibilityLabel={other.name} style={styles.personTap}>
+                <Avatar name={other.name} url={other.avatarUrl} size="lg" verified={other.verified} />
+                <View style={styles.flex}><Text role="caption" tone="secondary">{asTeacher ? t('onboarding.student') : t('booking.teacher')}</Text><Text role="h3" numberOfLines={1}>{other.name}</Text></View>
+              </Pressable>
               <Button label={t(asTeacher ? 'bookingUi.contactStudent' : 'bookingUi.contact')} variant="secondary" size="sm" icon="message" loading={start.isPending} onPress={() => start.mutate({ userId: other.id, context: { type: 'booking', id: bookingId } }, { onSuccess: c => router.push(`/conversation/${c.id}`) })} />
             </Card>
           ) : null}
@@ -66,7 +77,8 @@ export default function LessonDetail() {
               <SectionHeader title={t('lessons.post.summary')} />
               {b.notes.summary ? <Text role="body" tone="secondary" style={styles.para}>{b.notes.summary}</Text> : null}
               {b.notes.homework ? <View style={styles.hw}><Text role="caption" tone="brand">{t('lessons.post.homework')}</Text><Text role="body">{b.notes.homework}</Text></View> : null}
-              {b.notes.attachments.length ? <View style={styles.att}>{b.notes.attachments.map((a, i) => <Button key={i} label={a.name} variant="secondary" size="sm" icon="attach" onPress={async () => { const u = await attachmentUrl(Number((a as { fileId?: number }).fileId ?? a.url)); if (typeof window !== 'undefined') window.open(u, '_blank'); }} />)}</View> : null}
+              {b.notes.attachments.length ? <View style={styles.att}>{b.notes.attachments.map((a, i) => <Button key={i} label={a.name} variant="secondary" size="sm" icon="attach" onPress={() => openAttachment(a.fileId)} />)}</View> : null}
+              {attachError ? <Text role="small" tone="danger">{t(errorMessageKey(attachError))}</Text> : null}
             </Card>
           ) : null}
 
@@ -122,6 +134,7 @@ const styles = themed((c) => StyleSheet.create({
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing[2], marginBottom: spacing[3] },
   row: { flexDirection: 'row', alignItems: 'center', gap: spacing[2], marginBottom: spacing[2] },
   person: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
+  personTap: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
   flex: { flex: 1, minWidth: 0 },
   para: { lineHeight: 24 },
   hw: { marginTop: spacing[3], padding: spacing[3], backgroundColor: c.brand.primarySoft, borderRadius: radius.md, gap: 4 },

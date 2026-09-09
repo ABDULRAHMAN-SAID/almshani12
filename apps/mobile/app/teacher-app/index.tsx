@@ -35,6 +35,8 @@ export default function TeacherDashboard() {
               <Badge label={t(`teacherUi.status.${status}`)} tone={verified ? 'success' : status === 'rejected' || status === 'suspended' ? 'danger' : 'warning'} />
             </View>
             {status === 'rejected' ? <Button label={t('teacherUi.reapply')} variant="secondary" size="sm" onPress={() => router.push('/teacher-app/apply')} style={styles.mt} /> : null}
+            {/* مستند مرفوض لا يستدعي إعادة الطلب كاملاً: الشاشة تستبدله وحده */}
+            {d.documents.some(x => x.status === 'rejected') ? <Button label={t('teacherUi.documents')} icon="document" variant="secondary" size="sm" onPress={() => router.push('/teacher-app/documents')} style={styles.mt} /> : null}
           </Card>
           <View style={styles.grid}>
             {tile('wallet', t('teacherApp.monthIncome'), money(d.monthIncome), () => router.push('/teacher-app/earnings'))}
@@ -51,6 +53,7 @@ export default function TeacherDashboard() {
             <Button label={t('teacherApp.earnings')} icon="wallet" variant="secondary" full onPress={() => router.push('/teacher-app/earnings')} />
             <Button label={t('teacherApp.quick.uploadBook')} icon="upload" variant="secondary" full disabled={!verified} onPress={() => router.push('/teacher-app/books')} />
             <Button label={t('teacherUi.myLessons')} icon="video" variant="secondary" full onPress={openLessons} />
+            <Button label={t('teacherUi.documents')} icon="document" variant="secondary" full onPress={() => router.push('/teacher-app/documents')} />
           </View>
         </View>
       ) : null}

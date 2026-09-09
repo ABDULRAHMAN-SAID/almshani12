@@ -8,7 +8,7 @@ import { validate, body, query, idParam } from '../lib/validate.ts';
 import { attachUser, requireAuth, requireVerifiedTeacher, hasRole } from '../lib/auth.ts';
 import { paginate, pageMeta, money, iso } from '../lib/helpers.ts';
 import { checkAccess, ownedIds, favoriteIds } from '../services/access.ts';
-import { signedUrl, upload, storeUpload, publicUrl } from '../services/storage.ts';
+import { signedUrl, upload, storeUpload, publicUrl, deleteFile, RASTER_IMAGE } from '../services/storage.ts';
 import { bookCard, reviewItems } from '../services/mappers.ts';
 import { notifyStaff } from '../services/notifications.ts';
 
@@ -149,25 +149,35 @@ router.patch('/:id', requireVerifiedTeacher, validate(BookUpsert), (req, res) =>
 });
 
 /** رفع ملفات الكتاب: full / preview / sample_page (خاصة) أو cover (عامة) — غلاف صغير وملف كتاب أكبر */
-const uploadBookFile = (req: Request, res: Response, next: NextFunction) => upload(String(req.query.kind ?? '') === 'cover' ? 8 : 60)(req, res, next);
+const KINDS = ['cover', 'full', 'preview', 'sample_page'];
+const kindOf = (req: Request) => String(req.query.kind ?? '');
+/** النوع يُحسم من الاستعلام وحده وقبل قراءة أي بايت: مع kind في الجسم كان غلافٌ عام يمرّ بحدّ الكتاب (٦٠ م.ب) */
+const uploadBookFile = (req: Request, res: Response, next: NextFunction) => {
+  const kind = kindOf(req);
+  if (!KINDS.includes(kind)) return next(badRequest('نوع الملف غير معروف'));
+  return upload(kind === 'cover' ? 8 : 60)(req, res, next);
+};
 router.post('/:id/files', requireVerifiedTeacher, uploadBookFile, asyncHandler(async (req, res) => {
   const b = ownBook(req);
-  const kind = String(req.query.kind ?? req.body?.kind ?? '');
+  const kind = kindOf(req);
   if (!req.file) throw badRequest('لم يُرفق ملف');
   if (kind === 'cover') {
-    if (!req.file.mimetype.startsWith('image/')) throw badRequest('الغلاف يجب أن يكون صورة');
+    // SVG «صورة» أيضاً، لكنه يُخدَم من نطاق التطبيق فينفّذ سكربتاً على جلسة من يفتح صفحة الكتاب
+    if (!RASTER_IMAGE.test(req.file.mimetype)) throw badRequest('الغلاف يجب أن يكون صورة');
     const f = storeUpload(req.file, { ownerId: req.user!.id, purpose: 'cover', visibility: 'public' });
     q.run('UPDATE books SET cover_file_id = ?, updated_at = ? WHERE id = ?', f.id, nowIso(), b.id);
+    deleteFile(b.cover_file_id); // الغلاف المستبدَل لا مرجع له بعد الآن
     return res.status(201).json({ fileId: f.id, url: publicUrl(f.id) });
   }
-  if (!['full', 'preview', 'sample_page'].includes(kind)) throw badRequest('نوع الملف غير معروف');
-  const okMime = kind === 'sample_page' ? /^(image\/|application\/pdf)/ : /^application\/pdf$/;
+  const okMime = kind === 'sample_page' ? new RegExp(`(${RASTER_IMAGE.source})|^application/pdf$`) : /^application\/pdf$/;
   if (!okMime.test(req.file.mimetype)) throw badRequest('الملف يجب أن يكون PDF');
   const f = storeUpload(req.file, { ownerId: req.user!.id, purpose: 'book', visibility: 'private' });
+  const replaced = kind === 'sample_page' ? null : q.val<number>('SELECT file_id FROM book_files WHERE book_id = ? AND kind = ?', b.id, kind);
   if (kind !== 'sample_page') q.run('DELETE FROM book_files WHERE book_id = ? AND kind = ?', b.id, kind);
   const order = (q.val<number>('SELECT COALESCE(MAX("order"),0) FROM book_files WHERE book_id = ?', b.id) ?? 0) + 1;
   q.run('INSERT INTO book_files (book_id, kind, file_id, "order") VALUES (?,?,?,?)', b.id, kind, f.id, order);
   q.run('UPDATE books SET updated_at = ? WHERE id = ?', nowIso(), b.id);
+  deleteFile(replaced); // نسخة الكتاب السابقة كانت تبقى على القرص للأبد
   res.status(201).json({ fileId: f.id, kind });
 }));
 

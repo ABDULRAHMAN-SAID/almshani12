@@ -307,6 +307,8 @@ router.get('/teachers/:id', requireRole('support', 'finance'), (req, res) => {
     availability: q.all<any>('SELECT id, weekday, start_time AS startTime, end_time AS endTime, slot_minutes AS slotMinutes, break_minutes AS breakMinutes FROM teacher_availability WHERE teacher_id = ? ORDER BY weekday, start_time', id),
     timeOff: q.all<any>('SELECT id, starts_at, ends_at, reason FROM teacher_time_off WHERE teacher_id = ? ORDER BY starts_at DESC LIMIT 100', id).map(x => ({ id: x.id, from: x.starts_at, to: x.ends_at, reason: x.reason ?? null })),
     // مستندات الهوية بيانات حسّاسة: للدعم والإدارة (أصحاب قرار التحقّق) لا للمالية
+    // documentsVisible يميّز «لا صلاحية» عن «لم يرفع شيئاً»: القائمة الفارغة وحدها كانت تُقرأ ادّعاءً بأنه لم يرفع مستندات
+    documentsVisible: hasRole(req.user, 'support'),
     documents: hasRole(req.user, 'support') ? q.all<any>('SELECT d.*, f.mime, f.original_name FROM teacher_documents d JOIN files f ON f.id = d.file_id WHERE d.teacher_id = ? ORDER BY d.id', id).map(d => documentView(d, req)) : [],
     history: q.all<any>('SELECT v.decision, v.reason, v.decided_at, p.display_name AS reviewer FROM teacher_verifications v LEFT JOIN profiles p ON p.user_id = v.reviewer_id WHERE v.teacher_id = ? ORDER BY v.id DESC', id),
     content: {

@@ -55,14 +55,15 @@ export async function probeServer(url: string): Promise<{ ok: boolean; name?: st
 
 /**
  * الاتصال بالخادم التجريبي: يقرأ السجلّ → إن كان متوقفاً أو بلا عنوان فـ down → يطرق /api/health → إن لم يردّ فـ unreachable
- * → يحفظ العنوان ثم يخرج (الخروج يعيد إلى الترحيب ليُسجَّل الدخول على الخادم الجديد؛ التخطيط الجذري يخرج أيضاً عند تغيّر الخادم والاستدعاءان يُدمجان).
+ * → يخرج ثم يحفظ العنوان (الخروج يعيد إلى الترحيب ليُسجَّل الدخول على الخادم الجديد؛ التخطيط الجذري يخرج أيضاً عند تغيّر الخادم والاستدعاءان يُدمجان).
+ * الترتيب مقصود: الخروج أولاً كي تُمسح رموز الخادم القديم قبل أن يصير العنوان الجديد هو الوجهة، فلا يصل إليه رمز جلسة ليس له.
  */
 export async function connectToLiveServer(): Promise<ConnectResult> {
   let live: LiveServer;
   try { live = await fetchLiveServer(); } catch { return { ok: false, reason: 'registry' }; }
   if (live.status !== 'up' || !live.url) return { ok: false, reason: 'down' };
   if (!(await probeServer(live.url)).ok) return { ok: false, reason: 'unreachable' };
-  useUi.getState().setServerUrl(live.url);
   await signOut();
+  useUi.getState().setServerUrl(live.url);
   return { ok: true, url: live.url };
 }

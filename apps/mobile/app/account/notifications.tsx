@@ -28,7 +28,7 @@ export default function Notifications() {
     else if (d.payoutId) router.push('/teacher-app/earnings');
     // تعديل رصيد من الإدارة يفتح المحفظة، ومستند مرفوض يفتح ملفّ المعلّم
     else if (n.type === 'wallet_adjusted') router.push('/account/wallet');
-    else if (n.type === 'teacher_document_rejected') router.push('/teacher-app');
+    else if (n.type === 'teacher_document_rejected') router.push('/teacher-app/documents');
     else if (d.teacherId || n.type === 'teacher_verified' || n.type === 'teacher_rejected') router.push('/teacher-app');
   };
   return (

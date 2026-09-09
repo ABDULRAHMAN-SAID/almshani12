@@ -47,9 +47,12 @@ export default function ApplyTeacher() {
     const r = await DocumentPicker.getDocumentAsync({ type: ['application/pdf', 'image/*'] });
     if (r.canceled || !r.assets[0]) return;
     const a = r.assets[0];
-    const up = await upload.mutateAsync({ uri: a.uri, name: a.name, mime: a.mimeType ?? 'application/octet-stream', purpose: 'document', blob: a.file ?? undefined });
-    setDocs(d => [...d, { type: docType, fileId: up.id, name: a.name }]);
-    clear('documents');
+    // فشل الرفع كان يمرّ صامتاً: لا مستند يُضاف ولا رسالة تظهر، فيصطدم المعلّم عند الإرسال بـ«المستندات مطلوبة» دون سبب مفهوم
+    try {
+      const up = await upload.mutateAsync({ uri: a.uri, name: a.name, mime: a.mimeType ?? 'application/octet-stream', purpose: 'document', blob: a.file ?? undefined });
+      setDocs(d => [...d, { type: docType, fileId: up.id, name: a.name }]);
+      clear('documents');
+    } catch { /* السبب يُعرض من upload.error تحت الزرّ */ }
   };
   const submit = () => {
     const parsed = TeacherApplication.safeParse(payload);
@@ -90,6 +93,7 @@ export default function ApplyTeacher() {
           <View style={styles.chips}>{(['id', 'degree', 'certificate'] as DocType[]).map(d => <Chip key={d} label={t(`teacherUi.doc${d[0].toUpperCase()}${d.slice(1)}`)} selected={docType === d} onPress={() => setDocType(d)} />)}</View>
           <Button label={t('teacherUi.pickDoc')} icon="upload" variant="secondary" size="sm" loading={upload.isPending} onPress={pick} style={styles.mt} />
           <View style={[styles.chips, styles.mt]}>{docs.map(d => <Chip key={d.fileId} label={`${t(`teacherUi.doc${d.type[0].toUpperCase()}${d.type.slice(1)}`)}: ${d.name}`} icon="close" onPress={() => setDocs(l => l.filter(x => x.fileId !== d.fileId))} />)}</View>
+          {upload.error ? <Text role="caption" tone="danger">{t(errorMessageKey(upload.error))}</Text> : null}
           {err('documents') ? <Text role="caption" tone="danger">{err('documents')}</Text> : null}
         </Card>
         {apply.error ? <Text role="small" tone="danger">{t(errorMessageKey(apply.error))}</Text> : null}

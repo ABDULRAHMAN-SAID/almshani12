@@ -14,15 +14,17 @@ async function readKey(key: string): Promise<string | null> {
     return await SecureStore.getItemAsync(key);
   } catch { return null; }
 }
-async function writeKey(key: string, value: string | null): Promise<void> {
+/** يعيد نجاح الكتابة: ابتلاع الفشل يترك القرص على رمز التجديد القديم بينما الذاكرة تحمل الجديد */
+async function writeKey(key: string, value: string | null): Promise<boolean> {
   try {
     if (Platform.OS === 'web') {
-      if (typeof localStorage === 'undefined') return;
+      if (typeof localStorage === 'undefined') return false;
       value == null ? localStorage.removeItem(key) : localStorage.setItem(key, value);
-      return;
+      return true;
     }
     value == null ? await SecureStore.deleteItemAsync(key) : await SecureStore.setItemAsync(key, value);
-  } catch { /* تخزين غير متاح — الجلسة تبقى في الذاكرة */ }
+    return true;
+  } catch { return false; }
 }
 
 /** نسخة متزامنة في الذاكرة يقرأها عميل الـ API بلا await */
@@ -33,9 +35,14 @@ export const tokens = {
     this.access = await readKey(KEY_ACCESS);
     this.refresh = await readKey(KEY_REFRESH);
   },
-  async set(access: string | null, refresh: string | null) {
+  /** يعيد false إن لم يصل الحفظ إلى القرص — يعرفه المستدعي بدل أن يظنّ الجلسة محفوظة */
+  async set(access: string | null, refresh: string | null): Promise<boolean> {
     this.access = access; this.refresh = refresh;
-    await Promise.all([writeKey(KEY_ACCESS, access), writeKey(KEY_REFRESH, refresh)]);
+    const written = await Promise.all([writeKey(KEY_ACCESS, access), writeKey(KEY_REFRESH, refresh)]);
+    if (written.every(Boolean)) return true;
+    // القرص تخلّف عن الذاكرة: نمسح ما بقي عليه، فرمز تجديد قديم يُحمَّل في الإقلاع التالي = إعادة استخدام تُبطل جلسات الحساب كلها
+    if (access != null || refresh != null) await Promise.all([writeKey(KEY_ACCESS, null), writeKey(KEY_REFRESH, null)]);
+    return false;
   },
   async clear() { await this.set(null, null); },
 };
@@ -58,10 +65,13 @@ export const setLearnerEffects = (fn: (id: number | null) => void) => { learnerE
 interface AuthState {
   user: User | null;
   ready: boolean;
+  /** الإقلاع وجد جلسة محفوظة لكنه لم يصل الخادم — ليس خروجاً: نعرض «لا يوجد اتصال» بإعادة محاولة لا شاشة الترحيب */
+  bootOffline: boolean;
   /** المتعلّم النشط على هذا الجهاز — يُرسَل في ترويسة X-Learner-Id */
   activeLearnerId: number | null;
   setUser: (user: User | null) => void;
   setReady: (ready: boolean) => void;
+  setBootOffline: (bootOffline: boolean) => void;
   setActiveLearner: (id: number | null) => void;
   signOut: () => Promise<void>;
 }
@@ -69,6 +79,7 @@ interface AuthState {
 export const useAuth = create<AuthState>((set, get) => ({
   user: null,
   ready: false,
+  bootOffline: false,
   activeLearnerId: readLearnerPref(readPrefsSync()),
   setUser: (user) => {
     // نُبقي اختيار الجهاز إن كان ما زال من متعلّمي الحساب، وإلا حقيقة الخادم ثم الافتراضي
@@ -79,6 +90,7 @@ export const useAuth = create<AuthState>((set, get) => ({
     patchPrefs({ [PREF_KEY]: id });
   },
   setReady: (ready) => set({ ready }),
+  setBootOffline: (bootOffline) => set({ bootOffline }),
   setActiveLearner: (id) => {
     if (id === get().activeLearnerId) return;
     set({ activeLearnerId: id });

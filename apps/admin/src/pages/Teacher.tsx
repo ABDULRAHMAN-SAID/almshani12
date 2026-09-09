@@ -118,7 +118,8 @@ export default function TeacherPage({ me }: { me: Me }) {
   const d = q.data;
   if (!d) return <Page title="صفحة المعلّم">{q.isError ? <ErrorState error={q.error} /> : <Empty text="جارٍ التحميل…" />}</Page>;
   const admin = can(me, 'admin'), fin = can(me, 'finance'), support = can(me, 'support');
-  const pendingDocs = d.documents.filter(x => x.status === 'submitted').length;
+  // بلا صلاحية عرض المستندات تصل القائمة فارغة، فحساب الشارة منها يعرض «صفر قيد المراجعة» ادّعاءً
+  const pendingDocs = d.documentsVisible ? d.documents.filter(x => x.status === 'submitted').length : undefined;
   const tabs = [
     { key: 'documents', label: 'المستندات', badge: pendingDocs, show: true }, { key: 'teaching', label: 'التدريس', show: true }, { key: 'availability', label: 'التوفّر', show: true },
     { key: 'earnings', label: 'الأرباح', show: fin }, { key: 'payouts', label: 'السحوبات', show: fin },

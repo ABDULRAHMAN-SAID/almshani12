@@ -13,7 +13,7 @@ import { migrate, q } from './db/index.ts';
 import { SCHEMA_VERSION } from './db/migrations.ts';
 import { attachUser } from './lib/auth.ts';
 import { notFoundHandler, errorHandler, AppError } from './lib/errors.ts';
-import { verifySignedAccess, getFile, absolutePath } from './services/storage.ts';
+import { verifySignedAccess, getFile, absolutePath, sweepTmpUploads, type StoredFile } from './services/storage.ts';
 import { expirePendingBookings, closeFinishedBookings } from './services/bookings.ts';
 import { expirePendingOrders } from './services/checkout.ts';
 import { releaseEarnings } from './services/earnings.ts';
@@ -52,14 +52,15 @@ export function createApp() {
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With', 'X-Learner-Id'],
   }));
   app.use(compression());
-  // ردود بوابات الدفع تحتاج الجسم الخام للتحقّق من التوقيع — تُركَّب قبل json()
-  app.use('/api/payments', paymentsRouter);
-  app.use(express.json({ limit: '2mb' }));
-  app.use(express.urlencoded({ extended: false }));
+  // المحدِّد قبل كل شيء: مسارات الدفع كانت فوقه فبقيت بلا سقف رغم أنها مفتوحة وتوقّع HMAC وتنادي البوابة
   app.use(rateLimit({
     windowMs: 60_000, limit: config.rateLimit.apiPerMinute, standardHeaders: 'draft-7', legacyHeaders: false, skip: () => !config.rateLimit.enabled,
     handler: (_req, res) => res.status(429).json({ error: { code: 'rate_limited', message: 'محاولات كثيرة. انتظر قليلاً ثم حاول.' } }),
   }));
+  // ردود بوابات الدفع تحتاج الجسم الخام للتحقّق من التوقيع — تُركَّب قبل json()
+  app.use('/api/payments', paymentsRouter);
+  app.use(express.json({ limit: '2mb' }));
+  app.use(express.urlencoded({ extended: false }));
   app.use(attachUser);
 
   app.get('/api/health', (_req, res) => res.json({ ok: true, name: config.brand.name.ar, env: config.env, time: new Date().toISOString(), schemaVersion: SCHEMA_VERSION, otp: otpMethods(), integrations: integrationsSummary() }));
@@ -73,18 +74,34 @@ export function createApp() {
   }));
 
   /* ---------- الملفات: عامة بلا توقيع، وخاصة بتوقيع قصير العمر ---------- */
+  /** ما يُعرض داخل الصفحة بأمان؛ ما عداه (SVG، HTML، أي نوع مجهول) يُنزَّل ولا يُنفَّذ */
+  const INLINE_SAFE = /^(image\/(png|jpeg|gif|webp|heic|heif)|application\/pdf|video\/|audio\/)/;
+  /**
+   * ملفات المستخدمين تُخدَم من نطاق التطبيق نفسه (الويب على الجذر)، فمستند ينفّذ سكربتاً بينها
+   * يقرأ رموز جلسة الضحية. لذا: لا نُعيد النوع الذي أعلنه الرافع إلا لأنواع آمنة معروفة،
+   * والباقي يُسلَّم مرفقاً محايداً مع sandbox يمنع تنفيذ أي شيء.
+   */
+  const sendStored = (res: express.Response, f: StoredFile) => {
+    const safe = INLINE_SAFE.test(f.mime);
+    res.setHeader('Content-Security-Policy', safe ? "default-src 'none'" : "default-src 'none'; sandbox");
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    // RFC 5987: الاسم العربي يصل سليماً في filename* ويبقى بديل ASCII للعملاء القديمة
+    const name = (f.original_name ?? `file-${f.id}`).replace(/[\r\n"\\]/g, '_');
+    res.setHeader('Content-Disposition',
+      `${safe ? 'inline' : 'attachment'}; filename="${name.replace(/[^\x20-\x7e]/g, '_')}"; filename*=UTF-8''${encodeURIComponent(name)}`);
+    res.type(safe ? f.mime : 'application/octet-stream').sendFile(absolutePath(f)); // يدعم Range للفيديو والصفحات
+  };
   app.get('/api/files/public/:id', (req, res, next) => {
     const f = getFile(Number(req.params.id));
     if (!f || f.visibility !== 'public') return next(new AppError('not_found', 'الملف غير موجود', 404));
     res.setHeader('Cache-Control', 'public, max-age=86400');
-    res.type(f.mime).sendFile(absolutePath(f));
+    sendStored(res, f);
   });
   app.get('/api/files/:id', (req, res, next) => {
     try {
       const f = verifySignedAccess(Number(req.params.id), Number(req.query.u), Number(req.query.e), String(req.query.s ?? ''));
       res.setHeader('Cache-Control', 'private, no-store');
-      res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(f.original_name ?? `file-${f.id}`)}"`);
-      res.type(f.mime).sendFile(absolutePath(f)); // يدعم Range للفيديو والصفحات
+      sendStored(res, f);
     } catch (err) { next(err); }
   });
 
@@ -158,6 +175,7 @@ export function runMaintenance() {
 
 export function start() {
   const { server } = createApp();
+  sweepTmpUploads(); // رفعٌ قُطع بإعادة نشر أو تعطّل يترك بقايا في tmp لا يحذفها شيء
   const boot = bootstrapIfEmpty();
   if (boot.seeded !== 'none') console.log(`[bootstrap] ${boot.seeded === 'demo' ? 'بيانات العرض' : 'المنهج'}${boot.admin ? ` + مدير ${boot.admin}` : ''}`);
   server.listen(config.port, config.host, () => {

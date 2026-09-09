@@ -33,7 +33,9 @@ export default function TeacherBooks() {
     const r = await DocumentPicker.getDocumentAsync({ type: 'application/pdf' });
     if (r.canceled || !r.assets[0]) return;
     const a = r.assets[0];
-    await upload.mutateAsync({ bookId, kind, uri: a.uri, name: a.name, mime: a.mimeType ?? 'application/pdf', blob: a.file ?? undefined });
+    // فشل الرفع كان يخرج رفضاً غير ملتقَط: الرسالة تُعرض من upload.error تحت البطاقات، فلا داعي لإسقاط الشاشة
+    try { await upload.mutateAsync({ bookId, kind, uri: a.uri, name: a.name, mime: a.mimeType ?? 'application/pdf', blob: a.file ?? undefined }); }
+    catch { /* السبب يُعرض من upload.error */ }
   };
   const save = () => {
     const parsed = BookUpsert.safeParse({ title: f.title, type, subjectId, gradeId, semesterId, description: f.description, learnPoints: [], toc: [], price: Number(f.price) || 0, pages: Number(f.pages) || null, edition: null, version: null, language: 'ar', level: null, previewPages: 5, tags: [] });

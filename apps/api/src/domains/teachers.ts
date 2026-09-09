@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { TeachersQuery, AvailabilityQuery, AvailabilityRules, TimeOff, TeacherApplication, LessonPrice, savePercent } from '@manassah/shared';
+import { TeachersQuery, AvailabilityQuery, AvailabilityRules, TimeOff, TeacherApplication, TeacherDocumentType, LessonPrice, Id, savePercent } from '@manassah/shared';
 import { db, q, json, settings, nowIso } from '../db/index.ts';
 import { config } from '../config.ts';
 import { AppError, asyncHandler, notFound, badRequest } from '../lib/errors.ts';
@@ -9,12 +9,12 @@ import { attachUser, requireAuth, requireVerifiedTeacher } from '../lib/auth.ts'
 import { paginate, pageMeta, money, iso, muscatToUtc, utcToMuscatParts } from '../lib/helpers.ts';
 import { favoriteIds, ownedIds } from '../services/access.ts';
 import { generateSlots } from '../services/slots.ts';
-import { teacherCard, bookCard, courseCard, reviewItems, gradeRef, bookingView } from '../services/mappers.ts';
+import { teacherCard, bookCard, courseCard, reviewItems, gradeRef, bookingView, publicUrlFromPath } from '../services/mappers.ts';
 import { summary as earningsSummary } from '../services/earnings.ts';
 import { notifyStaff, notify } from '../services/notifications.ts';
 import { audit } from '../lib/audit.ts';
 import { learnerRefById } from '../services/learners.ts';
-import { publicUrlFromPath } from '../services/mappers.ts';
+import { deleteFile } from '../services/storage.ts';
 import type { BookingRow } from '../services/bookings.ts';
 
 /* ============ عام: البحث والملف والتوفّر ============ */
@@ -138,12 +138,38 @@ selfRouter.post('/apply', validate(TeacherApplication), (req, res) => {
     for (const s of a.subjectIds) for (const g of a.gradeIds) q.run('INSERT OR IGNORE INTO teacher_subjects (teacher_id, subject_id, grade_id) VALUES (?,?,?)', uid, s, g);
     q.run('DELETE FROM teacher_prices WHERE teacher_id = ?', uid);
     for (const p of a.prices) q.run('INSERT INTO teacher_prices (teacher_id, duration_minutes, mode, price) VALUES (?,?,?,?)', uid, p.durationMinutes, p.mode, money(p.price));
-    q.run('DELETE FROM teacher_documents WHERE teacher_id = ?', uid);
-    for (const d of a.documents) q.run('INSERT INTO teacher_documents (teacher_id, type, file_id) VALUES (?,?,?)', uid, d.type, d.fileId);
+    // إعادة التقديم كانت تحذف كل المستندات فتضيع المراجعة السابقة ومنها المقبول:
+    // نستبدل بحسب النوع فقط، ونُبقي ما لم يذكره الطلب الجديد بحاله.
+    for (const d of a.documents) {
+      const prev = q.get<any>('SELECT id, file_id FROM teacher_documents WHERE teacher_id = ? AND type = ? ORDER BY id DESC LIMIT 1', uid, d.type);
+      if (!prev) q.run('INSERT INTO teacher_documents (teacher_id, type, file_id) VALUES (?,?,?)', uid, d.type, d.fileId);
+      // المستند المستبدَل يبقى بلا مرجع لكنه يظلّ على القرص وفي files — ووثيقة هوية باقية بلا صاحب أسوأ من غيرها
+      else if (prev.file_id !== d.fileId) { q.run("UPDATE teacher_documents SET file_id = ?, status = 'submitted', note = NULL, reviewed_by = NULL, reviewed_at = NULL WHERE id = ?", d.fileId, prev.id); deleteFile(prev.file_id); }
+    }
   })();
   notifyStaff(['admin', 'support'], { type: 'system', title: 'طلب معلّم جديد', body: a.displayName, data: { teacherId: uid } });
   audit(req, 'teacher.apply', 'user', uid);
   res.status(201).json({ ok: true, verificationStatus: 'pending' });
+});
+
+/** إعادة رفع مستند بعينه — رفض مستند واحد يطلب من المعلّم استبداله، و/apply مغلق على المعتمَد */
+const DocumentUpload = z.object({ type: TeacherDocumentType, fileId: Id });
+selfRouter.post('/documents', validate(DocumentUpload), (req, res) => {
+  const uid = req.user!.id;
+  const d = body<typeof DocumentUpload>(req);
+  const current = q.val<string>('SELECT verification_status FROM teacher_profiles WHERE user_id = ?', uid);
+  if (!current) throw notFound('لم تقدّم طلب انضمام بعد');
+  if (current === 'suspended') throw new AppError('forbidden', 'حسابك موقوف — تواصل مع الدعم', 403);
+  const f = q.get<any>('SELECT owner_id FROM files WHERE id = ?', d.fileId);
+  if (!f || f.owner_id !== uid) throw badRequest('المستند غير صالح');
+  // مستند واحد لكل نوع: البديل يعود «مُقدَّماً» ليدخل طابور المراجعة من جديد
+  const prev = q.get<any>('SELECT id, file_id FROM teacher_documents WHERE teacher_id = ? AND type = ? ORDER BY id DESC LIMIT 1', uid, d.type);
+  if (prev) { q.run("UPDATE teacher_documents SET file_id = ?, status = 'submitted', note = NULL, reviewed_by = NULL, reviewed_at = NULL WHERE id = ?", d.fileId, prev.id); if (prev.file_id !== d.fileId) deleteFile(prev.file_id); }
+  else q.run('INSERT INTO teacher_documents (teacher_id, type, file_id) VALUES (?,?,?)', uid, d.type, d.fileId);
+  const doc = q.get<any>('SELECT id, type, status, note, created_at FROM teacher_documents WHERE teacher_id = ? AND type = ? ORDER BY id DESC LIMIT 1', uid, d.type);
+  notifyStaff(['admin', 'support'], { type: 'system', title: 'مستند معلّم بحاجة إلى مراجعة', body: null, data: { teacherId: uid, documentId: doc.id } });
+  audit(req, 'teacher.document_upload', 'teacher_documents', doc.id, { type: d.type }, uid);
+  res.status(201).json({ ...doc, created_at: iso(doc.created_at) });
 });
 
 selfRouter.get('/me', (req, res) => {
