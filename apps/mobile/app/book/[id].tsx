@@ -9,6 +9,7 @@ import { colors, spacing, radius, subjectColors, subjectIcons, type SubjectColor
 import { Screen, Text, Icon, Button, IconButton, Chip, Badge, Avatar, Rating, Price, SectionHeader, BookCard, ReviewList, ReviewSheet, Expandable, VerifiedBadge } from '@/ui';
 import { useBook, useAddToCart, useCart, useToggleFavorite } from '@/features/queries';
 import { formatDayShort } from '@/lib/format';
+import { safeBack } from '@/lib/session';
 
 const BADGE_TONE = { bestseller: 'brand', new: 'info', updated: 'success', verified: 'gold', free: 'success' } as const;
 
@@ -44,7 +45,7 @@ export default function BookDetail() {
   ) : null;
 
   return (
-    <Screen onBack={() => router.back()} title={b?.title ?? ''} loading={book.isLoading} error={book.error} onRetry={() => book.refetch()} padded={false} footer={footer}
+    <Screen onBack={() => safeBack(router)} title={b?.title ?? ''} loading={book.isLoading} error={book.error} onRetry={() => book.refetch()} padded={false} footer={footer}
       right={b ? (
         <Pressable onPress={() => fav.mutate({ targetType: 'book', targetId: bookId })} style={styles.iconBtn} accessibilityRole="button" accessibilityLabel={t('account.favorites')}>
           <Icon name={b.favorited ? 'heartFilled' : 'heart'} size={22} color={b.favorited ? colors.brand.primary : colors.text.primary} />

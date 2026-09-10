@@ -8,7 +8,7 @@ import { AuthMethods, AuthSession, OtpRequestResult, type OtpVia } from '@manass
 import { Screen, Text, Button, Input, Chip, Icon } from '@/ui';
 import { api, ApiError, errorMessageKey } from '@/api/client';
 import { useServerConfig } from '@/api/config';
-import { signIn, homeFor } from '@/lib/session';
+import { signIn, homeFor, safeBack } from '@/lib/session';
 import { renderGoogleButton, appleWebSignIn, appleNativeSignIn, loadAppleNative, loadGoogleNative, hasGoogleNative, GOOGLE_NATIVE_IDS, type AppleResult } from '@/lib/social';
 
 type Channel = 'phone' | 'email';
@@ -88,7 +88,7 @@ export default function Login() {
   };
 
   return (
-    <Screen onBack={() => router.back()} title={t('ui.login')} contentStyle={styles.wrap}>
+    <Screen onBack={() => safeBack(router)} title={t('ui.login')} contentStyle={styles.wrap}>
       <View style={styles.head}>
         <Text role="h1">{t('auth.otpTitle')}</Text>
         <Text role="body" tone="secondary">{t('auth.otpBody')}</Text>

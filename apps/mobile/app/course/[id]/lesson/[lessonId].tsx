@@ -9,6 +9,7 @@ import { Screen, Text, Icon, Button, Chip, Card, Badge, EmptyState } from '@/ui'
 import { usePlayLesson, useLessonProgress, useCourse } from '@/features/queries';
 import { ApiError } from '@/api/client';
 import { durationLabel } from '@/lib/format';
+import { safeBack } from '@/lib/session';
 
 const SPEEDS = [0.75, 1, 1.25, 1.5, 2];
 
@@ -47,7 +48,7 @@ export default function LessonPlayer() {
   const count = course.data?.lessonsCount ?? 0;
 
   return (
-    <Screen onBack={() => router.back()} title={d?.lesson.title ?? course.data?.title ?? ''} subtitle={idx >= 0 ? t('playerUi.lessonOf', { i: idx + 1, n: count }) : undefined} loading={q.isLoading} error={paywall ? undefined : q.error} onRetry={() => q.refetch()} padded={false}
+    <Screen onBack={() => safeBack(router)} title={d?.lesson.title ?? course.data?.title ?? ''} subtitle={idx >= 0 ? t('playerUi.lessonOf', { i: idx + 1, n: count }) : undefined} loading={q.isLoading} error={paywall ? undefined : q.error} onRetry={() => q.refetch()} padded={false}
       footer={d ? (
         <View style={styles.nav}>
           <Button label={t('quizUi.prev')} variant="secondary" icon="back" disabled={!d.prev} onPress={() => d.prev && router.replace(`/course/${courseId}/lesson/${d.prev.id}`)} />

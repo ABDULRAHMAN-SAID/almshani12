@@ -7,6 +7,7 @@ import { Screen, Text, Button, Input, Chip, Card, Badge, SectionHeader } from '@
 import { useTeacherEarnings, useRequestPayout } from '@/features/queries';
 import { errorMessageKey } from '@/api/client';
 import { money, formatDayShort } from '@/lib/format';
+import { safeBack } from '@/lib/session';
 
 /** الأرباح: إجمالي/عمولة/صافي، قيد التسوية/متاح/مصروف، تفصيل بالمصدر، وطلب سحب بحدّ أدنى من الإعدادات */
 export default function Earnings() {
@@ -24,7 +25,7 @@ export default function Earnings() {
     <Card key={label} style={styles.tile}><Text role="caption" tone="secondary" numberOfLines={1}>{label}</Text><Text role="h3" tabular tone={tone} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{money(value)}</Text></Card>
   );
   return (
-    <Screen onBack={() => router.back()} title={t('teacherApp.earnings')} loading={q.isLoading} error={q.error} onRetry={() => q.refetch()} refreshing={q.isRefetching} onRefresh={() => q.refetch()}>
+    <Screen onBack={() => safeBack(router)} title={t('teacherApp.earnings')} loading={q.isLoading} error={q.error} onRetry={() => q.refetch()} refreshing={q.isRefetching} onRefresh={() => q.refetch()}>
       {d ? (
         <View style={styles.wrap}>
           <View style={styles.grid}>

@@ -8,6 +8,7 @@ import { Screen, Text, Button, Dialog, LearnerForm, EmptyState } from '@/ui';
 import { useUpdateLearner, useDeleteLearner } from '@/features/queries';
 import { useLearners } from '@/state/auth';
 import { errorMessageKey } from '@/api/client';
+import { safeBack } from '@/lib/session';
 
 /** تعديل متعلّم + حذف (أرشفة) بتأكيد — أخطاء «لديه حصص قادمة» و«آخر متعلّم» تُعرض بنصّها */
 export default function EditLearner() {
@@ -23,7 +24,7 @@ export default function EditLearner() {
   const submit = (input: LearnerUpsert) => { const { isSelf: _ignored, ...patch } = input; update.mutate(patch, { onSuccess: () => router.back() }); };
 
   return (
-    <Screen onBack={() => router.back()} title={t('learners.edit')}>
+    <Screen onBack={() => safeBack(router)} title={t('learners.edit')}>
       {learner ? (
         <View style={styles.wrap}>
           <LearnerForm key={learner.id} mode="edit" initial={learner} showSelfToggle={false} onSubmit={submit} busy={update.isPending} error={update.error} submitLabel={t('common.save')} />

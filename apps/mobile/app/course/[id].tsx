@@ -7,6 +7,7 @@ import { colors, spacing, radius, subjectColors, type SubjectColorKey, themed } 
 import { Screen, Text, Icon, Button, Chip, Badge, Avatar, Rating, Price, Card, SectionHeader, ReviewList, ReviewSheet, Expandable, VerifiedBadge } from '@/ui';
 import { useCourse, useAddToCart, useCart, useToggleFavorite } from '@/features/queries';
 import { durationLabel } from '@/lib/format';
+import { safeBack } from '@/lib/session';
 
 /** صفحة الدورة: ما ستتعلّمه، المحتوى بالأقسام (معاينة/مقفل/مكتمل)، التقييمات — والشراء أو المتابعة في زرّ واحد */
 export default function CourseDetail() {
@@ -26,7 +27,7 @@ export default function CourseDetail() {
   const nextLesson = lessons.find(l => !l.completed && !l.locked) ?? lessons[0];
 
   return (
-    <Screen onBack={() => router.back()} title={c?.title ?? ''} loading={q.isLoading} error={q.error} onRetry={() => q.refetch()} padded={false}
+    <Screen onBack={() => safeBack(router)} title={c?.title ?? ''} loading={q.isLoading} error={q.error} onRetry={() => q.refetch()} padded={false}
       right={c ? <Pressable onPress={() => fav.mutate({ targetType: 'course', targetId: courseId })} style={styles.iconBtn} accessibilityRole="button" accessibilityLabel={t('account.favorites')} accessibilityState={{ selected: c.favorited }}><Icon name={c.favorited ? 'heartFilled' : 'heart'} size={22} color={c.favorited ? colors.brand.primary : colors.text.primary} /></Pressable> : undefined}
       footer={c ? (c.enrolled ? <Button label={c.progressPercent ? t('courses.continue') : t('courses.start')} icon="play" size="lg" full disabled={!nextLesson} onPress={() => nextLesson && router.push(`/course/${courseId}/lesson/${nextLesson.id}`)} />
         : <View style={styles.footer}><View style={styles.flex}><Price value={c.price} size="lg" /><Text role="caption" tone="tertiary">{t('book.securePay')}</Text></View>

@@ -7,6 +7,7 @@ import { Screen, Text, Icon, Button, Card, Badge, BottomSheet, EmptyState, Learn
 import { useTeacherMe, useTeacherStudents } from '@/features/queries';
 import { ApiError } from '@/api/client';
 import { money, formatDayShort } from '@/lib/format';
+import { safeBack } from '@/lib/session';
 
 /** لوحة المعلّم: حالة الاعتماد أولاً، ثم أرقام حقيقية، ثم الأدوات */
 export default function TeacherDashboard() {
@@ -25,7 +26,7 @@ export default function TeacherDashboard() {
   const tile = (icon: IconName, label: string, value: string, onPress?: () => void) => <Card key={label} style={styles.tile} onPress={onPress}><Icon name={icon} size={18} color={colors.brand.primary} /><Text role="h2" tabular>{value}</Text><Text role="caption" tone="secondary">{label}</Text></Card>;
 
   return (
-    <Screen onBack={() => router.back()} title={t('teacherApp.dashboard')} loading={q.isLoading} error={notApplied ? undefined : q.error} onRetry={() => q.refetch()} refreshing={q.isRefetching} onRefresh={() => q.refetch()}>
+    <Screen onBack={() => safeBack(router)} title={t('teacherApp.dashboard')} loading={q.isLoading} error={notApplied ? undefined : q.error} onRetry={() => q.refetch()} refreshing={q.isRefetching} onRefresh={() => q.refetch()}>
       {d ? (
         <View style={styles.wrap}>
           <Card accent={verified} rail={!verified ? colors.state.warning : undefined}>

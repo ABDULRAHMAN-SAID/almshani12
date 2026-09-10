@@ -6,6 +6,7 @@ import { colors, spacing, radius, themed } from '@manassah/tokens';
 import { Screen, Text, Tabs, Button, Card, Badge, EmptyState, Icon } from '@/ui';
 import { usePurchases } from '@/features/queries';
 import { money, formatDayShort, formatDateTime } from '@/lib/format';
+import { safeBack } from '@/lib/session';
 
 type Tab = 'books' | 'courses' | 'lessons' | 'orders';
 const ORDER_TONE = { pending: 'warning', paid: 'success', failed: 'danger', refunded: 'neutral', partially_refunded: 'neutral', cancelled: 'neutral', expired: 'neutral' } as const;
@@ -19,7 +20,7 @@ export default function Purchases() {
   const d = q.data;
   const empty = <EmptyState icon="receipt" title={t('purchasesUi.empty')} actionLabel={t('library.explore')} onAction={() => router.replace('/(tabs)/library')} />;
   return (
-    <Screen onBack={() => router.back()} title={t('account.purchases')} loading={q.isLoading} error={q.error} onRetry={() => q.refetch()} refreshing={q.isRefetching} onRefresh={() => q.refetch()}>
+    <Screen onBack={() => safeBack(router)} title={t('account.purchases')} loading={q.isLoading} error={q.error} onRetry={() => q.refetch()} refreshing={q.isRefetching} onRefresh={() => q.refetch()}>
       <View style={styles.note}><Icon name="info" size={16} color={colors.state.info} /><Text role="caption" tone="secondary" style={styles.flex}>{t('purchases.sharedNote')}</Text></View>
       <Tabs value={tab} onChange={setTab} scrollable items={[{ key: 'books', label: t('account.purchasesTabs.books'), count: d?.books.length }, { key: 'courses', label: t('account.purchasesTabs.courses'), count: d?.courses.length }, { key: 'lessons', label: t('account.purchasesTabs.lessons'), count: d?.lessons.length }, { key: 'orders', label: t('purchasesUi.orders'), count: d?.orders.length }]} />
       <View style={styles.list}>

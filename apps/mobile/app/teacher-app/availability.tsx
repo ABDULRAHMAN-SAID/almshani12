@@ -7,6 +7,7 @@ import { Screen, Text, Button, Input, Chip, Card, SectionHeader, Icon } from '@/
 import { useTeacherAvailability, useSaveAvailability, useAddTimeOff, useRemoveTimeOff } from '@/features/queries';
 import { errorMessageKey } from '@/api/client';
 import { formatDateTime } from '@/lib/format';
+import { safeBack } from '@/lib/session';
 
 const DAYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
 type Rule = { weekday: number; startTime: string; endTime: string; slotMinutes: number; breakMinutes: number };
@@ -36,7 +37,7 @@ export default function Availability() {
   };
 
   return (
-    <Screen onBack={() => router.back()} title={t('teacherApp.availability')} loading={q.isLoading} error={q.error} onRetry={() => q.refetch()}
+    <Screen onBack={() => safeBack(router)} title={t('teacherApp.availability')} loading={q.isLoading} error={q.error} onRetry={() => q.refetch()}
       footer={<Button label={save.isSuccess && !save.isPending ? t('settings.saved') : t('teacherUi.saveRules')} size="lg" full loading={save.isPending} disabled={!valid} onPress={() => save.mutate(rules)} />}>
       <View style={styles.wrap}>
         <Text role="body" tone="secondary">{t('teacherUi.availabilityHint')}</Text>

@@ -5,6 +5,7 @@ import { colors, spacing, themed } from '@manassah/tokens';
 import { Screen, Text, Card, Icon, SectionHeader } from '@/ui';
 import { useWallet } from '@/features/queries';
 import { money, formatDateTime } from '@/lib/format';
+import { safeBack } from '@/lib/session';
 
 export default function Wallet() {
   const { t } = useTranslation();
@@ -12,7 +13,7 @@ export default function Wallet() {
   const q = useWallet();
   const d = q.data;
   return (
-    <Screen onBack={() => router.back()} title={t('walletUi.title')} loading={q.isLoading} error={q.error} onRetry={() => q.refetch()} refreshing={q.isRefetching} onRefresh={() => q.refetch()}>
+    <Screen onBack={() => safeBack(router)} title={t('walletUi.title')} loading={q.isLoading} error={q.error} onRetry={() => q.refetch()} refreshing={q.isRefetching} onRefresh={() => q.refetch()}>
       {d ? (
         <View style={styles.wrap}>
           <Card accent><View style={styles.balance}><Icon name="wallet" size={26} color={colors.brand.primary} /><View><Text role="caption" tone="secondary">{t('walletUi.balance')}</Text><Text role="display" tabular>{money(d.balance)}</Text></View></View><Text role="caption" tone="tertiary">{t('walletUi.note')}</Text></Card>

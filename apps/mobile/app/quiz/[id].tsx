@@ -9,6 +9,7 @@ import { Screen, Text, Icon, Button, Input, Card, Badge, EmptyState } from '@/ui
 import { useQuiz, useSubmitQuiz, useLessonProgress } from '@/features/queries';
 import { ApiError, errorMessageKey } from '@/api/client';
 import { durationLabel, mmss } from '@/lib/format';
+import { safeBack } from '@/lib/session';
 
 type Answer = number[] | string;
 
@@ -44,10 +45,10 @@ export default function Quiz() {
   const toggle = (qid: number, idx: number, single: boolean) => setAnswers(a => { const curA = Array.isArray(a[qid]) ? (a[qid] as number[]) : []; return { ...a, [qid]: single ? [idx] : curA.includes(idx) ? curA.filter(x => x !== idx) : [...curA, idx] }; });
   const paywall = q.error instanceof ApiError && q.error.status === 402;
 
-  if (paywall) return <Screen onBack={() => router.back()}><EmptyState icon="lock" title={t('courses.locked')} body={t('errors.contentUnavailable')} /></Screen>;
+  if (paywall) return <Screen onBack={() => safeBack(router)}><EmptyState icon="lock" title={t('courses.locked')} body={t('errors.contentUnavailable')} /></Screen>;
 
   return (
-    <Screen onBack={() => router.back()} title={quiz?.title ?? ''} loading={q.isLoading} error={q.error} onRetry={() => q.refetch()}
+    <Screen onBack={() => safeBack(router)} title={quiz?.title ?? ''} loading={q.isLoading} error={q.error} onRetry={() => q.refetch()}
       footer={started && !result && cur ? (
         <View style={styles.nav}>
           <Button label={t('quizUi.prev')} variant="secondary" disabled={i === 0} onPress={() => setI(i - 1)} />

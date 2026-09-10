@@ -11,6 +11,7 @@ import { errorMessageKey } from '@/api/client';
 import { money, formatDateTime } from '@/lib/format';
 import { useCountdown } from '@/lib/hooks';
 import { useLearners } from '@/state/auth';
+import { safeBack } from '@/lib/session';
 
 const ICON: Record<string, IconName> = { wallet: 'wallet', manual: 'bank', mock: 'card', thawani: 'card', stripe: 'card' };
 
@@ -66,7 +67,7 @@ export default function Checkout() {
   };
 
   return (
-    <Screen onBack={() => router.back()} title={t('checkout.title')} loading={!!loading} error={booking.error ?? methods.error} onRetry={() => { booking.refetch(); methods.refetch(); }}
+    <Screen onBack={() => safeBack(router)} title={t('checkout.title')} loading={!!loading} error={booking.error ?? methods.error} onRetry={() => { booking.refetch(); methods.refetch(); }}
       footer={<Button label={expired ? t('checkout.expired') : t('cart.pay', { p: money(total) })} size="lg" full icon="lock" loading={checkout.isPending} disabled={!provider || !ready || walletShort || expired || total < 0} onPress={pay} />}>
       <View style={styles.wrap}>
         {bookingId && p.expiresAt && !expired ? <View style={styles.hold}><Icon name="clock" size={16} color={colors.state.warning} /><Text role="small" tone="warning" tabular>{t('booking.expiresIn', { m: Math.max(1, Math.ceil(left / 60)) })}</Text></View> : null}

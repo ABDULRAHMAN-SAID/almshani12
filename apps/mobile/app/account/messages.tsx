@@ -6,6 +6,7 @@ import { Screen, Text, Avatar, EmptyState } from '@/ui';
 import { useConversations } from '@/features/queries';
 import { useAuth, isTeacher } from '@/state/auth';
 import { formatDayShort } from '@/lib/format';
+import { safeBack } from '@/lib/session';
 
 export default function Messages() {
   const { t } = useTranslation();
@@ -14,7 +15,7 @@ export default function Messages() {
   // المعلّم لا يبدأ محادثة من صفحة معلّم — بل من بطاقة الطالب في الحصة
   const teacher = isTeacher(useAuth(s => s.user));
   return (
-    <Screen onBack={() => router.back()} title={t('messagesUi.title')} loading={q.isLoading} error={q.error} onRetry={() => q.refetch()} refreshing={q.isRefetching} onRefresh={() => q.refetch()}
+    <Screen onBack={() => safeBack(router)} title={t('messagesUi.title')} loading={q.isLoading} error={q.error} onRetry={() => q.refetch()} refreshing={q.isRefetching} onRefresh={() => q.refetch()}
       empty={!!q.data && q.data.length === 0} emptyProps={{ icon: 'message', title: t('messagesUi.empty'), body: t(teacher ? 'messagesUi.emptyHintTeacher' : 'messagesUi.emptyHint'), actionLabel: t(teacher ? 'teacherUi.myLessons' : 'teachers.find'), onAction: () => (teacher ? router.replace({ pathname: '/(tabs)/lessons', params: { as: 'teacher' } }) : router.replace('/teachers')) }}>
       <View style={styles.list}>
         {q.data?.map(c => (

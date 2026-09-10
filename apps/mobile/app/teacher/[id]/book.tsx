@@ -9,6 +9,7 @@ import { useTeacher, useAvailability, useCreateBooking, useLessons } from '@/fea
 import { useLearners, useActiveLearner } from '@/state/auth';
 import { errorMessageKey } from '@/api/client';
 import { dayKey, formatDateTime, money } from '@/lib/format';
+import { safeBack } from '@/lib/session';
 
 type Duration = 30 | 45 | 60;
 
@@ -63,7 +64,7 @@ export default function BookLesson() {
   };
 
   return (
-    <Screen onBack={() => router.back()} title={t('booking.title')} loading={teacher.isLoading} error={teacher.error} onRetry={() => teacher.refetch()}
+    <Screen onBack={() => safeBack(router)} title={t('booking.title')} loading={teacher.isLoading} error={teacher.error} onRetry={() => teacher.refetch()}
       footer={p ? (
         <View style={styles.footer}>
           <View style={styles.flex}>

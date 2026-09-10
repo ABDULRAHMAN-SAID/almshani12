@@ -6,8 +6,7 @@ import { colors, spacing, radius, themed } from '@manassah/tokens';
 import { brand } from '@manassah/shared';
 import { Screen, Text, Button, Card, Icon } from '@/ui';
 import { useUi } from '@/state/ui';
-import { useAuth } from '@/state/auth';
-import { signOut, homeFor } from '@/lib/session';
+import { signOut, safeBack } from '@/lib/session';
 
 /** عنوان خادم صالح: http(s) ثم مضيف (نطاق أو IP أو localhost) ومنفذ اختياري ومسار اختياري — بلا مسافات أو استعلام */
 const SERVER_RE = /^https?:\/\/[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*(:\d{1,5})?(\/[^\s?#]*)?$/i;
@@ -57,7 +56,7 @@ export default function Connect() {
     setBusy(true);
     try { await signOut(); setServerUrl(url); } finally { setBusy(false); }
   };
-  const cancel = () => { if (router.canGoBack()) router.back(); else router.replace(homeFor(useAuth.getState().user) as never); };
+  const cancel = () => safeBack(router);
 
   /** الرابط العميق للتطبيق المثبَّت — على الويب ننتقل بالصفحة نفسها لأن فتح تبويب جديد بمخطّط مخصّص يُحجَب على الهواتف غالباً */
   const openInApp = () => {

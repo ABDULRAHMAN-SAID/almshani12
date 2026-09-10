@@ -8,6 +8,7 @@ import { useMessages, useSendMessage, useConversations } from '@/features/querie
 import { useAuth } from '@/state/auth';
 import { errorMessageKey } from '@/api/client';
 import { formatTime, relativeDay, dayKey } from '@/lib/format';
+import { safeBack } from '@/lib/session';
 
 /** محادثة طالب–معلّم: فقاعات بسيطة، تحديث دوري، إرسال بالإدخال */
 export default function Conversation() {
@@ -33,10 +34,10 @@ export default function Conversation() {
 
   let lastDay = '';
   return (
-    <Screen onBack={() => router.back()} title={other?.name ?? t('messagesUi.title')} scroll={false} padded={false}
+    <Screen onBack={() => safeBack(router)} title={other?.name ?? t('messagesUi.title')} scroll={false} padded={false}
       /* محادثة غير موجودة أو ممنوعة: لا نعرض حقل كتابة لا يصل إلى أحد */
       footer={q.error ? undefined : <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}><View style={styles.inputRow}><View style={styles.flex}><Input value={text} onChangeText={setText} placeholder={t('messagesUi.placeholder')} onSubmitEditing={submit} returnKeyType="send" blurOnSubmit={false} /></View><Button label={t('messagesUi.send')} icon="send" onPress={submit} loading={send.isPending} disabled={!text.trim()} /></View>{send.error ? <Text role="caption" tone="danger">{t(errorMessageKey(send.error))}</Text> : null}</KeyboardAvoidingView>}>
-      {q.isLoading ? <View style={styles.px}><RowSkeleton /><RowSkeleton /></View> : q.error ? <ErrorState error={q.error} onRetry={() => q.refetch()} onBack={() => router.back()} /> : (
+      {q.isLoading ? <View style={styles.px}><RowSkeleton /><RowSkeleton /></View> : q.error ? <ErrorState error={q.error} onRetry={() => q.refetch()} onBack={() => safeBack(router)} /> : (
         <ScrollView ref={scroll} contentContainerStyle={styles.msgs} onContentSizeChange={() => { if (older.current) { older.current = false; return; } scroll.current?.scrollToEnd({ animated: true }); }}>
           {msgs.length === 0 ? <Text role="small" tone="tertiary" center>{t('live.noMessages')}</Text> : null}
           {q.hasNextPage ? <Button label={t('messagesUi.loadOlder')} variant="ghost" size="sm" loading={q.isFetchingNextPage} onPress={loadOlder} /> : null}

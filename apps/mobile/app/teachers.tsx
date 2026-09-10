@@ -8,6 +8,7 @@ import { useTeachers, useCatalog } from '@/features/queries';
 import { useUi } from '@/state/ui';
 import { useAuth, useActiveLearner } from '@/state/auth';
 import { useDebounced } from '@/lib/hooks';
+import { safeBack } from '@/lib/session';
 
 const SORTS = ['recommended', 'rating', 'price_asc', 'soonest'] as const;
 const PRICES = [3, 5, 8];
@@ -34,7 +35,7 @@ export default function Teachers() {
   const toggle = <K extends keyof typeof f>(k: K, v: (typeof f)[K]) => setF({ ...f, [k]: f[k] === v ? undefined : v });
 
   return (
-    <Screen onBack={() => router.back()} title={t('teachers.title')} scroll={false} padded={false}>
+    <Screen onBack={() => safeBack(router)} title={t('teachers.title')} scroll={false} padded={false}>
       <View style={styles.px}><SearchInput value={q} onChangeText={setQ} placeholder={t('teachers.searchPlaceholder')} onClear={() => setQ('')} onFilter={() => setSheet(true)} activeFilters={active} returnKeyType="search" /></View>
       <FlatList
         data={items} keyExtractor={x => String(x.id)} contentContainerStyle={styles.list}

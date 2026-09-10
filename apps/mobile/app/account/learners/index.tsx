@@ -7,6 +7,7 @@ import { useReorderLearners } from '@/features/queries';
 import { useAuth, useLearners } from '@/state/auth';
 import { useUi } from '@/state/ui';
 import { errorMessageKey } from '@/api/client';
+import { safeBack } from '@/lib/session';
 
 const MAX_LEARNERS = 6;
 
@@ -29,7 +30,7 @@ export default function LearnersScreen() {
   const add = () => { if (learners.length >= MAX_LEARNERS) showToast(t('learners.limit')); else router.push('/account/learners/new'); };
 
   return (
-    <Screen onBack={() => router.back()} title={t('learners.title')} footer={<Button label={t('learners.add')} icon="plus" size="lg" full onPress={add} disabled={learners.length >= MAX_LEARNERS} />}>
+    <Screen onBack={() => safeBack(router)} title={t('learners.title')} footer={<Button label={t('learners.add')} icon="plus" size="lg" full onPress={add} disabled={learners.length >= MAX_LEARNERS} />}>
       <View style={styles.wrap}>
         {learners.length === 0 ? <EmptyState icon="people" title={t('learners.emptyTitle')} body={t('learners.emptyBody')} actionLabel={t('learners.add')} onAction={add} /> : null}
         {learners.map((l, i) => {

@@ -8,6 +8,7 @@ import { Screen, IconButton, Text, Icon, Button, Chip, Badge, Avatar, Rating, Pr
 import { useTeacher, useToggleFavorite, useStartConversation } from '@/features/queries';
 import { useAuth } from '@/state/auth';
 import { money, weekdayShort } from '@/lib/format';
+import { safeBack } from '@/lib/session';
 
 /** ملف المعلّم: كل ما يحتاجه الطالب ليثق ويحجز — والفعل الرئيسي «احجز حصة» ثابت أسفل الشاشة */
 export default function TeacherProfile() {
@@ -31,7 +32,7 @@ export default function TeacherProfile() {
   const rulesFor = (wd: number) => (p?.availabilityRules ?? []).filter(r => r.weekday === wd).sort((a, b) => a.startTime.localeCompare(b.startTime));
 
   return (
-    <Screen onBack={() => router.back()} title={p?.name ?? ''} loading={q.isLoading} error={q.error} onRetry={() => q.refetch()} padded={false}
+    <Screen onBack={() => safeBack(router)} title={p?.name ?? ''} loading={q.isLoading} error={q.error} onRetry={() => q.refetch()} padded={false}
       right={p ? <Pressable onPress={() => fav.mutate({ targetType: 'teacher', targetId: teacherId })} style={styles.iconBtn} accessibilityRole="button" accessibilityLabel={t('account.favorites')}><Icon name={p.favorited ? 'heartFilled' : 'heart'} size={22} color={p.favorited ? colors.brand.primary : colors.text.primary} /></Pressable> : undefined}
       footer={p && !isMe ? (
         <View style={styles.footer}>

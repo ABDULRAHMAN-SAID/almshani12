@@ -9,6 +9,7 @@ import { useAuth } from '@/state/auth';
 import { errorMessageKey, api } from '@/api/client';
 import { formatDateTime, formatTime, relativeDay, money, dayKey, durationLabel } from '@/lib/format';
 import { useCountdown } from '@/lib/hooks';
+import { safeBack } from '@/lib/session';
 
 const TONE = { pending_payment: 'warning', confirmed: 'info', in_progress: 'live', completed: 'success', cancelled_by_student: 'neutral', cancelled_by_teacher: 'danger', no_show: 'danger', disputed: 'warning', expired: 'neutral' } as const;
 
@@ -47,7 +48,7 @@ export default function LessonDetail() {
   };
 
   return (
-    <Screen onBack={() => router.back()} title={t('lessons.details')} loading={q.isLoading} error={q.error} onRetry={() => q.refetch()} refreshing={q.isRefetching} onRefresh={() => q.refetch()}
+    <Screen onBack={() => safeBack(router)} title={t('lessons.details')} loading={q.isLoading} error={q.error} onRetry={() => q.refetch()} refreshing={q.isRefetching} onRefresh={() => q.refetch()}
       footer={b && (b.canJoin || live) ? <Button label={t('home.join')} icon="video" size="lg" full onPress={() => router.push(`/lesson/${bookingId}/precall`)} /> : undefined}>
       {b ? (
         <View style={styles.wrap}>

@@ -7,6 +7,7 @@ import { Screen, Text, Icon, Button, Input, Card, Price, EmptyState } from '@/ui
 import { useCart, useRemoveFromCart, useApplyCoupon } from '@/features/queries';
 import { errorMessageKey } from '@/api/client';
 import { money } from '@/lib/format';
+import { safeBack } from '@/lib/session';
 
 /** السلة: عناصر، إزالة، كوبون، تفصيل الإجمالي — ثم إتمام الشراء */
 export default function Cart() {
@@ -19,7 +20,7 @@ export default function Cart() {
   const c = cart.data;
 
   return (
-    <Screen onBack={() => router.back()} title={t('cart.title')} loading={cart.isLoading} error={cart.error} onRetry={() => cart.refetch()}
+    <Screen onBack={() => safeBack(router)} title={t('cart.title')} loading={cart.isLoading} error={cart.error} onRetry={() => cart.refetch()}
       empty={!!c && c.items.length === 0} emptyProps={{ icon: 'cart', title: t('cart.empty'), body: t('cart.emptyHint'), actionLabel: t('library.explore'), onAction: () => router.replace('/(tabs)/library') }}
       footer={c && c.items.length ? <Button label={t('cart.pay', { p: money(c.total) })} size="lg" full icon="lock" onPress={() => router.push('/checkout')} /> : undefined}>
       {c && c.items.length ? (

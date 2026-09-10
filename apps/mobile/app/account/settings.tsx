@@ -8,7 +8,7 @@ import { useUpdateProfile, useDeleteAccount } from '@/features/queries';
 import { useAuth, useActiveLearner } from '@/state/auth';
 import { useUi, type ThemePref, type TextScale } from '@/state/ui';
 import type { Locale } from '@manassah/shared';
-import { signOut } from '@/lib/session';
+import { signOut, safeBack } from '@/lib/session';
 import { errorMessageKey, resolveBase, DEMO_FALLBACK, isDemo } from '@/api/client';
 import { getPushState, enablePush, disablePush, type PushState } from '@/lib/push';
 
@@ -58,7 +58,7 @@ export default function Settings() {
   const sizeOptions: { key: TextScale; label: string }[] = [{ key: 1, label: t('settings.textNormal') }, { key: 1.15, label: t('settings.textLarge') }];
 
   return (
-    <Screen onBack={() => router.back()} title={t('settings.title')}>
+    <Screen onBack={() => safeBack(router)} title={t('settings.title')}>
       <View style={styles.wrap}>
         {/* المظهر */}
         <Card>

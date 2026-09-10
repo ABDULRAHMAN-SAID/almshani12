@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View, ScrollView, Pressable, RefreshControl, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, ScrollView, Pressable, RefreshControl, StyleSheet, Platform, type StyleProp, type ViewStyle } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, layout, hitTarget, radius, themed } from '@manassah/tokens';
 import { Text } from './Text';
 import { Icon } from './Icon';
@@ -38,6 +38,7 @@ export function Screen({
   loading, error, onRetry, empty, emptyProps, refreshing, onRefresh, footer, contentStyle, children,
 }: ScreenProps) {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   let body: ReactNode = children;
   if (loading) body = <ScreenSkeleton />;
   else if (error) body = <ErrorState error={error} onRetry={onRetry} onBack={onBack} />;
@@ -76,7 +77,18 @@ export function Screen({
           {inner}
         </ScrollView>
       ) : inner}
-      {footer ? <View style={styles.footer}>{footer}</View> : null}
+      {/*
+       * الترويسة الآمنة تستثني 'bottom' عمداً (بعض الشاشات تريد محتواً يمتدّ حتى الحافة)،
+       * فالتذييل الثابت يحسب حشوته السفلى بنفسه. على الجوال: نتحقّق من inset الحقيقي.
+       * على الويب: متصفّح أندرويد لا يُبلّغ safe-area-inset-bottom لشريط تنقّله الخاص
+       * (خلافاً لسفاري وشريط الإيماءات في آيفون) فيعود صفراً دائماً — كان هذا يجعل الزرّ
+       * يلامس شريط أندرويد نفسه؛ حدّ أدنى ثابت يضمن مسافة حتى حين لا يُبلَّغ الـ inset.
+       */}
+      {footer ? (
+        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, Platform.OS === 'web' ? 16 : 0) + spacing[3] }]}>
+          {footer}
+        </View>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -97,7 +109,8 @@ const styles = themed((c) => StyleSheet.create({
   content: { flex: 1, width: '100%', maxWidth: layout.maxContentWidth, alignSelf: 'center' },
   padded: { paddingHorizontal: layout.screenPadding },
   footer: {
-    paddingHorizontal: layout.screenPadding, paddingVertical: spacing[3],
+    // الحشو السفلي يُحسب حسب inset الجهاز عند الرسم (أعلاه) — هنا الجانبي والعلوي فقط
+    paddingHorizontal: layout.screenPadding, paddingTop: spacing[3],
     borderTopWidth: 1.5, borderTopColor: c.border.default, backgroundColor: c.bg.card,
     borderTopStartRadius: radius.lg, borderTopEndRadius: radius.lg,
   },

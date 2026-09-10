@@ -6,7 +6,7 @@ import { colors, spacing, radius, fontFamily, themed } from '@manassah/tokens';
 import { AuthSession, OtpRequestResult, OtpDelivery } from '@manassah/shared';
 import { Screen, Text, Button } from '@/ui';
 import { api, errorMessageKey } from '@/api/client';
-import { signIn, homeFor } from '@/lib/session';
+import { signIn, homeFor, safeBack } from '@/lib/session';
 
 /** ستّ خانات، إدخال واحد مخفيّ خلفها — لصق الرمز يعمل، والتحقّق تلقائي عند اكتمال ٦ أرقام */
 export default function Verify() {
@@ -52,7 +52,7 @@ export default function Verify() {
   const sentKey = ({ sms: 'auth.sentSms', whatsapp: 'auth.sentWhatsapp', email: 'auth.sentEmail', test: 'auth.sentTest' } as const)[delivery];
 
   return (
-    <Screen onBack={() => router.back()} contentStyle={styles.wrap}>
+    <Screen onBack={() => safeBack(router)} contentStyle={styles.wrap}>
       <View style={styles.head}>
         <Text role="h1">{t('onboarding.enterCode')}</Text>
         <View style={styles.targetRow}>

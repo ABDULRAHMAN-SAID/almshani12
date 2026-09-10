@@ -7,6 +7,7 @@ import type { Notification } from '@manassah/shared';
 import { Screen, Text, Icon, Button, EmptyState, type IconName } from '@/ui';
 import { useNotifications, useMarkRead } from '@/features/queries';
 import { formatDateTime } from '@/lib/format';
+import { safeBack } from '@/lib/session';
 
 const ICON: Record<string, IconName> = { lesson_in_1h: 'clock', lesson_in_15m: 'clock', booking_confirmed: 'calendar', booking_cancelled_by_teacher: 'warning', refund_processed: 'wallet', message: 'message', homework: 'document', teacher_verified: 'verified', payout_processed: 'wallet', wallet_adjusted: 'wallet', content_approved: 'checkCircle', content_rejected: 'warning', teacher_rejected: 'warning', teacher_document_rejected: 'document' };
 
@@ -32,7 +33,7 @@ export default function Notifications() {
     else if (d.teacherId || n.type === 'teacher_verified' || n.type === 'teacher_rejected') router.push('/teacher-app');
   };
   return (
-    <Screen onBack={() => router.back()} title={t('notificationsUi.title')} loading={q.isLoading} error={q.error} onRetry={() => q.refetch()} refreshing={q.isRefetching} onRefresh={() => q.refetch()}
+    <Screen onBack={() => safeBack(router)} title={t('notificationsUi.title')} loading={q.isLoading} error={q.error} onRetry={() => q.refetch()} refreshing={q.isRefetching} onRefresh={() => q.refetch()}
       right={q.data?.unread ? <Button label={t('notificationsUi.markAll')} variant="ghost" size="sm" onPress={() => mark.mutate(undefined)} /> : undefined}
       empty={!!q.data && q.data.data.length === 0} emptyProps={{ icon: 'bell', title: t('notificationsUi.empty'), body: t('notificationsUi.emptyHint') }}>
       <View style={styles.list}>

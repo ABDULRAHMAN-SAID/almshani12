@@ -9,6 +9,7 @@ import { Screen, Text, Button, Input, Chip, Card, Badge, BottomSheet, EmptyState
 import { useMyBooks, useCreateBook, useUploadBookFile, useSubmitBook, useCatalog } from '@/features/queries';
 import { errorMessageKey } from '@/api/client';
 import { money } from '@/lib/format';
+import { safeBack } from '@/lib/session';
 
 const STATUS_TONE = { draft: 'neutral', pending_review: 'warning', approved: 'info', rejected: 'danger', published: 'success', archived: 'neutral' } as const;
 
@@ -45,7 +46,7 @@ export default function TeacherBooks() {
   };
 
   return (
-    <Screen onBack={() => router.back()} title={t('teacherApp.quick.uploadBook')} loading={books.isLoading} error={books.error} onRetry={() => books.refetch()}
+    <Screen onBack={() => safeBack(router)} title={t('teacherApp.quick.uploadBook')} loading={books.isLoading} error={books.error} onRetry={() => books.refetch()}
       right={<Button label={t('common.new')} icon="plus" size="sm" onPress={() => setSheet(true)} />}
       empty={!!books.data && books.data.length === 0} emptyProps={{ icon: 'book', title: t('teacherUi.noBooks'), actionLabel: t('teacherApp.quick.uploadBook'), onAction: () => setSheet(true) }}>
       <View style={styles.list}>

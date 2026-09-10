@@ -9,6 +9,7 @@ import { Screen, Text, Button, Input, Chip, Card, SectionHeader } from '@/ui';
 import { useCatalog, useApplyTeacher, useUploadFile } from '@/features/queries';
 import { useAuth } from '@/state/auth';
 import { errorMessageKey } from '@/api/client';
+import { safeBack } from '@/lib/session';
 
 type DocType = 'id' | 'degree' | 'certificate';
 
@@ -65,7 +66,7 @@ export default function ApplyTeacher() {
   const subjectList = catalog.data?.subjects ?? [], gradeList = catalog.data?.grades ?? [];
 
   return (
-    <Screen onBack={() => router.back()} title={t('teacherApp.apply.title')} loading={catalog.isLoading} error={catalog.error} onRetry={() => catalog.refetch()}
+    <Screen onBack={() => safeBack(router)} title={t('teacherApp.apply.title')} loading={catalog.isLoading} error={catalog.error} onRetry={() => catalog.refetch()}
       footer={<Button label={t('teacherApp.apply.submit')} size="lg" full loading={apply.isPending} onPress={submit} />}>
       <View style={styles.wrap}>
         <Text role="body" tone="secondary">{t('teacherUi.applyIntro')}</Text>

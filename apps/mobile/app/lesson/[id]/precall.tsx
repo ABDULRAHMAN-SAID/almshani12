@@ -9,6 +9,7 @@ import { useBooking } from '@/features/queries';
 import { api } from '@/api/client';
 import { useCountdown } from '@/lib/hooks';
 import { formatTime } from '@/lib/format';
+import { safeBack } from '@/lib/session';
 
 type Check = 'testing' | 'ok' | 'bad';
 
@@ -52,7 +53,7 @@ export default function PreCall() {
   const micState: Check = micGranted == null ? 'testing' : micGranted ? 'ok' : 'bad';
 
   return (
-    <Screen onBack={() => router.back()} title={b.data?.status === 'in_progress' ? t('bookingUi.inProgress') : t('lessons.precall.title')} loading={b.isLoading} error={b.error} onRetry={() => b.refetch()}
+    <Screen onBack={() => safeBack(router)} title={b.data?.status === 'in_progress' ? t('bookingUi.inProgress') : t('lessons.precall.title')} loading={b.isLoading} error={b.error} onRetry={() => b.refetch()}
       footer={<Button label={canJoin ? t('live.joinNow') : left > 0 ? t('live.openIn', { m: Math.max(1, Math.ceil(left / 60)) }) : t('lessons.precall.join')} icon="video" size="lg" full disabled={!canJoin} onPress={() => router.replace(`/lesson/${bookingId}/room`)} />}>
       <View style={styles.wrap}>
         <Text role="body" tone="secondary">{t('live.precallBody')}</Text>

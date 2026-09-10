@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { spacing } from '@manassah/tokens';
 import { Screen, Tabs, BookCard, CourseCard, TeacherCard, EmptyState } from '@/ui';
 import { useFavorites } from '@/features/queries';
+import { safeBack } from '@/lib/session';
 
 export default function Favorites() {
   const { t } = useTranslation();
@@ -14,7 +15,7 @@ export default function Favorites() {
   const d = q.data;
   const empty = <EmptyState icon="heart" title={t('account.noFavorites')} actionLabel={t('library.explore')} onAction={() => router.replace('/(tabs)/library')} />;
   return (
-    <Screen onBack={() => router.back()} title={t('account.favorites')} loading={q.isLoading} error={q.error} onRetry={() => q.refetch()}>
+    <Screen onBack={() => safeBack(router)} title={t('account.favorites')} loading={q.isLoading} error={q.error} onRetry={() => q.refetch()}>
       <Tabs value={tab} onChange={setTab} items={[{ key: 'books', label: t('search.books'), count: d?.books.length }, { key: 'courses', label: t('search.courses'), count: d?.courses.length }, { key: 'teachers', label: t('search.teachers'), count: d?.teachers.length }]} />
       <View style={styles.list}>
         {tab === 'books' ? (d?.books.length ? d.books.map(b => <BookCard key={b.id} book={b} compact onPress={() => router.push(`/book/${b.id}`)} />) : empty) : null}

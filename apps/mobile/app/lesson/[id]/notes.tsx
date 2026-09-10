@@ -8,6 +8,7 @@ import { Screen, Text, Button, Input, Chip, Card, EmptyState } from '@/ui';
 import { useBooking, usePostNotes, useUploadFile } from '@/features/queries';
 import { useAuth } from '@/state/auth';
 import { errorMessageKey } from '@/api/client';
+import { safeBack } from '@/lib/session';
 
 /** ملاحظات المعلّم بعد الحصة: ملخّص، واجب، مرفقات — تصل للطالب فوراً */
 export default function LessonNotes() {
@@ -55,14 +56,14 @@ export default function LessonNotes() {
 
   if (forbidden) {
     return (
-      <Screen onBack={() => router.back()} title={t('teacherUi.notes')}>
+      <Screen onBack={() => safeBack(router)} title={t('teacherUi.notes')}>
         <EmptyState icon="warning" title={t('errors.forbidden')} actionLabel={t('lessons.details')} onAction={() => router.replace(`/lesson/${bookingId}`)} />
       </Screen>
     );
   }
 
   return (
-    <Screen onBack={() => router.back()} title={t('teacherUi.notes')} loading={b.isLoading} error={b.error} onRetry={() => b.refetch()}
+    <Screen onBack={() => safeBack(router)} title={t('teacherUi.notes')} loading={b.isLoading} error={b.error} onRetry={() => b.refetch()}
       footer={<Button label={t('teacherUi.saveNotes')} icon="send" size="lg" full loading={post.isPending} disabled={!seeded || (!summary.trim() && !homework.trim() && files.length === 0)} onPress={() => post.mutate({ summary: summary.trim() || null, homework: homework.trim() || null, attachmentFileIds: files.map(f => f.id), removeFileIds: removed, suggestNext: false }, { onSuccess: () => router.replace(`/lesson/${bookingId}`) })} />}>
       <View style={styles.wrap}>
         <Text role="body" tone="secondary">{t('teacherUi.notesHint')}</Text>

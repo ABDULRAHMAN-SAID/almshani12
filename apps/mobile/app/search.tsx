@@ -7,6 +7,7 @@ import { Screen, Text, Chip, SearchInput, BookCard, TeacherCard, CourseCard, Sec
 import { useSearch } from '@/features/queries';
 import { useUi } from '@/state/ui';
 import { useDebounced } from '@/lib/hooks';
+import { safeBack } from '@/lib/session';
 
 /** بحث موحّد بتطبيع عربي: كتب، معلّمون، دورات، دروس المنهج */
 export default function Search() {
@@ -20,7 +21,7 @@ export default function Search() {
   const commit = (v: string) => { setQ(v); if (v.trim().length >= 2) pushSearch(v.trim()); };
 
   return (
-    <Screen onBack={() => router.back()} title={t('search.title')} scroll={false} padded={false}>
+    <Screen onBack={() => safeBack(router)} title={t('search.title')} scroll={false} padded={false}>
       <View style={styles.px}>
         <SearchInput value={q} onChangeText={setQ} placeholder={t('search.placeholder')} onClear={() => setQ('')} autoFocus returnKeyType="search" onSubmitEditing={() => commit(q)} />
       </View>

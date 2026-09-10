@@ -9,6 +9,7 @@ import { Screen, Text, Button, Card, Badge } from '@/ui';
 import { useTeacherMe, useUploadFile, useUploadTeacherDocument } from '@/features/queries';
 import { errorMessageKey } from '@/api/client';
 import { formatDayShort } from '@/lib/format';
+import { safeBack } from '@/lib/session';
 
 type DocType = typeof TeacherDocumentType.options[number];
 
@@ -41,7 +42,7 @@ export default function TeacherDocuments() {
 
   const docs = q.data?.documents ?? [];
   return (
-    <Screen onBack={() => router.back()} title={t('teacherUi.documents')} loading={q.isLoading} error={q.error} onRetry={() => q.refetch()}
+    <Screen onBack={() => safeBack(router)} title={t('teacherUi.documents')} loading={q.isLoading} error={q.error} onRetry={() => q.refetch()}
       refreshing={q.isRefetching} onRefresh={() => q.refetch()}
       empty={!!q.data && docs.length === 0} emptyProps={{ icon: 'document', title: t('teacherUi.noDocuments'), actionLabel: t('teacherUi.reapply'), onAction: () => router.push('/teacher-app/apply') }}>
       <View style={styles.wrap}>

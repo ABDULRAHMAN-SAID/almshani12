@@ -80,3 +80,13 @@ export function homeFor(user: User | null): string {
   if (needsSetup(user)) return '/(auth)/setup';
   return '/(tabs)';
 }
+
+/**
+ * زرّ عودة لا يعمل: `router.back()` بلا سجلّ تنقّل يرجع إليه لا يفعل شيئاً — صامتاً بلا أي خطأ.
+ * هذا يحدث كلما فُتحت الشاشة مباشرة برابط (نسخة الويب في متصفّح، رابط عميق، أو استعادة تبويب)
+ * لا بالتنقّل داخل التطبيق. نتحقّق من وجود سجلّ فعلاً قبل الاعتماد عليه، وإلا نذهب للرئيسية.
+ */
+export function safeBack(router: { canGoBack: () => boolean; back: () => void; replace: (href: never) => void }): void {
+  if (router.canGoBack()) router.back();
+  else router.replace(homeFor(useAuth.getState().user) as never);
+}
