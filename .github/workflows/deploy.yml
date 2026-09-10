@@ -62,6 +62,7 @@ jobs:
     timeout-minutes: 20
     env:
       FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      ADMIN_PHONE: ${{ secrets.ADMIN_PHONE }}
     steps:
       - name: هل السرّ FLY_API_TOKEN موجود؟
         id: gate
@@ -76,6 +77,26 @@ jobs:
         if: steps.gate.outputs.run == 'true'
       - uses: superfly/flyctl-actions/setup-flyctl@master
         if: steps.gate.outputs.run == 'true'
+      - name: التطبيق ومساحة التخزين الدائمة (تُنشأ مرة واحدة إن لم توجدا)
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          # يعمل على خادم GitHub لا في بيئة المطوّر المحدودة الشبكة — يبلغ api.fly.io مباشرة
+          APP="$(sed -nE 's/^app *= *"?([^"]+)"?/\1/p' fly.toml | head -n1)"
+          REGION="$(sed -nE 's/^primary_region *= *"?([^"]+)"?/\1/p' fly.toml | head -n1)"
+          echo "APP=$APP" >> "$GITHUB_ENV"
+          # render.JSON في flyctl يُخرج JSON منسّقاً (مسافات وأسطر) لا مضغوطاً — jq لا grep نصّي هشّ
+          if flyctl apps list --json 2>/dev/null | jq -e --arg n "$APP" 'any(.[]; .Name == $n)' > /dev/null; then
+            echo "✔️ التطبيق $APP موجود مسبقاً"
+          else
+            echo "↻ إنشاء التطبيق $APP في $REGION"
+            flyctl apps create "$APP" --org personal || { echo "::error::تعذّر إنشاء $APP — الاسم قد يكون محجوزاً لحساب آخر على Fly؛ غيّر app في fly.toml إلى اسم آخر (مثل ${APP}-$(date +%s | tail -c4)) وأعد الدفع"; exit 1; }
+          fi
+          if flyctl volumes list --app "$APP" --json 2>/dev/null | jq -e 'any(.[]; .name == "data")' > /dev/null; then
+            echo "✔️ مساحة التخزين data موجودة مسبقاً"
+          else
+            echo "↻ إنشاء مساحة تخزين دائمة (data، ١ جيجابايت، $REGION) — هنا تُحفَظ القاعدة والملفات والنسخ الاحتياطية بلا مسحٍ عند كل نشر"
+            flyctl volumes create data --app "$APP" --region "$REGION" --size 1 --yes
+          fi
       - name: fly deploy بالصورة المبنية
         if: steps.gate.outputs.run == 'true'
         env:
@@ -89,7 +110,8 @@ jobs:
           docker tag "$IMAGE:$SHA" "registry.fly.io/$APP:$SHA"
           flyctl auth docker
           docker push "registry.fly.io/$APP:$SHA"
-          flyctl deploy --image "registry.fly.io/$APP:$SHA" --env GHCR_IMAGE="$IMAGE"
+          # ADMIN_PHONE سرّ اختياري: رقمك يصبح مديراً حقيقياً أوّل عند أوّل إقلاع بقاعدة فارغة
+          flyctl deploy --image "registry.fly.io/$APP:$SHA" --env GHCR_IMAGE="$IMAGE" ${ADMIN_PHONE:+--env ADMIN_PHONE="$ADMIN_PHONE"}
           echo "🚀 نُشر إلى Fly.io ($APP) من الصورة $IMAGE:$SHA" >> "$GITHUB_STEP_SUMMARY"
 
   render:

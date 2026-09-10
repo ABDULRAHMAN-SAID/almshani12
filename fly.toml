@@ -1,6 +1,6 @@
 # نشر على Fly.io:  fly launch --copy-config --yes  ثم  fly volumes create data --size 1  ثم  fly deploy
 app = "manassah"
-primary_region = "fra"
+primary_region = "sin"  # سنغافورة — أقرب منطقة فلاي فعلياً لعُمان من فرانكفورت
 
 [build]
   dockerfile = "Dockerfile"
@@ -10,7 +10,7 @@ primary_region = "fra"
   PORT = "4000"
   DATA_DIR = "/data"
   TRUST_PROXY = "true"
-  ALLOW_DEMO_SEED = "1"
+  ALLOW_DEMO_SEED = "0"  # إنتاج حقيقي: بلا حسابات أو حجوزات تجريبية — المنهج فقط + مديرك من ADMIN_PHONE
   # تحذير: OTP_FIXED_CODE = "000000" يفتح كل حساب لمن يعرف الرقم — لا تفعّله على خادم يحمل بيانات حقيقية.
   # الخادم يتجاهله أصلاً في الإنتاج؛ فعّله فقط لخادم عرض مؤقّت مع ALLOW_INSECURE_OTP=1.
   # OTP_FIXED_CODE = "000000"
