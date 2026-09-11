@@ -214,6 +214,12 @@ export const en: Dictionary = {
     sentSms: 'We sent an SMS to', sentWhatsapp: 'We sent a WhatsApp message to', sentEmail: 'We sent an email to', sentTest: 'Demo account — fixed code for',
     checkSpam: "Didn't get it? Check your spam folder", testCode: 'Demo account code: {{code}}',
     phoneUnavailable: 'Phone sign-in is not available on this server yet', emailUnavailable: 'Email sign-in is not available on this server yet',
+    createAccount: 'Create account', createAccountTitle: 'Create your account', createAccountBody: "Your full name appears to your teachers and on your certificates — make sure it's accurate",
+    fullNameSection: 'Full name', firstName: 'First name', secondName: "Father's name", tribeName: 'Tribe / family name',
+    contactSection: 'Contact', sendCodeVia: 'Receive the verification code via',
+    createAccountSubmit: 'Create account & send code',
+    haveAccountQ: 'Already have an account?', noAccountQ: "Don't have an account?", signIn: 'Sign in',
+    required: 'This field is required', invalidPhone: 'Invalid phone number', invalidEmail: 'Invalid email address',
   },
   search: {
     title: 'Search', placeholder: 'Search books, teachers, courses, lessons…', recent: 'Recent searches', clear: 'Clear',

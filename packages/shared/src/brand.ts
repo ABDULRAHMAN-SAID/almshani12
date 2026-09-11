@@ -3,8 +3,8 @@
  * الاسم مؤقت؛ غيّره هنا فيتغيّر في التطبيق والخادم ولوحة الإدارة.
  */
 export const brand = {
-  name: { ar: 'منصّة', en: 'Manassah' },
-  tagline: { ar: 'مدرستك ومكتبتك ومعلّمك في مكان واحد', en: 'Your school, library and tutor in one place' },
+  name: { ar: 'نبراس', en: 'Nibras' },
+  tagline: { ar: 'منصّتك التعليمية — مدرستك ومكتبتك ومعلّمك في مكان واحد', en: 'Your learning platform — school, library and tutor in one place' },
   /** مسار الشعار داخل assets — يُستبدَل بشعار العلامة النهائي */
   logo: { mark: 'brand/mark.png', wordmark: 'brand/wordmark.png' },
   /** الألوان الرئيسية — تُغذّي tokens.colors.brand عند الحاجة لتغيير الهوية */

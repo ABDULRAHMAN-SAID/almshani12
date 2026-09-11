@@ -26,10 +26,24 @@ const ProfilePatch = z.object({
   locale: z.enum(['ar', 'en']).optional(),
   gender: z.enum(['male', 'female']).nullable().optional(),
   avatarFileId: z.number().int().positive().nullable().optional(),
+  /** جهة تواصل ثانية غير موثّقة (مثل بريد أضافه المستخدم عند التسجيل بالهاتف) — ذاتية الخدمة فقط حين لا توجد إحداها بعد */
+  phone: z.string().trim().regex(/^\+\d{8,15}$/).optional(),
+  email: z.string().trim().email().optional(),
 });
 router.patch('/me', requireAuth, validate(ProfilePatch), asyncHandler(async (req, res) => {
   const p = body<typeof ProfilePatch>(req);
   const uid = req.user!.id;
+  // إضافة هاتف/بريد ثانٍ: لا يستبدل هدفاً موجوداً (تغييره يحتاج تحقّقاً لا PATCH مباشراً)، وUNIQUE في المخطّط يمنع انتحال حساب آخر
+  if (p.phone !== undefined) {
+    if (q.val<string | null>('SELECT phone FROM users WHERE id = ?', uid)) throw badRequest('رقم الهاتف مسجَّل مسبقاً على هذا الحساب');
+    try { q.run('UPDATE users SET phone = ? WHERE id = ?', p.phone, uid); }
+    catch { throw conflict('رقم الهاتف مستخدَم من حساب آخر'); }
+  }
+  if (p.email !== undefined) {
+    if (q.val<string | null>('SELECT email FROM users WHERE id = ?', uid)) throw badRequest('البريد الإلكتروني مسجَّل مسبقاً على هذا الحساب');
+    try { q.run('UPDATE users SET email = ? WHERE id = ?', p.email, uid); }
+    catch { throw conflict('البريد الإلكتروني مستخدَم من حساب آخر'); }
+  }
   if (p.displayName !== undefined) {
     q.run('UPDATE profiles SET display_name = ?, updated_at = ? WHERE user_id = ?', p.displayName, nowIso(), uid);
     // الاسم ينعكس على المتعلّم الذاتي الأول (position = 0) — فهو الحساب نفسه

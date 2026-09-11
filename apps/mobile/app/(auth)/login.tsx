@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Platform, StyleSheet } from 'react-native';
+import { View, Platform, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import { colors, spacing, radius, themed } from '@manassah/tokens';
 import { AuthMethods, AuthSession, OtpRequestResult, type OtpVia } from '@manassah/shared';
-import { Screen, Text, Button, Input, Chip, Icon } from '@/ui';
+import { Screen, Text, Button, Input, Chip, Icon, AuthHeader } from '@/ui';
 import { api, ApiError, errorMessageKey } from '@/api/client';
 import { useServerConfig } from '@/api/config';
 import { signIn, homeFor, safeBack } from '@/lib/session';
@@ -89,6 +89,7 @@ export default function Login() {
 
   return (
     <Screen onBack={() => safeBack(router)} title={t('ui.login')} contentStyle={styles.wrap}>
+      <AuthHeader />
       <View style={styles.head}>
         <Text role="h1">{t('auth.otpTitle')}</Text>
         <Text role="body" tone="secondary">{t('auth.otpBody')}</Text>
@@ -139,6 +140,9 @@ export default function Login() {
           {social ? <View style={styles.note}><Icon name="info" size={16} color={colors.state.info} /><Text role="caption" tone="info">{social}</Text></View> : null}
         </View>
       </>) : null}
+      <Pressable onPress={() => router.push('/(auth)/register')} hitSlop={8} style={styles.footerLink} accessibilityRole="link">
+        <Text role="small" tone="secondary" center>{t('auth.noAccountQ')} <Text role="small" tone="link">{t('auth.createAccount')}</Text></Text>
+      </Pressable>
       <Text role="caption" tone="tertiary" center style={styles.terms}>{t('onboarding.terms')}</Text>
     </Screen>
   );
@@ -189,5 +193,6 @@ const styles = themed((c) => StyleSheet.create({
   socials: { gap: spacing[2] },
   gsi: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   note: { flexDirection: 'row', gap: spacing[1], alignItems: 'center', justifyContent: 'center' },
-  terms: { marginTop: 'auto' },
+  footerLink: { paddingVertical: spacing[2] },
+  terms: { marginTop: spacing[2] },
 }));

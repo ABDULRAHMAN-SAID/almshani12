@@ -3,17 +3,22 @@ import { View, TextInput, Pressable, StyleSheet } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { colors, spacing, radius, fontFamily, themed } from '@manassah/tokens';
-import { AuthSession, OtpRequestResult, OtpDelivery } from '@manassah/shared';
-import { Screen, Text, Button } from '@/ui';
+import { AuthSession, OtpRequestResult, OtpDelivery, User } from '@manassah/shared';
+import { Screen, Text, Button, AuthHeader } from '@/ui';
 import { api, errorMessageKey } from '@/api/client';
 import { signIn, homeFor, safeBack } from '@/lib/session';
+import { useAuth } from '@/state/auth';
 
 /** ستّ خانات، إدخال واحد مخفيّ خلفها — لصق الرمز يعمل، والتحقّق تلقائي عند اكتمال ٦ أرقام */
 export default function Verify() {
   const { t, i18n } = useTranslation();
   const locale = i18n.language === 'en' ? 'en' : 'ar';
   const router = useRouter();
-  const p = useLocalSearchParams<{ channel: string; target: string; ttl: string; dev: string; delivery: string; via: string }>();
+  const p = useLocalSearchParams<{
+    channel: string; target: string; ttl: string; dev: string; delivery: string; via: string;
+    /** من شاشة إنشاء الحساب فقط: الاسم الكامل، وجهة تواصل ثانية (غير قناة التحقّق) تُحفَظ بعد نجاح الرمز */
+    displayName?: string; secondaryChannel?: string; secondaryValue?: string;
+  }>();
   const [code, setCode] = useState('');
   // الرمز التجريبي وطريقة الإرسال يتحدّثان عند إعادة الإرسال
   const [dev, setDev] = useState(p.dev ?? '');
@@ -30,7 +35,15 @@ export default function Verify() {
     try {
       const session = await api.post('/auth/otp/verify', { channel: p.channel, target: p.target, code: value }, AuthSession, { auth: false });
       await signIn(session);
-      router.replace(homeFor(session.user) as never);
+      // اسم وجهة تواصل ثانية من شاشة إنشاء الحساب — لا تُعطَّل الدخول لو تعذّر حفظهما (مثل تعارض نادر على البريد الثانوي)
+      if (p.displayName || p.secondaryValue) {
+        const patch: Record<string, string> = {};
+        if (p.displayName) patch.displayName = p.displayName;
+        if ((p.secondaryChannel === 'phone' || p.secondaryChannel === 'email') && p.secondaryValue) patch[p.secondaryChannel] = p.secondaryValue;
+        const updated = await api.patch('/me', patch, User).catch(() => null);
+        if (updated) useAuth.getState().setUser(updated);
+      }
+      router.replace(homeFor(useAuth.getState().user ?? session.user) as never);
     } catch (e) {
       setError(t(errorMessageKey(e))); setCode('');
     } finally { setLoading(false); }
@@ -53,6 +66,7 @@ export default function Verify() {
 
   return (
     <Screen onBack={() => safeBack(router)} contentStyle={styles.wrap}>
+      <AuthHeader />
       <View style={styles.head}>
         <Text role="h1">{t('onboarding.enterCode')}</Text>
         <View style={styles.targetRow}>

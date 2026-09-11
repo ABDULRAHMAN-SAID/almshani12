@@ -215,6 +215,12 @@ export const ar = {
     sentSms: 'أرسلنا رسالة نصية إلى', sentWhatsapp: 'أرسلنا رسالة واتساب إلى', sentEmail: 'أرسلنا رسالة إلى بريدك', sentTest: 'حساب تجريبي — رمز ثابت لـ',
     checkSpam: 'لم تصلك؟ تحقّق من مجلد الرسائل غير المرغوبة', testCode: 'رمز الحساب التجريبي: {{code}}',
     phoneUnavailable: 'الدخول بالهاتف غير متاح على هذا الخادم بعد', emailUnavailable: 'الدخول بالبريد غير متاح على هذا الخادم بعد',
+    createAccount: 'إنشاء حساب', createAccountTitle: 'أنشئ حسابك', createAccountBody: 'اسمك الكامل يظهر لمعلّميك وعلى شهاداتك — تأكّد من كتابته بدقّة',
+    fullNameSection: 'الاسم الكامل', firstName: 'الاسم الأول', secondName: 'اسم الأب', tribeName: 'القبيلة',
+    contactSection: 'التواصل', sendCodeVia: 'استلم رمز التحقّق عبر',
+    createAccountSubmit: 'إنشاء الحساب وإرسال الرمز',
+    haveAccountQ: 'لديك حساب بالفعل؟', noAccountQ: 'ليس لديك حساب؟', signIn: 'سجّل الدخول',
+    required: 'هذا الحقل مطلوب', invalidPhone: 'رقم هاتف غير صالح', invalidEmail: 'بريد إلكتروني غير صالح',
   },
   search: {
     title: 'البحث', placeholder: 'ابحث عن كتاب، معلّم، دورة، درس…', recent: 'عمليات بحث سابقة', clear: 'مسح',

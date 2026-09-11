@@ -33,3 +33,4 @@ export { LearnerSwitcher } from './LearnerSwitcher';
 export { LearnerForm, type LearnerFormProps } from './LearnerForm';
 export { LearnerPicker, type LearnerPickerProps } from './LearnerPicker';
 export { LiveServerButton, type LiveServerButtonProps } from './LiveServerButton';
+export { AuthHeader } from './AuthHeader';
