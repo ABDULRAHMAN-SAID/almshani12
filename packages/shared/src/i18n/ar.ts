@@ -230,6 +230,8 @@ export const ar = {
     forgotPasswordTitle: 'استعادة كلمة المرور', forgotPasswordBody: 'أدخل رقم هاتفك أو بريدك وسنرسل رمز استعادة',
     sendResetCode: 'إرسال رمز الاستعادة', resetCodeSentBody: 'أدخل الرمز الذي وصلك إلى',
     resetPasswordSubmit: 'إعادة تعيين كلمة المرور والدخول',
+    continueToVerify: 'متابعة والتحقّق من البريد', verifyEmailTitle: 'تحقّق من بريدك',
+    verifyEmailBody: 'أرسلنا رمزاً مكوّناً من ٦ أرقام إلى', emailVerifiedHint: 'سنرسل رمز تحقّق إلى هذا البريد قبل إنشاء الحساب',
   },
   search: {
     title: 'البحث', placeholder: 'ابحث عن كتاب، معلّم، دورة، درس…', recent: 'عمليات بحث سابقة', clear: 'مسح',

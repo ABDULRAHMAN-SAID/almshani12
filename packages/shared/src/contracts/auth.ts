@@ -53,6 +53,8 @@ export const PasswordRegister = z.object({
   phone: z.string().trim().min(5).max(30),
   email: z.string().trim().min(5).max(120),
   password: Password,
+  /** رمز أُرسل إلى email عبر POST /auth/otp/request (channel: 'email') — يُتحقّق منه قبل إنشاء الحساب */
+  code: z.string().regex(/^\d{6}$/),
   locale: z.enum(['ar', 'en']).default('ar'),
 });
 export type PasswordRegister = z.infer<typeof PasswordRegister>;

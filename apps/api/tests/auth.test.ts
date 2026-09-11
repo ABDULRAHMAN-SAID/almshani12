@@ -75,10 +75,14 @@ test('الحساب الموقوف لا يستطيع الدخول', async () => {
 });
 
 /* ---------- كلمة المرور ---------- */
-test('تسجيل بكلمة مرور: هاتف وبريد معاً بلا رمز تحقّق، والدخول لاحقاً بأيّهما', async () => {
-  const r = await c.api('/api/auth/register', { method: 'POST', body: {
-    displayName: 'عبدالرحمن سعيد المعشني', phone: '92100001', email: 'abdulrahman@example.com', password: 'حرف-مرور-قوي1',
-  } });
+/** التسجيل يتطلّب رمزاً على البريد أولاً (checkOtp داخل /auth/register) — يطلبه هنا بالنيابة عن كل اختبار */
+async function register(body: Record<string, unknown>) {
+  await c.api('/api/auth/otp/request', { method: 'POST', body: { channel: 'email', target: body.email } });
+  return c.api('/api/auth/register', { method: 'POST', body: { code: '000000', ...body } });
+}
+
+test('تسجيل بكلمة مرور: رمز على البريد أولاً، ثم الدخول لاحقاً بالهاتف أو البريد', async () => {
+  const r = await register({ displayName: 'عبدالرحمن سعيد المعشني', phone: '92100001', email: 'abdulrahman@example.com', password: 'حرف-مرور-قوي1' });
   assert.equal(r.status, 200);
   assert.equal(r.json.isNew, true);
   assert.equal(r.json.user.phone, '+96892100001');
@@ -91,13 +95,21 @@ test('تسجيل بكلمة مرور: هاتف وبريد معاً بلا رمز
   assert.equal(byEmail.json.user.id, byPhone.json.user.id);
 });
 
+test('رمز خاطئ أو مفقود على التسجيل: يُرفض ولا يُنشأ حساب', async () => {
+  await c.api('/api/auth/otp/request', { method: 'POST', body: { channel: 'email', target: 'noaccount@example.com' } });
+  const bad = await c.api('/api/auth/register', { method: 'POST', body: { displayName: 'رمز خاطئ', phone: '92100009', email: 'noaccount@example.com', password: 'كلمة-مرور-ب', code: '111111' } });
+  assert.equal(bad.status, 400); assert.equal(bad.json.error.code, 'otp_invalid');
+  const login = await c.api('/api/auth/login', { method: 'POST', body: { channel: 'phone', target: '92100009', password: 'كلمة-مرور-ب' } });
+  assert.equal(login.status, 401, 'لم يُنشأ حساب فلا يوجد ما يُدخَل إليه');
+});
+
 test('كلمة مرور خاطئة أو حساب غير موجود: نفس الرسالة الموحّدة، وتسجيل مكرّر على حساب له كلمة مرور يُرفض', async () => {
-  await c.api('/api/auth/register', { method: 'POST', body: { displayName: 'سالم راشد', phone: '92100002', email: 'salim2@example.com', password: 'كلمة-مرور-2' } });
+  await register({ displayName: 'سالم راشد', phone: '92100002', email: 'salim2@example.com', password: 'كلمة-مرور-2' });
   const wrongPw = await c.api('/api/auth/login', { method: 'POST', body: { channel: 'phone', target: '92100002', password: 'غلط' } });
   assert.equal(wrongPw.status, 401); assert.equal(wrongPw.json.error.code, 'invalid_credentials');
   const noAccount = await c.api('/api/auth/login', { method: 'POST', body: { channel: 'phone', target: '92199999', password: 'أي-شيء' } });
   assert.equal(noAccount.status, 401); assert.equal(noAccount.json.error.code, 'invalid_credentials');
-  const dup = await c.api('/api/auth/register', { method: 'POST', body: { displayName: 'محاولة تكرار', phone: '92100002', email: 'other@example.com', password: 'كلمة-مرور-3' } });
+  const dup = await register({ displayName: 'محاولة تكرار', phone: '92100002', email: 'other@example.com', password: 'كلمة-مرور-3' });
   assert.equal(dup.status, 409); assert.equal(dup.json.error.code, 'account_exists');
 });
 
@@ -105,7 +117,7 @@ test('حساب أُنشئ برمز تحقّق بلا كلمة مرور: التس
   await c.api('/api/auth/otp/request', { method: 'POST', body: { channel: 'phone', target: '92100003' } });
   const otpUser = await c.api('/api/auth/otp/verify', { method: 'POST', body: { channel: 'phone', target: '92100003', code: '000000' } });
   assert.equal(otpUser.status, 200);
-  const upgraded = await c.api('/api/auth/register', { method: 'POST', body: { displayName: 'ترقية الحساب', phone: '92100003', email: 'upgraded@example.com', password: 'كلمة-مرور-جديدة' } });
+  const upgraded = await register({ displayName: 'ترقية الحساب', phone: '92100003', email: 'upgraded@example.com', password: 'كلمة-مرور-جديدة' });
   assert.equal(upgraded.status, 200);
   assert.equal(upgraded.json.isNew, false);
   assert.equal(upgraded.json.user.id, otpUser.json.user.id, 'نفس الحساب لا حساب جديد');
@@ -114,7 +126,7 @@ test('حساب أُنشئ برمز تحقّق بلا كلمة مرور: التس
 });
 
 test('استعادة كلمة المرور: رمز صحيح يضبط كلمة جديدة ويُدخل مباشرة؛ الرمز القديم لا يُستخدم مرتين', async () => {
-  await c.api('/api/auth/register', { method: 'POST', body: { displayName: 'هدى خالد', phone: '92100004', email: 'huda@example.com', password: 'كلمة-قديمة' } });
+  await register({ displayName: 'هدى خالد', phone: '92100004', email: 'huda@example.com', password: 'كلمة-قديمة' });
   await c.api('/api/auth/otp/request', { method: 'POST', body: { channel: 'phone', target: '92100004' } });
   const reset = await c.api('/api/auth/password/reset', { method: 'POST', body: { channel: 'phone', target: '92100004', code: '000000', newPassword: 'كلمة-جديدة-جداً' } });
   assert.equal(reset.status, 200);

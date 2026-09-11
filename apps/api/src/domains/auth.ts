@@ -100,6 +100,9 @@ router.post('/register', registerLimiter, validate(PasswordRegister), asyncHandl
   const b = body<typeof PasswordRegister>(req);
   const phone = normalizeTarget('phone', b.phone);
   const email = normalizeTarget('email', b.email);
+  // البريد لا الهاتف: القناة الوحيدة المضبوطة فعلياً (لا مزوّد رسائل نصية بعد) — العميل يطلب الرمز
+  // مسبقاً بـ /auth/otp/request(channel:'email') قبل هذا الطلب؛ رمز خاطئ/منتهٍ يرمي هنا فلا يُنشأ حساب
+  await checkOtp({ channel: 'email', target: email, code: b.code });
   const { id, isNew } = registerWithPassword({ displayName: b.displayName, phone, email, passwordHash: hashPassword(b.password), locale: b.locale });
   audit(req, 'auth.register', 'user', id);
   res.json(issueSession(id, req, isNew));

@@ -229,6 +229,8 @@ export const en: Dictionary = {
     forgotPasswordTitle: 'Reset your password', forgotPasswordBody: "Enter your phone or email and we'll send a reset code",
     sendResetCode: 'Send reset code', resetCodeSentBody: 'Enter the code we sent to',
     resetPasswordSubmit: 'Reset password & sign in',
+    continueToVerify: 'Continue & verify email', verifyEmailTitle: 'Verify your email',
+    verifyEmailBody: 'We sent a 6-digit code to', emailVerifiedHint: "We'll send a verification code to this email before creating your account",
   },
   search: {
     title: 'Search', placeholder: 'Search books, teachers, courses, lessons…', recent: 'Recent searches', clear: 'Clear',

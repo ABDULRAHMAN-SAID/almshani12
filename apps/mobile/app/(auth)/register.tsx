@@ -3,7 +3,7 @@ import { View, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { spacing, radius, themed } from '@manassah/tokens';
-import { AuthSession, PasswordRegister } from '@manassah/shared';
+import { AuthSession, OtpRequestResult, PasswordRegister } from '@manassah/shared';
 import { Screen, Text, Button, Input, AuthHeader } from '@/ui';
 import { api, errorMessageKey } from '@/api/client';
 import { signIn, homeFor, safeBack } from '@/lib/session';
@@ -13,14 +13,16 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const normalizePhone = (v: string) => v.replace(/[\s\-()]/g, '').replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
 
 /**
- * إنشاء حساب بكلمة مرور — لا رمز تحقّق: الاسم الكامل (الأول + الأب + القبيلة — العُرف العُماني)،
- * ثم الهاتف والبريد معاً وكلمة مرور. حساب فوري وجلسة مباشرة، كأي صفحة تسجيل تقليدية.
+ * إنشاء حساب بكلمة مرور — بخطوتين: (١) الاسم الكامل (الأول + الأب + القبيلة — العُرف العُماني) + الهاتف
+ * والبريد + كلمة مرور، (٢) رمز تحقّق يصل إلى البريد يُثبت أنه فعلاً بريدك قبل إنشاء الحساب. البريد لا
+ * الهاتف تحديداً لأنه القناة الوحيدة المضبوطة فعلياً على هذا الخادم (لا مزوّد رسائل نصية بعد).
  */
 export default function Register() {
   const { t, i18n } = useTranslation();
   const locale = i18n.language === 'en' ? 'en' : 'ar';
   const router = useRouter();
 
+  const [step, setStep] = useState<'form' | 'code'>('form');
   const [firstName, setFirstName] = useState('');
   const [secondName, setSecondName] = useState('');
   const [tribe, setTribe] = useState('');
@@ -28,13 +30,14 @@ export default function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [code, setCode] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const clear = (k: string) => setErrors(e => ({ ...e, [k]: '' }));
 
-  const submit = async () => {
+  const submitForm = async () => {
     const errs: Record<string, string> = {};
     if (firstName.trim().length < 2) errs.firstName = t('auth.required');
     if (secondName.trim().length < 2) errs.secondName = t('auth.required');
@@ -48,16 +51,42 @@ export default function Register() {
 
     setLoading(true); setFormError(null);
     try {
-      const displayName = [firstName, secondName, tribe].map(s => s.trim()).filter(Boolean).join(' ');
-      const session = await api.post('/auth/register', {
-        displayName, phone: normalizePhone(phone), email: email.trim().toLowerCase(), password, locale,
-      } as PasswordRegister, AuthSession, { auth: false });
-      await signIn(session);
-      router.replace(homeFor(session.user) as never);
+      await api.post('/auth/otp/request', { channel: 'email', target: email.trim().toLowerCase(), locale }, OtpRequestResult, { auth: false });
+      setStep('code');
     } catch (e) {
       setFormError(t(errorMessageKey(e)));
     } finally { setLoading(false); }
   };
+
+  const submitCode = async () => {
+    if (code.length !== 6) return;
+    setLoading(true); setFormError(null);
+    try {
+      const displayName = [firstName, secondName, tribe].map(s => s.trim()).filter(Boolean).join(' ');
+      const session = await api.post('/auth/register', {
+        displayName, phone: normalizePhone(phone), email: email.trim().toLowerCase(), password, code, locale,
+      } as PasswordRegister, AuthSession, { auth: false });
+      await signIn(session);
+      router.replace(homeFor(session.user) as never);
+    } catch (e) {
+      setFormError(t(errorMessageKey(e))); setCode('');
+    } finally { setLoading(false); }
+  };
+
+  if (step === 'code') {
+    return (
+      <Screen onBack={() => setStep('form')} title={t('auth.createAccount')} contentStyle={styles.wrap}>
+        <AuthHeader />
+        <View style={styles.head}>
+          <Text role="h1">{t('auth.verifyEmailTitle')}</Text>
+          <Text role="body" tone="secondary">{t('auth.verifyEmailBody')} <Text role="bodyMedium" tabular>{email.trim()}</Text></Text>
+        </View>
+        <Input value={code} onChangeText={v => setCode(v.replace(/\D/g, '').slice(0, 6))} placeholder={t('onboarding.enterCode')} keyboardType="number-pad" numeric autoFocus
+          error={formError} onSubmitEditing={submitCode} returnKeyType="send" />
+        <Button label={t('auth.createAccountSubmit')} onPress={submitCode} loading={loading} disabled={code.length < 6} size="lg" full />
+      </Screen>
+    );
+  }
 
   return (
     <Screen onBack={() => safeBack(router)} title={t('auth.createAccount')} contentStyle={styles.wrap}>
@@ -82,7 +111,7 @@ export default function Register() {
             <Input value={phone} onChangeText={v => { setPhone(v); clear('phone'); }} placeholder={t('auth.phonePlaceholder')} keyboardType="phone-pad" numeric error={errors.phone} textContentType="telephoneNumber" autoComplete="tel" />
           </View>
         </View>
-        <Input value={email} onChangeText={v => { setEmail(v); clear('email'); }} placeholder={t('auth.emailPlaceholder')} keyboardType="email-address" autoCapitalize="none" icon="mail" error={errors.email} textContentType="emailAddress" autoComplete="email" />
+        <Input value={email} onChangeText={v => { setEmail(v); clear('email'); }} placeholder={t('auth.emailPlaceholder')} keyboardType="email-address" autoCapitalize="none" icon="mail" error={errors.email} textContentType="emailAddress" autoComplete="email" helper={t('auth.emailVerifiedHint')} />
       </View>
 
       <View style={styles.section}>
@@ -92,7 +121,7 @@ export default function Register() {
       </View>
 
       {formError ? <Text role="small" tone="danger" center>{formError}</Text> : null}
-      <Button label={t('auth.createAccountSubmit')} onPress={submit} loading={loading} size="lg" full />
+      <Button label={t('auth.continueToVerify')} onPress={submitForm} loading={loading} size="lg" full />
 
       <Pressable onPress={() => router.replace('/(auth)/login')} hitSlop={8} style={styles.footerLink} accessibilityRole="link">
         <Text role="small" tone="secondary" center>{t('auth.haveAccountQ')} <Text role="small" tone="link">{t('auth.signIn')}</Text></Text>
