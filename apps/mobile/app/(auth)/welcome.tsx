@@ -22,7 +22,7 @@ export default function Welcome() {
   return (
     <Screen bare scroll={false} contentStyle={styles.wrap}>
       <View style={styles.top}>
-        <View style={styles.logo}><Text role="display" tone="inverse" style={styles.logoText}>{brand.name.ar.slice(0, 1)}</Text></View>
+        <View style={styles.logo}><Icon name="flame" size={44} color={colors.text.inverse} /></View>
         <Text role="h1" tone="brand">{brand.name.ar}</Text>
         <Text role="small" tone="secondary">{brand.tagline.ar}</Text>
       </View>
@@ -59,7 +59,6 @@ const styles = themed((c) => StyleSheet.create({
   wrap: { justifyContent: 'space-between', paddingTop: spacing[10], paddingBottom: spacing[6] },
   top: { alignItems: 'center', gap: spacing[1] },
   logo: { width: 96, height: 96, borderRadius: radius.xl, backgroundColor: c.brand.primary, alignItems: 'center', justifyContent: 'center', marginBottom: spacing[3], borderBottomWidth: 6, borderBottomColor: c.brand.primaryDark, ...shadow.raised },
-  logoText: { fontSize: 52, lineHeight: 70 },
   middle: { gap: spacing[3], alignItems: 'center' },
   title: { lineHeight: 48 },
   body: { maxWidth: 320 },
