@@ -17,6 +17,10 @@ primary_region = "sin"  # سنغافورة — أقرب منطقة فلاي فع
   PAYMENT_PROVIDERS = "mock,wallet,manual"
   ROOM_PROVIDER = "internal"
   SMS_ALLOWED_COUNTRIES = "+968"
+  # بريد Gmail: المضيف والمنفذ ثابتان ومعروفان (لا حاجة أن يكونا سرّاً) — السرّان الفعليان
+  # هما SMTP_USER وSMTP_PASS فقط، يُضبطان كأسرار GitHub وتُمرَّر عند النشر
+  SMTP_HOST = "smtp.gmail.com"
+  SMTP_PORT = "587"
   # رموز تحقّق حقيقية (اختيارية): الأسرار تُضبط بـ fly secrets set لا هنا — راجع README «رموز تحقّق حقيقية»
   #   fly secrets set SMTP_HOST=smtp.gmail.com SMTP_PORT=587 SMTP_USER=... SMTP_PASS=... EMAIL_FROM=...
   #   fly secrets set RESEND_API_KEY=...
