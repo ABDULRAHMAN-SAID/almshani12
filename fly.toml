@@ -1,6 +1,7 @@
 # نشر على Fly.io:  fly launch --copy-config --yes  ثم  fly volumes create data --size 1  ثم  fly deploy
+# سنغافورة — أقرب منطقة فلاي فعلياً لعُمان من فرانكفورت
 app = "manassah"
-primary_region = "sin"  # سنغافورة — أقرب منطقة فلاي فعلياً لعُمان من فرانكفورت
+primary_region = "sin"
 
 [build]
   dockerfile = "Dockerfile"

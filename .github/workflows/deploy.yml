@@ -83,8 +83,11 @@ jobs:
         if: steps.gate.outputs.run == 'true'
         run: |
           # يعمل على خادم GitHub لا في بيئة المطوّر المحدودة الشبكة — يبلغ api.fly.io مباشرة
-          APP="$(sed -nE 's/^app *= *"?([^"]+)"?/\1/p' fly.toml | head -n1)"
-          REGION="$(sed -nE 's/^primary_region *= *"?([^"]+)"?/\1/p' fly.toml | head -n1)"
+          # sed يستبدل الجزء المطابق فقط ويترك الباقي — تعليق زائد بعد القيمة كان يعلق بها حرفياً
+          # (هذا بالضبط ما كسر النشر الأول: primary_region حمل "sin  # ..." كنص الإقليم)؛
+          # نجرّد أي تعليق ومسافات طرفية دفاعياً هنا أيضاً لا في fly.toml وحده
+          APP="$(sed -nE 's/^app *= *"([^"]+)".*/\1/p' fly.toml | head -n1)"
+          REGION="$(sed -nE 's/^primary_region *= *"([^"]+)".*/\1/p' fly.toml | head -n1)"
           echo "APP=$APP" >> "$GITHUB_ENV"
           # render.JSON في flyctl يُخرج JSON منسّقاً (مسافات وأسطر) لا مضغوطاً — jq لا grep نصّي هشّ
           if flyctl apps list --json 2>/dev/null | jq -e --arg n "$APP" 'any(.[]; .Name == $n)' > /dev/null; then
@@ -106,7 +109,7 @@ jobs:
           SHA: ${{ github.sha }}
         run: |
           # صورة GHCR لمستودع خاص تكون خاصة أيضاً ولا يستطيع Fly سحبها — نسحبها هنا بـ GITHUB_TOKEN ونعيد دفعها إلى سجلّ Fly ثم ننشر منها
-          APP="$(sed -nE 's/^app *= *"?([^"]+)"?/\1/p' fly.toml | head -n1)"
+          APP="$(sed -nE 's/^app *= *"([^"]+)".*/\1/p' fly.toml | head -n1)"
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
           docker pull "$IMAGE:$SHA"
           docker tag "$IMAGE:$SHA" "registry.fly.io/$APP:$SHA"
