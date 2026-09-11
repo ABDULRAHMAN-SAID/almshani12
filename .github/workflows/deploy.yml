@@ -63,6 +63,10 @@ jobs:
     env:
       FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
       ADMIN_PHONE: ${{ secrets.ADMIN_PHONE }}
+      SMTP_HOST: ${{ secrets.SMTP_HOST }}
+      SMTP_PORT: ${{ secrets.SMTP_PORT }}
+      SMTP_USER: ${{ secrets.SMTP_USER }}
+      SMTP_PASS: ${{ secrets.SMTP_PASS }}
     steps:
       - name: هل السرّ FLY_API_TOKEN موجود؟
         id: gate
@@ -110,8 +114,13 @@ jobs:
           docker tag "$IMAGE:$SHA" "registry.fly.io/$APP:$SHA"
           flyctl auth docker
           docker push "registry.fly.io/$APP:$SHA"
-          # ADMIN_PHONE سرّ اختياري: رقمك يصبح مديراً حقيقياً أوّل عند أوّل إقلاع بقاعدة فارغة
-          flyctl deploy --image "registry.fly.io/$APP:$SHA" --env GHCR_IMAGE="$IMAGE" ${ADMIN_PHONE:+--env ADMIN_PHONE="$ADMIN_PHONE"}
+          # كل هذه أسرار اختيارية تُمرَّر فقط إن كانت مضبوطة — بلا بريد حقيقي يبقى الخادم يعمل، لكن لا أحد يستقبل رمز تحقّق
+          flyctl deploy --image "registry.fly.io/$APP:$SHA" --env GHCR_IMAGE="$IMAGE" \
+            ${ADMIN_PHONE:+--env ADMIN_PHONE="$ADMIN_PHONE"} \
+            ${SMTP_HOST:+--env SMTP_HOST="$SMTP_HOST"} \
+            ${SMTP_PORT:+--env SMTP_PORT="$SMTP_PORT"} \
+            ${SMTP_USER:+--env SMTP_USER="$SMTP_USER" --env EMAIL_FROM="$SMTP_USER"} \
+            ${SMTP_PASS:+--env SMTP_PASS="$SMTP_PASS"}
           echo "🚀 نُشر إلى Fly.io ($APP) من الصورة $IMAGE:$SHA" >> "$GITHUB_STEP_SUMMARY"
 
   render:
