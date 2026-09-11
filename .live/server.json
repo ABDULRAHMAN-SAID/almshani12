@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://prague-peaceful-detective-predict.trycloudflare.com",
-  "startedAt": "2026-09-11T18:25:51Z",
-  "expiresAt": "2026-09-11T23:25:51Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/34633115466",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
