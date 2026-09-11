@@ -41,6 +41,8 @@ export const ar = {
     fileTooLarge: 'حجم الملف أكبر من الحدّ المسموح. اختر ملفاً أصغر.',
     quotaExceeded: 'امتلأت مساحة التخزين في حسابك. احذف ملفات قديمة ثم حاول.',
     serviceUnavailable: 'الخدمة مشغولة الآن. حاول بعد لحظات.',
+    accountExists: 'هذا الحساب مسجَّل بالفعل — سجّل الدخول بدلاً من إنشاء حساب جديد.',
+    invalidCredentials: 'رقم الهاتف/البريد أو كلمة المرور غير صحيحة.',
   },
   nav: { home: 'الرئيسية', library: 'المكتبة', lessons: 'الحصص', courses: 'الدورات', account: 'حسابي' },
   onboarding: {
@@ -221,6 +223,13 @@ export const ar = {
     createAccountSubmit: 'إنشاء الحساب وإرسال الرمز',
     haveAccountQ: 'لديك حساب بالفعل؟', noAccountQ: 'ليس لديك حساب؟', signIn: 'سجّل الدخول',
     required: 'هذا الحقل مطلوب', invalidPhone: 'رقم هاتف غير صالح', invalidEmail: 'بريد إلكتروني غير صالح',
+    loginBody: 'أدخل رقم هاتفك أو بريدك وكلمة المرور للمتابعة', emailOrPhone: 'رقم الهاتف أو البريد الإلكتروني',
+    password: 'كلمة المرور', confirmPassword: 'تأكيد كلمة المرور', newPassword: 'كلمة المرور الجديدة',
+    passwordMismatch: 'كلمتا المرور غير متطابقتين', passwordTooShort: '٨ أحرف على الأقل',
+    loginSubmit: 'تسجيل الدخول', forgotPassword: 'نسيت كلمة المرور؟',
+    forgotPasswordTitle: 'استعادة كلمة المرور', forgotPasswordBody: 'أدخل رقم هاتفك أو بريدك وسنرسل رمز استعادة',
+    sendResetCode: 'إرسال رمز الاستعادة', resetCodeSentBody: 'أدخل الرمز الذي وصلك إلى',
+    resetPasswordSubmit: 'إعادة تعيين كلمة المرور والدخول',
   },
   search: {
     title: 'البحث', placeholder: 'ابحث عن كتاب، معلّم، دورة، درس…', recent: 'عمليات بحث سابقة', clear: 'مسح',

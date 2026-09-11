@@ -155,6 +155,31 @@ export const MIGRATIONS: Migration[] = [
     db.exec("UPDATE refresh_tokens SET family = 'legacy-' || id WHERE family IS NULL");
     db.exec('CREATE INDEX IF NOT EXISTS idx_rt_family ON refresh_tokens(family, revoked)');
   } },
+
+  { version: 7, name: '007_password_auth', up: (db) => {
+    // الدخول برمز تحقّق وحده اتّضح أنه إزعاج لا أمان إضافي لمستخدمي هذه المنصّة — كلمة مرور اختيارية إلى جانبه
+    addColumn(db, 'users', 'password_hash', 'TEXT');
+    // 'password' مزوّد جديد في auth_identities.provider — CHECK لا يُعدَّل بـ ALTER في SQLite فتُعاد بناء الجدول كاملاً.
+    // الاسم النهائي يُنشأ بـ CREATE TABLE مباشرة لا RENAME TO (الأخير يُبقي الاسم بين علامتي اقتباس في sqlite_master،
+    // فيختلف نصّياً عن نفس الجدول في قاعدة جديدة من schema.sql رغم تطابق المعنى تماماً)؛ القديم هو من يُنحّى بالتدوير.
+    const sql = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'auth_identities'").pluck().get() as string;
+    if (sql && !sql.includes("'password'")) {
+      db.exec(`
+        ALTER TABLE auth_identities RENAME TO auth_identities_old;
+        CREATE TABLE auth_identities (
+          id           INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          provider     TEXT NOT NULL CHECK (provider IN ('phone_otp','email_otp','apple','google','password')),
+          provider_uid TEXT NOT NULL,
+          created_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+          UNIQUE (provider, provider_uid)
+        );
+        INSERT INTO auth_identities (id, user_id, provider, provider_uid, created_at)
+          SELECT id, user_id, provider, provider_uid, created_at FROM auth_identities_old;
+        DROP TABLE auth_identities_old;
+      `);
+    }
+  } },
 ];
 
 /** فهارس ترحيل 005 — نفسها في schema.sql */

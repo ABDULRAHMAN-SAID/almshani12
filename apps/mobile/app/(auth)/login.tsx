@@ -3,21 +3,22 @@ import { View, Platform, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
-import { colors, spacing, radius, themed } from '@manassah/tokens';
-import { AuthMethods, AuthSession, OtpRequestResult, type OtpVia } from '@manassah/shared';
-import { Screen, Text, Button, Input, Chip, Icon, AuthHeader } from '@/ui';
+import { colors, spacing, themed } from '@manassah/tokens';
+import { AuthMethods, AuthSession, PasswordLogin, OtpChannel } from '@manassah/shared';
+import { Screen, Text, Button, Input, Icon, AuthHeader } from '@/ui';
 import { api, ApiError, errorMessageKey } from '@/api/client';
 import { useServerConfig } from '@/api/config';
 import { signIn, homeFor, safeBack } from '@/lib/session';
 import { renderGoogleButton, appleWebSignIn, appleNativeSignIn, loadAppleNative, loadGoogleNative, hasGoogleNative, GOOGLE_NATIVE_IDS, type AppleResult } from '@/lib/social';
 
-type Channel = 'phone' | 'email';
 type Locale = 'ar' | 'en';
+const PHONE_RE = /^(\+?968)?\d{8}$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const normalizePhone = (v: string) => v.replace(/[\s\-()]/g, '').replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
 /** ما يُفترض قبل معرفة طرق الخادم (أثناء التحميل أو عند تعذّر الجلب) */
 const FALLBACK: AuthMethods = { phone: true, whatsapp: false, email: true, testCode: true, google: false, apple: false };
 
-/** الدخول برمز تحقّق — هاتف (رسالة نصية أو واتساب) أو بريد، بلا كلمات مرور — أو بحساب Google/Apple حين يضبطهما الخادم */
+/** الدخول برقم الهاتف أو البريد وكلمة مرور — أو بحساب Google/Apple حين يضبطهما الخادم */
 export default function Login() {
   const { t, i18n } = useTranslation();
   const locale: Locale = i18n.language === 'en' ? 'en' : 'ar';
@@ -25,29 +26,26 @@ export default function Login() {
   const methodsQ = useQuery({ queryKey: ['auth-methods'], queryFn: () => api.get('/auth/methods', AuthMethods, undefined, { auth: false }), staleTime: 5 * 60_000, retry: 1 });
   const methods = methodsQ.data ?? FALLBACK;
   const cfg = useServerConfig().data;
-  const [channel, setChannel] = useState<Channel>('phone');
-  const [via, setVia] = useState<OtpVia>('sms');
-  const [value, setValue] = useState('');
-  const [loading, setLoading] = useState(false);
+
+  const [target, setTarget] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const [social, setSocial] = useState<string | null>(null);
   const [socialBusy, setSocialBusy] = useState(false);
 
-  // قناة واحدة فقط متاحة → تُختار تلقائياً ولا صفّ شرائح
-  const enabled = (['phone', 'email'] as Channel[]).filter(ch => methods[ch]);
-  const single = enabled.length === 1 ? enabled[0] : null;
-  useEffect(() => { if (single && channel !== single) { setChannel(single); setValue(''); setError(null); } }, [single, channel]);
-
-  const valid = channel === 'phone' ? /^(\+?968)?\d{8}$/.test(normalizePhone(value)) : /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value.trim());
-  const pick = (ch: Channel) => { setChannel(ch); setValue(''); setError(null); };
+  const channel: OtpChannel = target.includes('@') ? 'email' : 'phone';
+  const valid = channel === 'phone' ? PHONE_RE.test(normalizePhone(target)) : EMAIL_RE.test(target.trim());
 
   const submit = async () => {
     if (!valid) { setError(t('auth.invalidTarget')); return; }
+    if (!password) { setError(t('auth.required')); return; }
     setLoading(true); setError(null);
     try {
-      const target = channel === 'phone' ? normalizePhone(value) : value.trim().toLowerCase();
-      const r = await api.post('/auth/otp/request', channel === 'phone' ? { channel, target, via, locale } : { channel, target, locale }, OtpRequestResult, { auth: false });
-      router.push({ pathname: '/(auth)/verify', params: { channel, target: r.target, ttl: String(r.ttlSeconds), dev: r.devCode ?? '', delivery: r.delivery, via } });
+      const normalized = channel === 'phone' ? normalizePhone(target) : target.trim().toLowerCase();
+      const session = await api.post('/auth/login', { channel, target: normalized, password } as PasswordLogin, AuthSession, { auth: false });
+      await signIn(session);
+      router.replace(homeFor(session.user) as never);
     } catch (e) {
       setError(t(errorMessageKey(e)));
     } finally { setLoading(false); }
@@ -58,7 +56,6 @@ export default function Login() {
   const appleServicesId = cfg?.auth?.apple?.servicesId ?? null;
   const web = Platform.OS === 'web';
   const showGoogle = !!googleWebId && (web || (methods.google && hasGoogleNative()));
-  // الويب: Services ID + تفعيل الخادم معاً (وإلا يردّ 501 بعد النافذة المنبثقة)
   const showApple = web ? !!appleServicesId && methods.apple : Platform.OS === 'ios' && !!cfg?.auth?.apple?.native && methods.apple;
 
   /** الرمز وصل من المزوّد → الخادم يتحقّق ويصدر الجلسة */
@@ -69,7 +66,6 @@ export default function Login() {
       await signIn(session);
       router.replace(homeFor(session.user) as never);
     } catch (e) {
-      // 501 = المزوّد غير مضبوط على الخادم؛ 401 = رمز الهوية مرفوض (ليس انتهاء جلسة)
       setSocial(e instanceof ApiError && e.status === 501 ? t('auth.socialUnavailable') : e instanceof ApiError && e.status === 401 ? t('auth.socialFailed') : t(errorMessageKey(e)));
     } finally { setSocialBusy(false); }
   };
@@ -81,7 +77,6 @@ export default function Login() {
     try {
       if (web) { onApple(await appleWebSignIn(appleServicesId!)); return; }
       const A = loadAppleNative();
-      // بعض الأجهزة/المحاكيات لا تدعم الدخول بـ Apple — نتحقّق قبل فتح النافذة
       if (!A || !(await A.isAvailableAsync().catch(() => false))) { socialFail(); return; }
       onApple(await appleNativeSignIn(A));
     } catch { socialFail(); }
@@ -91,45 +86,20 @@ export default function Login() {
     <Screen onBack={() => safeBack(router)} title={t('ui.login')} contentStyle={styles.wrap}>
       <AuthHeader />
       <View style={styles.head}>
-        <Text role="h1">{t('auth.otpTitle')}</Text>
-        <Text role="body" tone="secondary">{t('auth.otpBody')}</Text>
+        <Text role="h1">{t('auth.welcomeBack')}</Text>
+        <Text role="body" tone="secondary">{t('auth.loginBody')}</Text>
       </View>
-      {enabled.length === 0 ? (
-        // الخادم لم يفعّل أي طريقة بعد (لا مزوّد ولا رمز ثابت) — لا نعرض نموذجاً لا يعمل
-        <View style={styles.head}>
-          <Text role="body" tone="secondary">{t('auth.phoneUnavailable')}</Text>
-          <Text role="body" tone="secondary">{t('auth.emailUnavailable')}</Text>
-        </View>
-      ) : (<>
-      {enabled.length > 1 ? (
-        <View style={styles.chips}>
-          {methods.phone ? <Chip label={t('auth.usePhone')} icon="phone" selected={channel === 'phone'} onPress={() => pick('phone')} /> : null}
-          {methods.email ? <Chip label={t('auth.useEmail')} icon="mail" selected={channel === 'email'} onPress={() => pick('email')} /> : null}
-        </View>
-      ) : null}
-      {channel === 'phone' ? (
-        <View style={styles.phoneBlock}>
-          <View style={styles.phoneRow}>
-            <View style={styles.code}><Text role="bodyMedium" tabular>{t('auth.omanCode')}</Text></View>
-            <View style={styles.flex}>
-              <Input value={value} onChangeText={setValue} placeholder={t('auth.phonePlaceholder')} keyboardType="phone-pad" numeric autoFocus
-                textContentType="telephoneNumber" autoComplete="tel" error={error} onSubmitEditing={submit} returnKeyType="send" />
-            </View>
-          </View>
-          {methods.whatsapp ? (
-            <View style={styles.viaRow}>
-              <Text role="caption" tone="secondary">{t('auth.sendVia')}</Text>
-              <Chip label={t('auth.viaSms')} icon="chat" small selected={via === 'sms'} onPress={() => setVia('sms')} />
-              <Chip label={t('auth.viaWhatsapp')} icon="chatSolid" small selected={via === 'whatsapp'} onPress={() => setVia('whatsapp')} />
-            </View>
-          ) : null}
-        </View>
-      ) : (
-        <Input value={value} onChangeText={setValue} placeholder={t('auth.emailPlaceholder')} keyboardType="email-address" autoCapitalize="none" autoFocus
-          textContentType="emailAddress" autoComplete="email" error={error} onSubmitEditing={submit} returnKeyType="send" icon="mail" />
-      )}
-      <Button label={t('onboarding.sendCode')} onPress={submit} loading={loading} disabled={!value} size="lg" full />
-      </>)}
+
+      <Input value={target} onChangeText={v => { setTarget(v); setError(null); }} placeholder={t('auth.emailOrPhone')} autoCapitalize="none" autoFocus
+        keyboardType="email-address" textContentType="username" autoComplete="username" icon="mail" />
+      <Input value={password} onChangeText={v => { setPassword(v); setError(null); }} placeholder={t('auth.password')} secureTextEntry error={error}
+        textContentType="password" autoComplete="password" onSubmitEditing={submit} returnKeyType="send" />
+
+      <Pressable onPress={() => router.push('/(auth)/forgot-password')} hitSlop={8} style={styles.forgotLink} accessibilityRole="link">
+        <Text role="small" tone="link">{t('auth.forgotPassword')}</Text>
+      </Pressable>
+
+      <Button label={t('auth.loginSubmit')} onPress={submit} loading={loading} disabled={!target || !password} size="lg" full />
 
       {showGoogle || showApple ? (<>
         <View style={styles.divider}><View style={styles.line} /><Text role="caption" tone="tertiary">{t('common.or')}</Text><View style={styles.line} /></View>
@@ -180,14 +150,9 @@ function GoogleNativeInner({ G, webClientId, label, busy, onToken, onError }: { 
 }
 
 const styles = themed((c) => StyleSheet.create({
-  wrap: { gap: spacing[5], paddingTop: spacing[4] },
+  wrap: { gap: spacing[4], paddingTop: spacing[4] },
   head: { gap: spacing[2] },
-  chips: { flexDirection: 'row', gap: spacing[2] },
-  phoneBlock: { gap: spacing[3] },
-  phoneRow: { flexDirection: 'row', gap: spacing[2], alignItems: 'flex-start' },
-  viaRow: { flexDirection: 'row', gap: spacing[2], alignItems: 'center', flexWrap: 'wrap' },
-  code: { height: 56, paddingHorizontal: spacing[4], borderRadius: radius.md, borderWidth: 2, borderColor: c.border.default, backgroundColor: c.bg.card, justifyContent: 'center' },
-  flex: { flex: 1 },
+  forgotLink: { alignSelf: 'flex-start' },
   divider: { flexDirection: 'row', alignItems: 'center', gap: spacing[3] },
   line: { flex: 1, height: 1.5, backgroundColor: c.border.default },
   socials: { gap: spacing[2] },

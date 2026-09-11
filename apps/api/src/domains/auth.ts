@@ -1,15 +1,16 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import { OtpRequest, OtpVerify, RefreshRequest, GoogleLogin, AppleLogin } from '@manassah/shared';
+import { OtpRequest, OtpVerify, RefreshRequest, GoogleLogin, AppleLogin, PasswordRegister, PasswordLogin, ResetPassword } from '@manassah/shared';
 import { config } from '../config.ts';
 import { q, nowIso } from '../db/index.ts';
 import { AppError, asyncHandler, badRequest, unauthorized } from '../lib/errors.ts';
 import { validate, body } from '../lib/validate.ts';
 import { signAccessToken, requireAuth } from '../lib/auth.ts';
 import { sha256, randomToken } from '../lib/helpers.ts';
+import { hashPassword, verifyPassword } from '../lib/password.ts';
 import { userView } from '../lib/views.ts';
 import { otpMethods, startOtp, checkOtp } from '../services/otp.ts';
-import { findOrCreateUser, findOrLinkSocialUser } from '../services/accounts.ts';
+import { findOrCreateUser, findOrLinkSocialUser, registerWithPassword, findUserForPasswordLogin } from '../services/accounts.ts';
 import { verifyGoogle, verifyApple, socialConfigured } from '../lib/social.ts';
 import { audit } from '../lib/audit.ts';
 
@@ -30,6 +31,20 @@ const otpLimiter = rateLimit({
     return `${req.ip}:${t}`;
   },
   handler: (_req, res) => res.status(429).json({ error: { code: 'rate_limited', message: 'محاولات كثيرة. انتظر قليلاً ثم حاول.' } }),
+});
+
+/** تخمين كلمة مرور: محاولات محدودة على نفس الهدف (لا نفس IP وحده — عدة أجهزة قد تخمّن نفس الحساب) */
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60_000, limit: 10, standardHeaders: 'draft-7', legacyHeaders: false,
+  skip: () => !config.rateLimit.enabled,
+  keyGenerator: req => `${req.ip}:${String(req.body?.target ?? '').trim().toLowerCase()}`,
+  handler: (_req, res) => res.status(429).json({ error: { code: 'rate_limited', message: 'محاولات دخول كثيرة. انتظر قليلاً ثم حاول.' } }),
+});
+/** إنشاء حسابات آلياً: سقف عام بالـIP وحده — التسجيل نفسه بلا رمز تحقّق فلا مفتاح هدف ذي معنى بعد */
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60_000, limit: 20, standardHeaders: 'draft-7', legacyHeaders: false,
+  skip: () => !config.rateLimit.enabled,
+  handler: (_req, res) => res.status(429).json({ error: { code: 'rate_limited', message: 'محاولات كثيرة. حاول لاحقاً.' } }),
 });
 
 /** رقم عُماني محلي (8 أرقام) يُكمَّل بـ +968؛ البريد يُصغَّر */
@@ -78,6 +93,39 @@ router.post('/otp/verify', otpLimiter, validate(OtpVerify), asyncHandler(async (
   await checkOtp({ channel, target, code });
   const { id, isNew } = findOrCreateUser(channel, target);
   res.json(issueSession(id, req, isNew));
+}));
+
+/* ---------- كلمة المرور ---------- */
+router.post('/register', registerLimiter, validate(PasswordRegister), asyncHandler(async (req, res) => {
+  const b = body<typeof PasswordRegister>(req);
+  const phone = normalizeTarget('phone', b.phone);
+  const email = normalizeTarget('email', b.email);
+  const { id, isNew } = registerWithPassword({ displayName: b.displayName, phone, email, passwordHash: hashPassword(b.password), locale: b.locale });
+  audit(req, 'auth.register', 'user', id);
+  res.json(issueSession(id, req, isNew));
+}));
+
+router.post('/login', loginLimiter, validate(PasswordLogin), asyncHandler(async (req, res) => {
+  const { channel, target: raw, password } = body<typeof PasswordLogin>(req);
+  const target = normalizeTarget(channel, raw);
+  const row = findUserForPasswordLogin(channel, target);
+  // رسالة واحدة لعدم وجود الحساب أو كلمة مرور خاطئة — كي لا تكشف الاستجابة أرقاماً/بُرداً مسجّلة على الخادم
+  if (!row || !row.passwordHash || !verifyPassword(password, row.passwordHash)) throw new AppError('invalid_credentials', 'رقم الهاتف/البريد أو كلمة المرور غير صحيحة', 401);
+  if (row.status !== 'active') throw new AppError('forbidden', 'هذا الحساب موقوف', 403);
+  res.json(issueSession(row.id, req, false));
+}));
+
+/** نسيت كلمة المرور: رمز تحقّق (نفس /otp/request) ثم هنا — يتحقّق من الرمز ويضبط كلمة مرور جديدة، ويُدخل مباشرة */
+router.post('/password/reset', otpLimiter, validate(ResetPassword), asyncHandler(async (req, res) => {
+  const { channel, target: raw, code, newPassword } = body<typeof ResetPassword>(req);
+  const target = normalizeTarget(channel, raw);
+  await checkOtp({ channel, target, code });
+  const row = q.get<{ id: number; status: string }>(`SELECT id, status FROM users WHERE ${channel} = ?`, target);
+  if (!row) throw new AppError('not_found', 'لا يوجد حساب بهذا الرقم أو البريد', 404);
+  if (row.status !== 'active') throw new AppError('forbidden', 'هذا الحساب موقوف', 403);
+  q.run('UPDATE users SET password_hash = ? WHERE id = ?', hashPassword(newPassword), row.id);
+  audit(req, 'auth.password_reset', 'user', row.id);
+  res.json(issueSession(row.id, req, false));
 }));
 
 /* ---------- Apple / Google ---------- */

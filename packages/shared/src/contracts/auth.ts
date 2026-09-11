@@ -8,6 +8,7 @@ export type Role = z.infer<typeof Role>;
 
 export const SignupRole = z.enum(['student', 'teacher', 'parent']);
 export const OtpChannel = z.enum(['phone', 'email']);
+export type OtpChannel = z.infer<typeof OtpChannel>;
 /** وسيلة إيصال رمز الهاتف */
 export const OtpVia = z.enum(['sms', 'whatsapp']);
 export type OtpVia = z.infer<typeof OtpVia>;
@@ -42,6 +43,34 @@ export const OtpVerify = z.object({
   target: z.string().trim().min(5).max(120),
   code: z.string().regex(/^\d{6}$/),
 });
+
+/* ---------- الدخول بكلمة مرور (POST /auth/register، /auth/login، /auth/password/reset) ---------- */
+const Password = z.string().min(8, 'كلمة المرور 8 أحرف على الأقل').max(72);
+
+export const PasswordRegister = z.object({
+  displayName: z.string().trim().min(2).max(60),
+  /** غير مطبَّعين بعد — الخادم يطبّعهما بنفس منطق OTP (+968 للهاتف، أحرف صغيرة للبريد) */
+  phone: z.string().trim().min(5).max(30),
+  email: z.string().trim().min(5).max(120),
+  password: Password,
+  locale: z.enum(['ar', 'en']).default('ar'),
+});
+export type PasswordRegister = z.infer<typeof PasswordRegister>;
+
+export const PasswordLogin = z.object({
+  channel: OtpChannel,
+  target: z.string().trim().min(3).max(120),
+  password: z.string().min(1).max(72),
+});
+export type PasswordLogin = z.infer<typeof PasswordLogin>;
+
+export const ResetPassword = z.object({
+  channel: OtpChannel,
+  target: z.string().trim().min(3).max(120),
+  code: z.string().regex(/^\d{6}$/),
+  newPassword: Password,
+});
+export type ResetPassword = z.infer<typeof ResetPassword>;
 
 export const VerificationStatus = z.enum(['pending', 'under_review', 'verified', 'rejected', 'suspended']);
 export type VerificationStatus = z.infer<typeof VerificationStatus>;

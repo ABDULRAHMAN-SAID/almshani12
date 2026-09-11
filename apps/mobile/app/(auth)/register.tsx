@@ -1,76 +1,59 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { View, Pressable, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { useQuery } from '@tanstack/react-query';
 import { spacing, radius, themed } from '@manassah/tokens';
-import { AuthMethods, OtpRequestResult, type OtpVia } from '@manassah/shared';
-import { Screen, Text, Button, Input, Chip, AuthHeader } from '@/ui';
+import { AuthSession, PasswordRegister } from '@manassah/shared';
+import { Screen, Text, Button, Input, AuthHeader } from '@/ui';
 import { api, errorMessageKey } from '@/api/client';
-import { safeBack } from '@/lib/session';
+import { signIn, homeFor, safeBack } from '@/lib/session';
 
-type Channel = 'phone' | 'email';
-const normalizePhone = (v: string) => v.replace(/[\s\-()]/g, '').replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
 const PHONE_RE = /^(\+?968)?\d{8}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-/** ما يُفترض قبل معرفة طرق الخادم (أثناء التحميل أو عند تعذّر الجلب) */
-const FALLBACK: AuthMethods = { phone: true, whatsapp: false, email: true, testCode: true, google: false, apple: false };
+const normalizePhone = (v: string) => v.replace(/[\s\-()]/g, '').replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
 
 /**
- * إنشاء حساب: الاسم الكامل (الأول + الأب + القبيلة — العُرف العُماني)، ثم الهاتف والبريد معاً،
- * فيُختار أحدهما لاستلام رمز التحقّق والآخر يُحفَظ جهة تواصل إضافية بعد التحقّق (verify.tsx).
- * هذا يفي بما اعتاده الناس من صفحات التسجيل الكاملة، بينما يبقى الدخول اللاحق برمز واحد بلا كلمة مرور.
+ * إنشاء حساب بكلمة مرور — لا رمز تحقّق: الاسم الكامل (الأول + الأب + القبيلة — العُرف العُماني)،
+ * ثم الهاتف والبريد معاً وكلمة مرور. حساب فوري وجلسة مباشرة، كأي صفحة تسجيل تقليدية.
  */
 export default function Register() {
   const { t, i18n } = useTranslation();
   const locale = i18n.language === 'en' ? 'en' : 'ar';
   const router = useRouter();
-  const methodsQ = useQuery({ queryKey: ['auth-methods'], queryFn: () => api.get('/auth/methods', AuthMethods, undefined, { auth: false }), staleTime: 5 * 60_000, retry: 1 });
-  const methods = methodsQ.data ?? FALLBACK;
-  const enabled = (['phone', 'email'] as Channel[]).filter(ch => methods[ch]);
 
   const [firstName, setFirstName] = useState('');
   const [secondName, setSecondName] = useState('');
   const [tribe, setTribe] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
-  const [channel, setChannel] = useState<Channel>('phone');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // قناة واحدة فقط متاحة على الخادم → تُختار تلقائياً
-  useEffect(() => { if (enabled.length === 1 && channel !== enabled[0]) setChannel(enabled[0]); }, [enabled.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const phoneValid = phone.trim() === '' || PHONE_RE.test(normalizePhone(phone));
-  const emailValid = email.trim() === '' || EMAIL_RE.test(email.trim());
-  const chosenValid = channel === 'phone' ? PHONE_RE.test(normalizePhone(phone)) : EMAIL_RE.test(email.trim());
+  const clear = (k: string) => setErrors(e => ({ ...e, [k]: '' }));
 
   const submit = async () => {
     const errs: Record<string, string> = {};
     if (firstName.trim().length < 2) errs.firstName = t('auth.required');
     if (secondName.trim().length < 2) errs.secondName = t('auth.required');
     if (tribe.trim().length < 2) errs.tribe = t('auth.required');
-    // errs[channel] هو نفسه errs.phone أو errs.email (channel قيمته 'phone' أو 'email') — يستبدل رسالة الصيغة برسالة «الحقل المختار فارغ/غير صالح» لو تعارضتا، وهذا مقصود
-    if (!phoneValid) errs.phone = t('auth.invalidPhone');
-    if (!emailValid) errs.email = t('auth.invalidEmail');
-    if (!chosenValid) errs[channel] = t('auth.invalidTarget');
-
+    if (!PHONE_RE.test(normalizePhone(phone))) errs.phone = t('auth.invalidPhone');
+    if (!EMAIL_RE.test(email.trim())) errs.email = t('auth.invalidEmail');
+    if (password.length < 8) errs.password = t('auth.passwordTooShort');
+    else if (password !== confirmPassword) errs.confirmPassword = t('auth.passwordMismatch');
     setErrors(errs);
     if (Object.keys(errs).length) return;
 
     setLoading(true); setFormError(null);
     try {
-      const target = channel === 'phone' ? normalizePhone(phone) : email.trim().toLowerCase();
-      const r = await api.post('/auth/otp/request', channel === 'phone' ? { channel, target, via: 'sms' as OtpVia, locale } : { channel, target, locale }, OtpRequestResult, { auth: false });
       const displayName = [firstName, secondName, tribe].map(s => s.trim()).filter(Boolean).join(' ');
-      // الحقل الآخر (غير قناة التحقّق) إن كان مكتوباً وصحيحاً يُمرَّر ليُحفظ بعد التحقّق كجهة تواصل إضافية
-      const secondaryChannel: Channel | '' = channel === 'phone' ? (email.trim() && emailValid ? 'email' : '') : (phone.trim() && phoneValid ? 'phone' : '');
-      const secondaryValue = secondaryChannel === 'email' ? email.trim().toLowerCase() : secondaryChannel === 'phone' ? normalizePhone(phone) : '';
-      router.push({
-        pathname: '/(auth)/verify',
-        params: { channel, target: r.target, ttl: String(r.ttlSeconds), dev: r.devCode ?? '', delivery: r.delivery, via: 'sms', displayName, secondaryChannel, secondaryValue },
-      });
+      const session = await api.post('/auth/register', {
+        displayName, phone: normalizePhone(phone), email: email.trim().toLowerCase(), password, locale,
+      } as PasswordRegister, AuthSession, { auth: false });
+      await signIn(session);
+      router.replace(homeFor(session.user) as never);
     } catch (e) {
       setFormError(t(errorMessageKey(e)));
     } finally { setLoading(false); }
@@ -86,9 +69,9 @@ export default function Register() {
 
       <View style={styles.section}>
         <Text role="caption" tone="tertiary" style={styles.sectionLabel}>{t('auth.fullNameSection')}</Text>
-        <Input value={firstName} onChangeText={v => { setFirstName(v); setErrors(e => ({ ...e, firstName: '' })); }} placeholder={t('auth.firstName')} error={errors.firstName} autoCapitalize="words" autoFocus />
-        <Input value={secondName} onChangeText={v => { setSecondName(v); setErrors(e => ({ ...e, secondName: '' })); }} placeholder={t('auth.secondName')} error={errors.secondName} autoCapitalize="words" />
-        <Input value={tribe} onChangeText={v => { setTribe(v); setErrors(e => ({ ...e, tribe: '' })); }} placeholder={t('auth.tribeName')} error={errors.tribe} autoCapitalize="words" />
+        <Input value={firstName} onChangeText={v => { setFirstName(v); clear('firstName'); }} placeholder={t('auth.firstName')} error={errors.firstName} autoCapitalize="words" autoFocus />
+        <Input value={secondName} onChangeText={v => { setSecondName(v); clear('secondName'); }} placeholder={t('auth.secondName')} error={errors.secondName} autoCapitalize="words" />
+        <Input value={tribe} onChangeText={v => { setTribe(v); clear('tribe'); }} placeholder={t('auth.tribeName')} error={errors.tribe} autoCapitalize="words" />
       </View>
 
       <View style={styles.section}>
@@ -96,23 +79,17 @@ export default function Register() {
         <View style={styles.phoneRow}>
           <View style={styles.code}><Text role="bodyMedium" tabular>{t('auth.omanCode')}</Text></View>
           <View style={styles.flex}>
-            <Input value={phone} onChangeText={v => { setPhone(v); setErrors(e => ({ ...e, phone: '' })); }}
-              placeholder={t('auth.phonePlaceholder')} keyboardType="phone-pad" numeric error={errors.phone} textContentType="telephoneNumber" autoComplete="tel" />
+            <Input value={phone} onChangeText={v => { setPhone(v); clear('phone'); }} placeholder={t('auth.phonePlaceholder')} keyboardType="phone-pad" numeric error={errors.phone} textContentType="telephoneNumber" autoComplete="tel" />
           </View>
         </View>
-        <Input value={email} onChangeText={v => { setEmail(v); setErrors(e => ({ ...e, email: '' })); }}
-          placeholder={t('auth.emailPlaceholder')} keyboardType="email-address" autoCapitalize="none" icon="mail" error={errors.email} textContentType="emailAddress" autoComplete="email" />
+        <Input value={email} onChangeText={v => { setEmail(v); clear('email'); }} placeholder={t('auth.emailPlaceholder')} keyboardType="email-address" autoCapitalize="none" icon="mail" error={errors.email} textContentType="emailAddress" autoComplete="email" />
       </View>
 
-      {enabled.length > 1 ? (
-        <View style={styles.section}>
-          <Text role="caption" tone="tertiary" style={styles.sectionLabel}>{t('auth.sendCodeVia')}</Text>
-          <View style={styles.chips}>
-            {methods.phone ? <Chip label={t('auth.usePhone')} icon="phone" selected={channel === 'phone'} onPress={() => setChannel('phone')} /> : null}
-            {methods.email ? <Chip label={t('auth.useEmail')} icon="mail" selected={channel === 'email'} onPress={() => setChannel('email')} /> : null}
-          </View>
-        </View>
-      ) : null}
+      <View style={styles.section}>
+        <Text role="caption" tone="tertiary" style={styles.sectionLabel}>{t('auth.password')}</Text>
+        <Input value={password} onChangeText={v => { setPassword(v); clear('password'); }} placeholder={t('auth.password')} secureTextEntry error={errors.password} helper={!errors.password ? t('auth.passwordTooShort') : undefined} textContentType="newPassword" autoComplete="password-new" />
+        <Input value={confirmPassword} onChangeText={v => { setConfirmPassword(v); clear('confirmPassword'); }} placeholder={t('auth.confirmPassword')} secureTextEntry error={errors.confirmPassword} textContentType="newPassword" autoComplete="password-new" />
+      </View>
 
       {formError ? <Text role="small" tone="danger" center>{formError}</Text> : null}
       <Button label={t('auth.createAccountSubmit')} onPress={submit} loading={loading} size="lg" full />
@@ -133,7 +110,6 @@ const styles = themed((c) => StyleSheet.create({
   phoneRow: { flexDirection: 'row', gap: spacing[2], alignItems: 'flex-start' },
   code: { height: 56, paddingHorizontal: spacing[4], borderRadius: radius.md, borderWidth: 2, borderColor: c.border.default, backgroundColor: c.bg.card, justifyContent: 'center' },
   flex: { flex: 1 },
-  chips: { flexDirection: 'row', gap: spacing[2] },
   footerLink: { paddingVertical: spacing[2] },
   terms: { marginTop: spacing[2] },
 }));

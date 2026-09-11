@@ -54,6 +54,7 @@ export function errorMessageKey(err: unknown): string {
       learner_has_upcoming: 'learners.hasUpcoming', last_learner: 'learners.lastLearner',
       otp_delivery_unavailable: 'errors.otpDeliveryUnavailable', otp_send_failed: 'errors.otpSendFailed', otp_country_not_allowed: 'errors.otpCountryNotAllowed',
       file_too_large: 'errors.fileTooLarge', quota_exceeded: 'errors.quotaExceeded', service_unavailable: 'errors.serviceUnavailable',
+      account_exists: 'errors.accountExists', invalid_credentials: 'errors.invalidCredentials',
     };
     return map[err.code] ?? 'errors.generic';
   }

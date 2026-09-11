@@ -74,6 +74,58 @@ test('الحساب الموقوف لا يستطيع الدخول', async () => {
   assert.equal(v.status, 403);
 });
 
+/* ---------- كلمة المرور ---------- */
+test('تسجيل بكلمة مرور: هاتف وبريد معاً بلا رمز تحقّق، والدخول لاحقاً بأيّهما', async () => {
+  const r = await c.api('/api/auth/register', { method: 'POST', body: {
+    displayName: 'عبدالرحمن سعيد المعشني', phone: '92100001', email: 'abdulrahman@example.com', password: 'حرف-مرور-قوي1',
+  } });
+  assert.equal(r.status, 200);
+  assert.equal(r.json.isNew, true);
+  assert.equal(r.json.user.phone, '+96892100001');
+  assert.equal(r.json.user.email, 'abdulrahman@example.com');
+
+  const byPhone = await c.api('/api/auth/login', { method: 'POST', body: { channel: 'phone', target: '92100001', password: 'حرف-مرور-قوي1' } });
+  assert.equal(byPhone.status, 200);
+  const byEmail = await c.api('/api/auth/login', { method: 'POST', body: { channel: 'email', target: 'ABDULRAHMAN@example.com', password: 'حرف-مرور-قوي1' } });
+  assert.equal(byEmail.status, 200);
+  assert.equal(byEmail.json.user.id, byPhone.json.user.id);
+});
+
+test('كلمة مرور خاطئة أو حساب غير موجود: نفس الرسالة الموحّدة، وتسجيل مكرّر على حساب له كلمة مرور يُرفض', async () => {
+  await c.api('/api/auth/register', { method: 'POST', body: { displayName: 'سالم راشد', phone: '92100002', email: 'salim2@example.com', password: 'كلمة-مرور-2' } });
+  const wrongPw = await c.api('/api/auth/login', { method: 'POST', body: { channel: 'phone', target: '92100002', password: 'غلط' } });
+  assert.equal(wrongPw.status, 401); assert.equal(wrongPw.json.error.code, 'invalid_credentials');
+  const noAccount = await c.api('/api/auth/login', { method: 'POST', body: { channel: 'phone', target: '92199999', password: 'أي-شيء' } });
+  assert.equal(noAccount.status, 401); assert.equal(noAccount.json.error.code, 'invalid_credentials');
+  const dup = await c.api('/api/auth/register', { method: 'POST', body: { displayName: 'محاولة تكرار', phone: '92100002', email: 'other@example.com', password: 'كلمة-مرور-3' } });
+  assert.equal(dup.status, 409); assert.equal(dup.json.error.code, 'account_exists');
+});
+
+test('حساب أُنشئ برمز تحقّق بلا كلمة مرور: التسجيل بكلمة مرور على نفس الرقم يُرقّيه لا يكرّره', async () => {
+  await c.api('/api/auth/otp/request', { method: 'POST', body: { channel: 'phone', target: '92100003' } });
+  const otpUser = await c.api('/api/auth/otp/verify', { method: 'POST', body: { channel: 'phone', target: '92100003', code: '000000' } });
+  assert.equal(otpUser.status, 200);
+  const upgraded = await c.api('/api/auth/register', { method: 'POST', body: { displayName: 'ترقية الحساب', phone: '92100003', email: 'upgraded@example.com', password: 'كلمة-مرور-جديدة' } });
+  assert.equal(upgraded.status, 200);
+  assert.equal(upgraded.json.isNew, false);
+  assert.equal(upgraded.json.user.id, otpUser.json.user.id, 'نفس الحساب لا حساب جديد');
+  const login = await c.api('/api/auth/login', { method: 'POST', body: { channel: 'phone', target: '92100003', password: 'كلمة-مرور-جديدة' } });
+  assert.equal(login.status, 200);
+});
+
+test('استعادة كلمة المرور: رمز صحيح يضبط كلمة جديدة ويُدخل مباشرة؛ الرمز القديم لا يُستخدم مرتين', async () => {
+  await c.api('/api/auth/register', { method: 'POST', body: { displayName: 'هدى خالد', phone: '92100004', email: 'huda@example.com', password: 'كلمة-قديمة' } });
+  await c.api('/api/auth/otp/request', { method: 'POST', body: { channel: 'phone', target: '92100004' } });
+  const reset = await c.api('/api/auth/password/reset', { method: 'POST', body: { channel: 'phone', target: '92100004', code: '000000', newPassword: 'كلمة-جديدة-جداً' } });
+  assert.equal(reset.status, 200);
+  const oldPw = await c.api('/api/auth/login', { method: 'POST', body: { channel: 'phone', target: '92100004', password: 'كلمة-قديمة' } });
+  assert.equal(oldPw.status, 401);
+  const newPw = await c.api('/api/auth/login', { method: 'POST', body: { channel: 'phone', target: '92100004', password: 'كلمة-جديدة-جداً' } });
+  assert.equal(newPw.status, 200);
+  const reuseCode = await c.api('/api/auth/password/reset', { method: 'POST', body: { channel: 'phone', target: '92100004', code: '000000', newPassword: 'محاولة-أخرى' } });
+  assert.equal(reuseCode.status, 400); assert.equal(reuseCode.json.error.code, 'otp_expired');
+});
+
 /* ---------- سلاسل رموز التجديد ---------- */
 /** يسجّل دخولاً مستقلّاً (سلسلة جديدة) ويعيد رمز التجديد */
 async function login(c: Ctx, target: string): Promise<string> {

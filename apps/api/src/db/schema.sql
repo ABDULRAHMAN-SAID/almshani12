@@ -20,6 +20,8 @@ CREATE TABLE IF NOT EXISTS users (
   status_reason TEXT,
   suspended_at  TEXT,
   suspended_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  -- "ملح:تجزئة" بـ scrypt — أُضيفت بالترحيل 007؛ NULL لحساب أُنشئ عبر رمز تحقّق/دخول اجتماعي ولم يضع كلمة مرور بعد
+  password_hash TEXT,
   CHECK (phone IS NOT NULL OR email IS NOT NULL)
 );
 CREATE INDEX IF NOT EXISTS idx_users_created ON users(created_at);
@@ -35,7 +37,7 @@ CREATE TABLE IF NOT EXISTS user_roles (
 CREATE TABLE IF NOT EXISTS auth_identities (
   id           INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  provider     TEXT NOT NULL CHECK (provider IN ('phone_otp','email_otp','apple','google')),
+  provider     TEXT NOT NULL CHECK (provider IN ('phone_otp','email_otp','apple','google','password')),
   provider_uid TEXT NOT NULL,
   created_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   UNIQUE (provider, provider_uid)

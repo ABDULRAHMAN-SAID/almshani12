@@ -42,6 +42,8 @@ export const en: Dictionary = {
     fileTooLarge: 'This file is larger than the allowed limit. Choose a smaller one.',
     quotaExceeded: 'Your storage is full. Delete old files and try again.',
     serviceUnavailable: 'The service is busy right now. Try again in a moment.',
+    accountExists: 'This account already exists — sign in instead of creating a new one.',
+    invalidCredentials: 'Incorrect phone/email or password.',
   },
   nav: { home: 'Home', library: 'Library', lessons: 'Lessons', courses: 'Courses', account: 'Account' },
   onboarding: {
@@ -220,6 +222,13 @@ export const en: Dictionary = {
     createAccountSubmit: 'Create account & send code',
     haveAccountQ: 'Already have an account?', noAccountQ: "Don't have an account?", signIn: 'Sign in',
     required: 'This field is required', invalidPhone: 'Invalid phone number', invalidEmail: 'Invalid email address',
+    loginBody: 'Enter your phone or email and your password to continue', emailOrPhone: 'Phone number or email',
+    password: 'Password', confirmPassword: 'Confirm password', newPassword: 'New password',
+    passwordMismatch: 'Passwords do not match', passwordTooShort: 'At least 8 characters',
+    loginSubmit: 'Sign in', forgotPassword: 'Forgot password?',
+    forgotPasswordTitle: 'Reset your password', forgotPasswordBody: "Enter your phone or email and we'll send a reset code",
+    sendResetCode: 'Send reset code', resetCodeSentBody: 'Enter the code we sent to',
+    resetPasswordSubmit: 'Reset password & sign in',
   },
   search: {
     title: 'Search', placeholder: 'Search books, teachers, courses, lessons…', recent: 'Recent searches', clear: 'Clear',

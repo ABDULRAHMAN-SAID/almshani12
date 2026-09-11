@@ -258,6 +258,13 @@ export async function handle(method: string, fullPath: string, body: any, ctx?: 
     if (String(body?.code) !== '000000') return err(400, 'otp_invalid', 'رمز التحقّق غير صحيح');
     return enter(String(body?.target ?? ''));
   }
+  // كلمة المرور في نسخة العرض شكلية بلا تحقّق فعلي — تجربة الدخول/التسجيل فقط
+  if (path === '/auth/register') return enter(String(body?.phone ?? body?.email ?? ''));
+  if (path === '/auth/login') return enter(String(body?.target ?? ''));
+  if (path === '/auth/password/reset') {
+    if (String(body?.code) !== '000000') return err(400, 'otp_invalid', 'رمز التحقّق غير صحيح');
+    return enter(String(body?.target ?? ''));
+  }
   if (path === '/auth/refresh') return ok({ accessToken: 'demo-access', refreshToken: 'demo-refresh', user: user() });
   if (path === '/auth/logout') return ok();
   // الدخول الاجتماعي في نسخة العرض يفتح حساب الطالب التجريبي مباشرة
