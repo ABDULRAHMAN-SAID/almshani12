@@ -1,8 +1,8 @@
 {
-  "status": "down",
-  "url": null,
-  "startedAt": null,
-  "expiresAt": null,
-  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/34673059518",
+  "status": "up",
+  "url": "https://had-millennium-basket-investor.trycloudflare.com",
+  "startedAt": "2026-09-12T09:30:52Z",
+  "expiresAt": "2026-09-12T14:30:52Z",
+  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/34685978061",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
