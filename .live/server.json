@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://timer-anyway-dana-sig.trycloudflare.com",
-  "startedAt": "2026-09-12T04:29:09Z",
-  "expiresAt": "2026-09-12T09:29:09Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/34673059518",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
