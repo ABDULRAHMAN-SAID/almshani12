@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://hdtv-lone-rough-ideas.trycloudflare.com",
-  "startedAt": "2026-09-12T19:34:03Z",
-  "expiresAt": "2026-09-13T00:34:03Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/34714468825",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
