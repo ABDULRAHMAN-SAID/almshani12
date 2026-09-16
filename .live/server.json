@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://appliance-badge-corner-hindu.trycloudflare.com",
-  "startedAt": "2026-09-15T22:58:24Z",
-  "expiresAt": "2026-09-16T03:58:24Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/35033410501",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
