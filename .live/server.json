@@ -1,8 +1,8 @@
 {
-  "status": "down",
-  "url": null,
-  "startedAt": null,
-  "expiresAt": null,
-  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/35396143697",
+  "status": "up",
+  "url": "https://heads-peers-porcelain-lands.trycloudflare.com",
+  "startedAt": "2026-09-19T02:22:11Z",
+  "expiresAt": "2026-09-19T07:22:11Z",
+  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/35415376713",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
