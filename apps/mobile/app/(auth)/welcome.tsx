@@ -39,7 +39,7 @@ export default function Welcome() {
         </View>
       </View>
       <View style={styles.actions}>
-        <Button label={t('onboarding.start')} onPress={() => router.push('/(auth)/login')} size="lg" full iconEnd="forward" />
+        <Button label={t('onboarding.start')} onPress={() => router.push('/(auth)/register')} size="lg" full iconEnd="forward" />
         <Button label={t('onboarding.haveAccount')} onPress={() => router.push('/(auth)/login')} variant="secondary" full />
         {/* نسخة العرض: زرّ يقرأ عنوان الخادم التجريبي الحالي من السجلّ ويتّصل به — على الويب والجوال معاً */}
         {demo ? <LiveServerButton full /> : null}

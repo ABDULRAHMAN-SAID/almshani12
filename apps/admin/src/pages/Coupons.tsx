@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import type { PageMeta } from '@manassah/shared';
 import { api, day } from '../api';
-import { Page, Badge, Modal, Field, Empty, ErrorState, useToast, errMsg } from '../ui';
+import { Page, Badge, Modal, Field, DataTable, useToast, errMsg, type Column } from '../ui';
 
 type Scope = { teacherId?: number; category?: string; featured?: boolean; title?: string; products?: unknown[] };
 type Coupon = { id: number; code: string; type: string; value: number; startsAt: string | null; endsAt: string | null; usageLimit: number | null; userLimit: number | null; usedCount: number; scope: Scope; active: boolean };
@@ -47,7 +48,8 @@ function formError(f: Form): string | null {
 export default function Coupons() {
   const qc = useQueryClient();
   const toast = useToast();
-  const list = useQuery({ queryKey: ['adm-coupons'], queryFn: () => api.get<Coupon[]>('/admin/coupons') });
+  const [page, setPage] = useState(1);
+  const list = useQuery({ queryKey: ['adm-coupons', page], queryFn: () => api.get<{ data: Coupon[]; meta: PageMeta }>('/admin/coupons', { page, limit: 30 }) });
   const [edit, setEdit] = useState<{ base: Coupon | null; f: Form } | null>(null);
   const inv = () => qc.invalidateQueries({ queryKey: ['adm-coupons'] });
   const save = useMutation({
@@ -62,23 +64,21 @@ export default function Coupons() {
   });
   const set = (p: Partial<Form>) => setEdit(s => s ? { ...s, f: { ...s.f, ...p } } : s);
   const err = edit ? formError(edit.f) : null;
+  const cols: Column<Coupon>[] = [
+    { key: 'code', label: 'الرمز', className: 'num', render: c => <b>{c.code}</b> },
+    { key: 'value', label: 'الخصم', className: 'num', render: c => c.type === 'percentage' ? `${c.value}٪` : `${c.value} ر.ع` },
+    { key: 'validity', label: 'الصلاحية', className: 'num small', render: c => <>{day(c.startsAt)} → {day(c.endsAt)}</> },
+    { key: 'usage', label: 'الاستخدام', className: 'num', render: c => <>{c.usedCount}{c.usageLimit ? ` / ${c.usageLimit}` : ''}{c.userLimit ? ` · ${c.userLimit} لكل مستخدم` : ''}</> },
+    { key: 'scope', label: 'النطاق', className: 'small', render: c => <>{c.scope?.teacherId ? `معلّم #${c.scope.teacherId}` : c.scope?.category ? `فئة ${CAT_AR[c.scope.category] ?? c.scope.category}` : 'عام'}{c.scope?.featured ? <Badge tone="gold">يظهر في الرئيسية</Badge> : null}</> },
+    { key: 'active', label: 'الحالة', render: c => <Badge tone={c.active ? 'success' : ''}>{c.active ? 'مفعّل' : 'موقوف'}</Badge> },
+    { key: 'actions', label: '', className: 'actions', render: c => <>
+      <button className="btn secondary sm" onClick={() => setEdit({ base: c, f: formOf(c) })}>تعديل</button>{' '}
+      <button className="btn ghost sm" disabled={toggle.isPending} onClick={() => toggle.mutate({ id: c.id, active: !c.active })}>{c.active ? 'إيقاف' : 'تفعيل'}</button>
+    </> },
+  ];
   return (
     <Page title="الكوبونات" actions={<button className="btn" onClick={() => setEdit({ base: null, f: EMPTY })}>كوبون جديد</button>}>
-      <div className="card tbl">{list.isError ? <ErrorState error={list.error} /> : list.data?.length ? (
-        <table><thead><tr><th>الرمز</th><th>الخصم</th><th>الصلاحية</th><th>الاستخدام</th><th>النطاق</th><th>الحالة</th><th></th></tr></thead>
-          <tbody>{list.data.map(c => <tr key={c.id}>
-            <td className="num"><b>{c.code}</b></td>
-            <td className="num">{c.type === 'percentage' ? `${c.value}٪` : `${c.value} ر.ع`}</td>
-            <td className="num small">{day(c.startsAt)} → {day(c.endsAt)}</td>
-            <td className="num">{c.usedCount}{c.usageLimit ? ` / ${c.usageLimit}` : ''}{c.userLimit ? ` · ${c.userLimit} لكل مستخدم` : ''}</td>
-            <td className="small">{c.scope?.teacherId ? `معلّم #${c.scope.teacherId}` : c.scope?.category ? `فئة ${CAT_AR[c.scope.category] ?? c.scope.category}` : 'عام'}{c.scope?.featured ? <Badge tone="gold">يظهر في الرئيسية</Badge> : null}</td>
-            <td><Badge tone={c.active ? 'success' : ''}>{c.active ? 'مفعّل' : 'موقوف'}</Badge></td>
-            <td className="actions">
-              <button className="btn secondary sm" onClick={() => setEdit({ base: c, f: formOf(c) })}>تعديل</button>{' '}
-              <button className="btn ghost sm" disabled={toggle.isPending} onClick={() => toggle.mutate({ id: c.id, active: !c.active })}>{c.active ? 'إيقاف' : 'تفعيل'}</button>
-            </td>
-          </tr>)}</tbody></table>
-      ) : <Empty text={list.isLoading ? 'جارٍ التحميل…' : 'لا كوبونات'} />}</div>
+      <div className="card"><DataTable columns={cols} rows={list.data?.data} meta={list.data?.meta} onPage={setPage} loading={list.isLoading} error={list.error} empty="لا كوبونات" /></div>
       {edit ? (
         <Modal
           title={edit.base ? `تعديل الكوبون ${edit.base.code}` : 'كوبون جديد'}

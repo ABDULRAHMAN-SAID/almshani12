@@ -71,7 +71,7 @@ export default function ApplyTeacher() {
       <View style={styles.wrap}>
         <Text role="body" tone="secondary">{t('teacherUi.applyIntro')}</Text>
         <Input label={t('onboarding.yourName')} value={f.displayName} onChangeText={set('displayName')} error={err('displayName')} />
-        <Input label={t('teacherUi.headline')} value={f.headline} onChangeText={set('headline')} placeholder="فيزياء الدبلوم العام — ١٠ أعوام خبرة" error={err('headline')} />
+        <Input label={t('teacherUi.headline')} value={f.headline} onChangeText={set('headline')} placeholder={t('teacherUi.headlinePlaceholder')} error={err('headline')} />
         <Input label={t('teacherUi.bio')} value={f.bio} onChangeText={set('bio')} multiline numberOfLines={4} error={err('bio')} helper={`${f.bio.trim().length}/2000`} />
         <View style={styles.row}><View style={styles.flex}><Input label={t('teacherUi.qualification')} value={f.qualification} onChangeText={set('qualification')} error={err('qualification')} /></View><View style={styles.flex}><Input label={t('teacherUi.specialty')} value={f.specialty} onChangeText={set('specialty')} error={err('specialty')} /></View></View>
         <Input label={t('teacherUi.years')} value={f.yearsExp} onChangeText={set('yearsExp')} keyboardType="number-pad" numeric error={err('yearsExp')} />

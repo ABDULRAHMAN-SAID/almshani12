@@ -56,7 +56,7 @@ export default function TeacherBooks() {
             <Text role="caption" tone="secondary">{t(`library.types.${b.type}`)} · {b.subject.name} · {b.grade.name} · {money(b.price)} · {t('library.sold', { n: b.salesCount })}</Text>
             {b.rejectReason ? <Text role="small" tone="danger">{t('teacherUi.rejectedReason')}: {b.rejectReason}</Text> : null}
             <View style={styles.actions}>
-              <Button label={b.hasFile ? `PDF ✓` : t('common.pages')} variant="secondary" size="sm" icon="upload" loading={upload.isPending} onPress={() => pickAndUpload(b.id, 'full')} />
+              <Button label={b.hasFile ? t('teacherUi.pdfUploaded') : t('teacherUi.uploadPdf')} variant="secondary" size="sm" icon="upload" loading={upload.isPending} onPress={() => pickAndUpload(b.id, 'full')} />
               <Button label={t('book.preview')} variant="secondary" size="sm" icon="upload" onPress={() => pickAndUpload(b.id, 'preview')} />
               {['draft', 'rejected'].includes(b.status) ? <Button label={t('teacherApp.apply.submit')} size="sm" icon="send" disabled={!b.hasFile} loading={submit.isPending} onPress={() => submit.mutate(b.id)} /> : null}
               {b.status === 'published' ? <Button label={t('common.details')} variant="ghost" size="sm" onPress={() => router.push(`/book/${b.id}`)} /> : null}

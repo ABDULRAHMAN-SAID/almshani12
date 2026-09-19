@@ -78,7 +78,7 @@ export default function Room() {
           </View>
         ) : null}
         {st.sharing || st.remoteSharing ? <View style={styles.shareBanner}><Icon name="screen" size={14} color={colors.text.onPrimary} /><Text role="caption" color={colors.text.onPrimary}>{t('live.sharing')}</Text></View> : null}
-        {st.participants.some(p => p.hand && p.userId !== st.me?.userId) ? <View style={styles.handBanner}><Icon name="hand" size={14} color={colors.text.primary} /><Text role="caption">{st.participants.filter(p => p.hand && p.userId !== st.me?.userId).map(p => p.name).join('، ')} {t('live.handRaised')}</Text></View> : null}
+        {st.participants.some(p => p.hand && p.userId !== st.me?.userId) ? <View style={styles.handBanner}><Icon name="hand" size={14} color={colors.text.primary} /><Text role="caption">{st.participants.filter(p => p.hand && p.userId !== st.me?.userId).map(p => p.name).join(t('common.listSeparator'))} {t('live.handRaised')}</Text></View> : null}
       </View>
 
       {/* أزرار التحكّم — تتّسع كاملةً على شاشة 390: الأساسية دائماً ظاهرة (المغادرة وإنهاء الحصة منها) والباقي في ورقة «المزيد» */}

@@ -2,7 +2,7 @@ import { View, Pressable, Linking, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import Constants from 'expo-constants';
-import { colors, spacing, themed } from '@manassah/tokens';
+import { colors, subjectColors, spacing, themed } from '@manassah/tokens';
 import { brand } from '@manassah/shared';
 import { Screen, Text, Card, Avatar, Badge, ListRow, Button, IconButton, HeaderActions, LearnerAvatar } from '@/ui';
 import { useAuth, useActiveLearner, useLearners } from '@/state/auth';
@@ -64,24 +64,24 @@ export default function Account() {
 
       <Card padded={false} style={styles.menu}>
         <View style={styles.menuInner}>
-          <ListRow icon="people" color="#D7263D" label={t('learners.title')} onPress={() => router.push('/account/learners')}
+          <ListRow icon="people" color={colors.brand.primary} label={t('learners.title')} onPress={() => router.push('/account/learners')}
             right={<View style={styles.avatars}>{learners.slice(0, 4).map(l => <LearnerAvatar key={l.id} learner={l} size={28} badge={false} />)}</View>} />
-          <ListRow icon="receipt" color="#2F6FED" label={t('account.purchases')} onPress={() => router.push('/account/purchases')} />
-          <ListRow icon="calendar" color="#7A5AF8" label={t('account.bookings')} onPress={() => router.push('/(tabs)/lessons')} />
-          <ListRow icon="heart" color="#E5488A" label={t('account.favorites')} onPress={() => router.push('/account/favorites')} />
-          <ListRow icon="progress" color="#0EA5A5" label={t('account.progress')} onPress={() => router.push('/account/progress')} />
-          <ListRow icon="bell" color="#F08A24" label={t('account.notifications')} badge={notifications.data?.unread || undefined} onPress={() => router.push('/account/notifications')} />
-          <ListRow icon="message" color="#1D6FB8" label={t('account.messages')} badge={unreadMsgs || undefined} onPress={() => router.push('/account/messages')} />
-          <ListRow icon="wallet" color="#159A5B" label={t('account.wallet')} value={wallet.data ? money(wallet.data.balance) : undefined} onPress={() => router.push('/account/wallet')} last />
+          <ListRow icon="receipt" color={subjectColors.math.main} label={t('account.purchases')} onPress={() => router.push('/account/purchases')} />
+          <ListRow icon="calendar" color={subjectColors.physics.main} label={t('account.bookings')} onPress={() => router.push('/(tabs)/lessons')} />
+          <ListRow icon="heart" color={subjectColors.english.main} label={t('account.favorites')} onPress={() => router.push('/account/favorites')} />
+          <ListRow icon="progress" color={subjectColors.chemistry.main} label={t('account.progress')} onPress={() => router.push('/account/progress')} />
+          <ListRow icon="bell" color={subjectColors.arabic.main} label={t('account.notifications')} badge={notifications.data?.unread || undefined} onPress={() => router.push('/account/notifications')} />
+          <ListRow icon="message" color={colors.state.info} label={t('account.messages')} badge={unreadMsgs || undefined} onPress={() => router.push('/account/messages')} />
+          <ListRow icon="wallet" color={colors.brand.green} label={t('account.wallet')} value={wallet.data ? money(wallet.data.balance) : undefined} onPress={() => router.push('/account/wallet')} last />
         </View>
       </Card>
 
       <Card padded={false} style={styles.menu}>
         <View style={styles.menuInner}>
-          <ListRow icon="settings" color="#5F6B7A" label={t('account.settings')} onPress={() => router.push('/account/settings')} />
-          <ListRow icon="support" color="#0EA5A5" label={t('account.support')} value={brand.support.email} onPress={() => Linking.openURL(`mailto:${brand.support.email}`)} />
-          <ListRow icon="lock" color="#7A5AF8" label={t('account.privacy')} onPress={() => Linking.openURL(brand.urls.privacy)} />
-          <ListRow icon="info" color="#2F6FED" label={t('account.terms')} onPress={() => Linking.openURL(brand.urls.terms)} last />
+          <ListRow icon="settings" color={colors.text.secondary} label={t('account.settings')} onPress={() => router.push('/account/settings')} />
+          <ListRow icon="support" color={subjectColors.chemistry.main} label={t('account.support')} value={brand.support.email} onPress={() => Linking.openURL(`mailto:${brand.support.email}`)} />
+          <ListRow icon="lock" color={subjectColors.physics.main} label={t('account.privacy')} onPress={() => Linking.openURL(brand.urls.privacy)} />
+          <ListRow icon="info" color={subjectColors.math.main} label={t('account.terms')} onPress={() => Linking.openURL(brand.urls.terms)} last />
         </View>
       </Card>
 

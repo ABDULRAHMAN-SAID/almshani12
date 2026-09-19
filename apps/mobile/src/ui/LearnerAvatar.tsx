@@ -3,7 +3,7 @@ import { Image } from 'expo-image';
 import { radius, themed } from '@manassah/tokens';
 import type { LearnerRef } from '@manassah/shared';
 import { Text } from './Text';
-import { initials } from '@/lib/format';
+import { initials, avatarColor } from '@/lib/format';
 
 export interface LearnerAvatarProps {
   learner: LearnerRef;
@@ -12,9 +12,6 @@ export interface LearnerAvatarProps {
   badge?: boolean;
 }
 
-/** لون ثابت لكل اسم — يميّز وليّ الأمر أبناءه بسرعة بلا صور */
-const PALETTE = ['#2F6FED', '#7A5AF8', '#0EA5A5', '#3FA34D', '#F08A24', '#E5488A', '#1F8A70', '#D7263D'];
-const hue = (name: string) => PALETTE[[...name].reduce((s, c) => s + c.charCodeAt(0), 0) % PALETTE.length];
 /** «الصف الثاني عشر (الدبلوم العام)» → «الثاني عشر» / «Grade 12» → «12» — ما يكفي لشارة صغيرة */
 export const shortGrade = (name: string) => name.replace(/\s*\(.*\)\s*$/, '').replace(/^(الصف|grade)\s+/i, '').trim();
 
@@ -27,7 +24,7 @@ export function LearnerAvatar({ learner, size = 40, badge }: LearnerAvatarProps)
       {learner.avatarUrl ? (
         <Image source={{ uri: learner.avatarUrl }} style={[styles.img, { width: size, height: size, borderRadius: r }]} contentFit="cover" transition={150} accessibilityLabel={learner.displayName} />
       ) : (
-        <View style={[styles.fallback, { width: size, height: size, borderRadius: r, backgroundColor: hue(learner.displayName || '?') }]} accessibilityLabel={learner.displayName}>
+        <View style={[styles.fallback, { width: size, height: size, borderRadius: r, backgroundColor: avatarColor(learner.displayName || '?') }]} accessibilityLabel={learner.displayName}>
           <Text role={size >= 56 ? 'h3' : 'caption'} tone="inverse" style={size === 28 ? styles.tiny : undefined}>{initials(learner.displayName)}</Text>
         </View>
       )}

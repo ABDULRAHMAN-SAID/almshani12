@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { Component, createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import type { LearnerRef, PageMeta } from '@manassah/shared';
@@ -49,6 +49,24 @@ export const Empty = ({ text = 'لا بيانات', hint, tone }: { text?: strin
 export const ErrorState = ({ error }: { error: unknown }) => isForbidden(error)
   ? <Empty text={NO_ACCESS} hint={NO_ACCESS_HINT} tone="error" />
   : <Empty text={errMsg(error)} tone="error" />;
+/** يلتقط أخطاء الرسم — بلا هذا تُعطَّل اللوحة كاملةً بصفحة بيضاء بسبب صفحة واحدة معطوبة */
+export class RootErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state: { error: Error | null } = { error: null };
+  static getDerivedStateFromError(error: Error) { return { error }; }
+  componentDidCatch(error: Error) { console.error(error); }
+  render() {
+    if (!this.state.error) return this.props.children;
+    return (
+      <div className="empty error" style={{ minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
+        <div>
+          <div className="strong">حدث خطأ غير متوقّع في اللوحة</div>
+          <div className="small muted" style={{ marginTop: 4 }}>{this.state.error.message}</div>
+          <button className="btn secondary sm" style={{ marginTop: 12 }} onClick={() => { this.setState({ error: null }); location.reload(); }}>إعادة التحميل</button>
+        </div>
+      </div>
+    );
+  }
+}
 /** قسم محجوب بالدور — يُعرض قبل إرسال أي طلب، بنفس نصّ 403 */
 export const NoAccess = () => <Empty text={NO_ACCESS} hint={NO_ACCESS_HINT} tone="error" />;
 export function Page({ title, sub, actions, children }: { title: string; sub?: string; actions?: ReactNode; children: ReactNode }) {

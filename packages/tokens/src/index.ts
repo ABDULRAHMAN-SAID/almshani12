@@ -38,11 +38,13 @@ const light = {
     success: '#159A5B',
     successSoft: '#E3F5EB',
     info: '#1D6FB8',          // الحصص والشرح
+    infoDark: '#175A96',      // حالة الضغط على زر info
     infoSoft: '#E5F0FB',
     warning: '#E0891A',
     warningSoft: '#FFF1DE',
     warningText: '#B36A0E',
     danger: '#B3261E',        // أخطاء فقط
+    dangerDark: '#8F1E17',    // حالة الضغط على زر danger
     dangerSoft: '#FBEAE8',
     live: '#FF3B30',
   },
@@ -89,11 +91,13 @@ const dark: Colors = {
     success: '#22B36A',
     successSoft: '#12301F',
     info: '#5AA7F2',
+    infoDark: '#3E82D9',
     infoSoft: '#132A40',
     warning: '#F2A33A',
     warningSoft: '#3A2A12',
     warningText: '#F2A33A',
     danger: '#F26B62',
+    dangerDark: '#D9483F',
     dangerSoft: '#3D1A18',
     live: '#FF453A',
   },

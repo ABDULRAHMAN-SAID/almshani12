@@ -17,7 +17,7 @@ export default function Progress() {
     <Card key={label} style={styles.tile}><Icon name={icon} size={20} color={colors.brand.primary} /><Text role="h1" tabular>{value}</Text><Text role="caption" tone="secondary">{label}</Text></Card>
   );
   return (
-    <Screen onBack={() => safeBack(router)} title={t('progress.title')} loading={q.isLoading} error={q.error} onRetry={() => q.refetch()}>
+    <Screen onBack={() => safeBack(router)} title={t('progress.title')} loading={q.isLoading} error={q.error} onRetry={() => q.refetch()} refreshing={q.isRefetching} onRefresh={() => q.refetch()}>
       {nothing ? <EmptyState icon="progress" title={t('progress.noData')} actionLabel={t('home.quick.quiz')} onAction={() => router.replace('/(tabs)')} /> : d ? (
         <View style={styles.wrap}>
           <SectionHeader title={t('progress.thisWeek')} />

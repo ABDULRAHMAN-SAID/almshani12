@@ -7,6 +7,7 @@ import { brand } from '@manassah/shared';
 import { Screen, Text, Button, Card, Icon } from '@/ui';
 import { useUi } from '@/state/ui';
 import { signOut, safeBack } from '@/lib/session';
+import { useServerProbe } from '@/lib/hooks';
 
 /** عنوان خادم صالح: http(s) ثم مضيف (نطاق أو IP أو localhost) ومنفذ اختياري ومسار اختياري — بلا مسافات أو استعلام */
 const SERVER_RE = /^https?:\/\/[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*(:\d{1,5})?(\/[^\s?#]*)?$/i;
@@ -15,8 +16,6 @@ const normalize = (raw: string): string | null => { const s = raw.trim().replace
 const one = (v: string | string[] | undefined): string => (Array.isArray(v) ? v[0] ?? '' : v ?? '');
 /** على الويب من هاتف: نعرض زرّ فتح التطبيق بالرابط العميق */
 const isPhoneBrowser = Platform.OS === 'web' && typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-
-type Probe = { state: 'idle' | 'testing' | 'ok' | 'fail'; info?: string };
 
 /**
  * الاتصال بخادم: يُفتح من صفحة الخادم (…/connect?url=https://…&name=…) على الويب، أو من الرابط العميق
@@ -31,21 +30,9 @@ export default function Connect() {
   const name = one(params.name).trim();
   const url = useMemo(() => normalize(raw), [raw]);
   const setServerUrl = useUi(s => s.setServerUrl);
-  const [probe, setProbe] = useState<Probe>({ state: 'idle' });
+  const { probe, test: probeTest } = useServerProbe();
   const [busy, setBusy] = useState(false);
-
-  /** يطرق /api/health بالعنوان الكامل (مهلة ٨ ثوانٍ) ويعرض الاسم والبيئة أو سبب الفشل */
-  const test = async () => {
-    if (!url) return;
-    setProbe({ state: 'testing' });
-    try {
-      const ctrl = new AbortController(); const id = setTimeout(() => ctrl.abort(), 8000);
-      const r = await fetch(`${url}/api/health`, { signal: ctrl.signal }); clearTimeout(id);
-      const j = await r.json().catch(() => ({}));
-      if (r.ok && j?.ok) setProbe({ state: 'ok', info: [j.name, j.env].filter(Boolean).join(' · ') });
-      else setProbe({ state: 'fail', info: `HTTP ${r.status}` });
-    } catch (e) { setProbe({ state: 'fail', info: e instanceof Error && e.name === 'AbortError' ? t('settings.serverTimeout') : t('errors.network') }); }
-  };
+  const test = () => { if (url) probeTest(url); };
 
   /**
    * يخرج ثم يحفظ العنوان — الخروج نفسه يعيد إلى الترحيب (والتخطيط الجذري يخرج أيضاً عند تغيّر الخادم؛ الاستدعاءان يُدمجان).

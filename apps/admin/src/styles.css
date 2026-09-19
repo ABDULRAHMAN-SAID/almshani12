@@ -1,9 +1,10 @@
-/* لوحة الإدارة — الرموز نفسها المستخدمة في التطبيق (بلا Tailwind) */
+/* لوحة الإدارة — نفس رموز التصميم المستخدمة في التطبيق (@manassah/tokens)، لا لوحة ألوان منفصلة.
+   القيم أدناه نسخة ثابتة من السِمة الفاتحة لتُرسَم فوراً بلا وميض؛ main.tsx يكتبها من tokens فعلياً عند الإقلاع فتبقى متطابقة معها دوماً. */
 :root {
-  --bg: #F8F6F1; --bg-2: #F1EEE7; --card: #FFFFFF; --primary: #9E1B32; --primary-dark: #751426; --primary-soft: #F6E8EB;
-  --gold: #C7A461; --gold-soft: #F5EEDD; --text: #171717; --text-2: #686868; --text-3: #9A9A9A; --link: #315D7A;
-  --success: #287A59; --success-soft: #E4F1EB; --info: #315D7A; --info-soft: #E6EEF3; --warning: #A8730F; --warning-soft: #FBF1DE; --danger: #B3261E; --danger-soft: #F9E5E3;
-  --border: #E6E1D6; --border-2: #D6D0C2; --r: 12px; --r-lg: 16px;
+  --bg: #FBF7F0; --bg-2: #F2ECE0; --card: #FFFFFF; --primary: #D7263D; --primary-dark: #A81C2F; --primary-soft: #FDE9EC;
+  --gold: #E8B830; --gold-soft: #FFF4D6; --text: #1E2430; --text-2: #5F6B7A; --text-3: #98A2B3; --link: #1D6FB8;
+  --success: #159A5B; --success-soft: #E3F5EB; --info: #1D6FB8; --info-soft: #E5F0FB; --warning: #B36A0E; --warning-soft: #FFF1DE; --danger: #B3261E; --danger-soft: #FBEAE8;
+  --border: #EDE6D8; --border-2: #DCD3C1; --r: 12px; --r-lg: 16px;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--bg); color: var(--text); font-family: 'IBM Plex Sans Arabic', system-ui, -apple-system, sans-serif; font-size: 14px; line-height: 1.6; }
@@ -14,7 +15,8 @@ h1 { font-size: 22px; font-weight: 700; margin: 0 0 4px; } h2 { font-size: 17px;
 .layout { display: grid; grid-template-columns: 240px minmax(0, 1fr); min-height: 100vh; }
 .side { background: var(--card); border-inline-end: 1px solid var(--border); padding: 20px 14px; display: flex; flex-direction: column; gap: 4px; position: sticky; top: 0; height: 100vh; }
 .brand { display: flex; align-items: center; gap: 10px; padding: 6px 8px 18px; font-weight: 700; font-size: 16px; }
-.brand .mark { width: 34px; height: 34px; border-radius: 10px; background: var(--primary); color: #fff; display: grid; place-items: center; }
+.brand .mark { width: 34px; height: 34px; border-radius: 10px; background: var(--primary); color: #fff; display: grid; place-items: center; flex-shrink: 0; }
+.brand small { display: block; font-weight: 500; font-size: 11px; color: var(--text-2); }
 .side a { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 10px; color: var(--text-2); font-weight: 500; }
 .side a.active, .side a:hover { background: var(--primary-soft); color: var(--primary-dark); }
 .side .count { margin-inline-start: auto; background: var(--primary); color: #fff; border-radius: 999px; font-size: 11px; padding: 0 7px; min-width: 18px; text-align: center; }
@@ -57,7 +59,7 @@ textarea { min-height: 90px; resize: vertical; }
 .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 16px; } .tabs button { background: none; border: 0; padding: 10px 14px; border-bottom: 2px solid transparent; cursor: pointer; color: var(--text-2); font-weight: 500; } .tabs button.on { color: var(--text); border-color: var(--primary); }
 
 /* ---------- إضافات صفحة الشخص/المعلّم والنظرة الحيّة ---------- */
-:root { --chart-1: #9E1B32; --chart-2: #1F6FA8; }
+:root { --chart-1: #D7263D; --chart-2: #1D6FB8; }
 .tabs { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: thin; } .tabs button { white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
 .tabs button .count { background: var(--bg-2); color: var(--text-2); border-radius: 999px; font-size: 11px; padding: 0 6px; min-width: 18px; text-align: center; } .tabs button.on .count { background: var(--primary-soft); color: var(--primary-dark); }
 .pager { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 4px 0; color: var(--text-2); font-size: 12px; }

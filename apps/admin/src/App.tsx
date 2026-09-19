@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { Routes, Route, NavLink, Navigate, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, session } from './api';
-import type { Overview as OverviewT, AuthMethods, OtpVia, OtpDelivery, OtpRequestResult } from '@manassah/shared';
+import { brand, type Overview as OverviewT, type AuthMethods, type OtpVia, type OtpDelivery, type OtpRequestResult } from '@manassah/shared';
 import { useMe, can, Field, errMsg, STAFF, NoAccess, Page } from './ui';
 import Overview from './pages/Overview';
 import Teachers from './pages/Teachers';
@@ -59,7 +59,7 @@ function Login({ onDone }: { onDone: () => void }) {
   const pick = (ch: 'phone' | 'email') => { setChannel(ch); setTarget(''); setErr(null); };
   return (
     <div className="login"><div className="card">
-      <div className="brand"><span className="mark">م</span>لوحة الإدارة</div>
+      <div className="brand"><span className="mark">{brand.name.ar.slice(0, 1)}</span><span>{brand.name.ar}<small>لوحة الإدارة</small></span></div>
       {step === 'target' && enabled.length === 0 ? (
         // الخادم لم يفعّل أي طريقة دخول بعد (لا مزوّد ولا رمز ثابت)
         <p className="muted">الدخول بالهاتف أو البريد غير متاح على هذا الخادم بعد — اضبط مزوّد رموز التحقّق (راجع README).</p>
@@ -102,7 +102,7 @@ export default function App() {
   return (
     <div className="layout">
       <aside className="side">
-        <div className="brand"><span className="mark">م</span>لوحة الإدارة</div>
+        <div className="brand"><span className="mark">{brand.name.ar.slice(0, 1)}</span><span>{brand.name.ar}<small>لوحة الإدارة</small></span></div>
         {item('/', 'نظرة عامة', true)}
         {item('/teachers', 'المعلّمون', can(u, 'support'), (q.teacherApplications ?? 0) + (q.pendingDocuments ?? 0))}
         {item('/content', 'مراجعة المحتوى', can(u, 'content_reviewer'), q.contentReview)}

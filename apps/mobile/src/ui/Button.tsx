@@ -70,8 +70,8 @@ export function Button({
 const palette = (c: Colors): Record<ButtonVariant, { bg: string; bgPressed: string; fg: string; border?: string; edge?: string }> => ({
   primary: { bg: c.brand.primary, bgPressed: c.brand.primaryDark, fg: c.text.onPrimary, edge: c.brand.primaryDark },
   success: { bg: c.brand.green, bgPressed: c.brand.greenDark, fg: c.text.onPrimary, edge: c.brand.greenDark },
-  info: { bg: c.state.info, bgPressed: '#175A96', fg: c.text.onPrimary, edge: '#175A96' },
-  danger: { bg: c.state.danger, bgPressed: '#8F1E17', fg: c.text.onPrimary, edge: '#8F1E17' },
+  info: { bg: c.state.info, bgPressed: c.state.infoDark, fg: c.text.onPrimary, edge: c.state.infoDark },
+  danger: { bg: c.state.danger, bgPressed: c.state.dangerDark, fg: c.text.onPrimary, edge: c.state.dangerDark },
   secondary: { bg: c.bg.card, bgPressed: c.bg.subtle, fg: c.text.primary, border: c.border.strong },
   soft: { bg: c.brand.primarySoft, bgPressed: c.brand.primarySoft, fg: c.brand.primary },
   ghost: { bg: 'transparent', bgPressed: c.bg.subtle, fg: c.brand.primary },

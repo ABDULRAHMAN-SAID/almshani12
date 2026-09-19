@@ -11,6 +11,7 @@ import type { Locale } from '@manassah/shared';
 import { signOut, safeBack } from '@/lib/session';
 import { errorMessageKey, resolveBase, DEMO_FALLBACK, isDemo } from '@/api/client';
 import { getPushState, enablePush, disablePush, type PushState } from '@/lib/push';
+import { useServerProbe } from '@/lib/hooks';
 
 /** الإعدادات: الملف، المظهر (فاتح/داكن/تلقائي + حجم الخط)، اللغة، التنبيهات، الخادم والاتصال، الصف، حذف الحساب */
 export default function Settings() {
@@ -24,7 +25,7 @@ export default function Settings() {
   const [name, setName] = useState(user?.displayName ?? '');
   const [confirm, setConfirm] = useState(false);
   const [url, setUrl] = useState(serverUrl);
-  const [probe, setProbe] = useState<{ state: 'idle' | 'testing' | 'ok' | 'fail'; info?: string }>({ state: 'idle' });
+  const { probe, test: probeTest, reset: resetProbe, fail: failProbe } = useServerProbe();
   // التنبيهات الفورية على هذا الجهاز: الحالة تُقرأ بلا طلب إذن، والمفتاح يطلبه/يلغيه
   const [push, setPush] = useState<PushState | 'checking' | 'busy'>('checking');
   useEffect(() => { let live = true; getPushState().then(s => { if (live) setPush(s); }); return () => { live = false; }; }, []);
@@ -35,22 +36,14 @@ export default function Settings() {
   const setLang = (lng: Locale) => { setLocale(lng); update.mutate({ locale: lng }); };
 
   /** يطرق /api/health على العنوان المكتوب ويعرض النتيجة والزمن */
-  const test = async () => {
+  const test = () => {
     const base = url.trim().replace(/\/+$/, '');
-    if (!/^https?:\/\/.+/.test(base)) { setProbe({ state: 'fail', info: t('settings.serverInvalid') }); return; }
-    setProbe({ state: 'testing' });
-    const t0 = Date.now();
-    try {
-      const ctrl = new AbortController(); const id = setTimeout(() => ctrl.abort(), 8000);
-      const r = await fetch(`${base}/api/health`, { signal: ctrl.signal }); clearTimeout(id);
-      const j = await r.json().catch(() => ({}));
-      if (r.ok && j?.ok) setProbe({ state: 'ok', info: `${j.name ?? ''} · ${j.env ?? ''} · ${Date.now() - t0} ms` });
-      else setProbe({ state: 'fail', info: `HTTP ${r.status}` });
-    } catch (e) { setProbe({ state: 'fail', info: e instanceof Error && e.name === 'AbortError' ? t('settings.serverTimeout') : t('errors.network') }); }
+    if (!/^https?:\/\/.+/.test(base)) { failProbe(t('settings.serverInvalid')); return; }
+    probeTest(base);
   };
   // الخروج أوّلاً ثم التبديل: أي استعلام موثّق ما زال طائراً سيُعاد توجيهه إلى العنوان الجديد برمز خادم آخر
-  const save = async () => { if (useAuth.getState().user) await signOut(); setServerUrl(url); setProbe({ state: 'idle' }); };
-  const useDemo = async () => { if (useAuth.getState().user) await signOut(); setUrl(''); setServerUrl(''); setProbe({ state: 'idle' }); };
+  const save = async () => { if (useAuth.getState().user) await signOut(); setServerUrl(url); resetProbe(); };
+  const useDemo = async () => { if (useAuth.getState().user) await signOut(); setUrl(''); setServerUrl(''); resetProbe(); };
 
   const themeOptions: { key: ThemePref; label: string; icon: 'sun' | 'moonOutline' | 'settings' }[] = [
     { key: 'light', label: t('settings.light'), icon: 'sun' }, { key: 'dark', label: t('settings.dark'), icon: 'moonOutline' }, { key: 'system', label: t('settings.system'), icon: 'settings' },

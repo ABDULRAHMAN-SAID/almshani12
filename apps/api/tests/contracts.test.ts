@@ -74,7 +74,7 @@ test('كوبون «عرض في الرئيسية» يحتفظ بـ featured/title
   assert.equal(created.status, 201, created.text);
   assert.deepEqual(JSON.parse(c.q.val<string>('SELECT scope FROM coupons WHERE id = ?', created.json.id)!), { featured: true, title: 'عرض الرئيسية' });
   const list = await c.api('/api/admin/coupons', { token: fin.token });
-  const row = Coupon.parse(list.json.find((x: { code: string }) => x.code === 'HOMEFEAT'));
+  const row = Coupon.parse(list.json.data.find((x: { code: string }) => x.code === 'HOMEFEAT'));
   assert.equal(row.scope.featured, true);
   assert.equal(row.scope.title, 'عرض الرئيسية');
   const home = await c.api('/api/home', { token: s.token });

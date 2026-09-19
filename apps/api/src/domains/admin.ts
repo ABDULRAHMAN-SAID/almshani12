@@ -429,11 +429,13 @@ router.get('/content', requireRole('content_reviewer'), validate(ContentQuery, '
   const status = f.status ?? 'pending_review';
   const where = (col: string) => { const w: string[] = []; const p: unknown[] = []; if (status !== 'all') { w.push(`${col.split('.')[0]}.status = ?`); p.push(status); } if (f.authorId) { w.push(`${col} = ?`); p.push(f.authorId); } if (f.q) { w.push(`norm(${col.split('.')[0]}.title) LIKE norm(?)`); p.push(`%${f.q}%`); } return { sql: w.length ? `WHERE ${w.join(' AND ')}` : '', p }; };
   const wb = where('b.author_id'), wc = where('c.teacher_id');
-  const books = q.all<any>(`SELECT b.id, b.title, b.type, b.price, b.status, b.updated_at, b.author_id AS authorId, p.display_name AS author, s.name AS subject, g.name AS grade FROM books b JOIN profiles p ON p.user_id = b.author_id JOIN subjects s ON s.id = b.subject_id JOIN grades g ON g.id = b.grade_id ${wb.sql} ORDER BY b.updated_at LIMIT 100`, ...wb.p)
-    .map(b => ({ ...b, entityType: 'book' }));
-  const courses = q.all<any>(`SELECT c.id, c.title, c.price, c.status, c.updated_at, c.teacher_id AS authorId, p.display_name AS author, s.name AS subject, g.name AS grade FROM courses c JOIN profiles p ON p.user_id = c.teacher_id JOIN subjects s ON s.id = c.subject_id JOIN grades g ON g.id = c.grade_id ${wc.sql} ORDER BY c.updated_at LIMIT 100`, ...wc.p)
-    .map(c => ({ ...c, entityType: 'course' }));
-  res.json({ data: [...books, ...courses] });
+  // كتب ودورات موحَّدة بترتيب واحد (آخر تحديث) وصفحة واحدة — بلا هذا يختفي ما بعد أول ١٠٠ صفّاً بلا تنبيه عند كبر الطابور
+  const booksSql = `SELECT b.id, b.title, b.type, b.price, b.status, b.updated_at, b.author_id AS authorId, p.display_name AS author, s.name AS subject, g.name AS grade, 'book' AS entityType FROM books b JOIN profiles p ON p.user_id = b.author_id JOIN subjects s ON s.id = b.subject_id JOIN grades g ON g.id = b.grade_id ${wb.sql}`;
+  const coursesSql = `SELECT c.id, c.title, NULL AS type, c.price, c.status, c.updated_at, c.teacher_id AS authorId, p.display_name AS author, s.name AS subject, g.name AS grade, 'course' AS entityType FROM courses c JOIN profiles p ON p.user_id = c.teacher_id JOIN subjects s ON s.id = c.subject_id JOIN grades g ON g.id = c.grade_id ${wc.sql}`;
+  const total = n(`SELECT COUNT(*) FROM (${booksSql} UNION ALL ${coursesSql})`, ...wb.p, ...wc.p);
+  const { limit, offset } = paginate(f.page, f.limit);
+  const data = q.all<any>(`SELECT * FROM (${booksSql} UNION ALL ${coursesSql}) ORDER BY updated_at LIMIT ? OFFSET ?`, ...wb.p, ...wc.p, limit, offset);
+  res.json({ data, meta: pageMeta(total, f.page, f.limit) });
 });
 router.get('/content/:type/:id/file', requireRole('content_reviewer'), (req, res) => {
   const id = idParam(req);
@@ -753,8 +755,13 @@ router.delete('/catalog/:kind/:id', requireRole('admin'), (req, res) => {
 });
 
 /* ---------- الكوبونات ---------- */
-router.get('/coupons', requireRole('finance'), (_req, res) => {
-  res.json(q.all<any>('SELECT * FROM coupons ORDER BY id DESC LIMIT 300').map(c => ({ id: c.id, code: c.code, type: c.type, value: c.value, startsAt: c.starts_at, endsAt: c.ends_at, usageLimit: c.usage_limit, userLimit: c.user_limit, usedCount: c.used_count, scope: json(c.scope, {}), active: !!c.active })));
+router.get('/coupons', requireRole('finance'), validate(Page, 'query'), (req, res) => {
+  const f = req.valid.query as z.infer<typeof Page>;
+  const total = n('SELECT COUNT(*) FROM coupons');
+  const { limit, offset } = paginate(f.page, f.limit);
+  const data = q.all<any>('SELECT * FROM coupons ORDER BY id DESC LIMIT ? OFFSET ?', limit, offset)
+    .map(c => ({ id: c.id, code: c.code, type: c.type, value: c.value, startsAt: c.starts_at, endsAt: c.ends_at, usageLimit: c.usage_limit, userLimit: c.user_limit, usedCount: c.used_count, scope: json(c.scope, {}), active: !!c.active }));
+  res.json({ data, meta: pageMeta(total, f.page, f.limit) });
 });
 router.post('/coupons', requireRole('finance'), validate(CouponUpsert), (req, res) => {
   const c = body<typeof CouponUpsert>(req);

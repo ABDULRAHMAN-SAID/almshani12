@@ -111,7 +111,7 @@ export default function Quiz() {
           ) : null}
           <Text role="h3">{t('quiz.explanations')}</Text>
           {result.breakdown.map((b, bi) => { const qq = qs.find(x => x.id === b.questionId); if (!qq) return null;
-            const show = (a: unknown) => Array.isArray(a) ? a.map(x => qq.type === 'true_false' ? [t('quizUi.trueLabel'), t('quizUi.falseLabel')][Number(x)] : qq.options[Number(x)]).join('، ') : String(a ?? '—');
+            const show = (a: unknown) => Array.isArray(a) ? a.map(x => qq.type === 'true_false' ? [t('quizUi.trueLabel'), t('quizUi.falseLabel')][Number(x)] : qq.options[Number(x)]).join(t('common.listSeparator')) : String(a ?? '—');
             return (
               <Card key={b.questionId} rail={b.correct ? colors.state.success : colors.state.danger}>
                 <Text role="bodyMedium">{bi + 1}. {qq.text}</Text>

@@ -1,10 +1,13 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import type { PageMeta } from '@manassah/shared';
 import { api, money, when } from '../api';
-import { Page, Badge, Modal, Empty, ErrorState, TeacherLink, STATUS_TONE, ar, useToast, errMsg, useConfirm, can, type Me } from '../ui';
+import { Page, Badge, Modal, DataTable, TeacherLink, STATUS_TONE, ar, useToast, errMsg, useConfirm, can, type Me, type Column } from '../ui';
 
 const CHECKS = [['content', 'المحتوى مناسب ومطابق للمنهج'], ['price', 'السعر معقول'], ['file', 'الملف يفتح وصفحاته كاملة'], ['copyright', 'لا انتهاك لحقوق النشر'], ['category', 'التصنيف والصف صحيحان'], ['description', 'الوصف دقيق']] as const;
+
+type ContentItem = { id: number; title: string; type: string | null; price: number; status: string; updated_at: string; authorId: number; author: string | null; subject: string; grade: string; entityType: 'book' | 'course' };
 
 /** مراجعة الكتب والدورات قبل النشر — بقائمة تحقّق وسبب واضح للمعلّم */
 export default function Content({ me }: { me: Me }) {
@@ -13,25 +16,31 @@ export default function Content({ me }: { me: Me }) {
   const confirm = useConfirm();
   const [sp] = useSearchParams();
   const [status, setStatus] = useState(sp.get('status') ?? 'pending_review');
-  const [item, setItem] = useState<any | null>(null);
+  const [page, setPage] = useState(1);
+  const [item, setItem] = useState<ContentItem | null>(null);
   const [checks, setChecks] = useState<Record<string, boolean>>({});
-  const list = useQuery({ queryKey: ['adm-content', status], queryFn: () => api.get<{ data: any[] }>('/admin/content', { status }) });
-  const file = useMutation({ mutationFn: (it: any) => api.get<any>(`/admin/content/${it.entityType}/${it.id}/file`) });
-  const decide = useMutation({ mutationFn: (b: { decision: string; reason?: string | null }) => api.post(`/admin/content/${item.entityType}/${item.id}/decision`, { ...b, checklist: checks }), onSuccess: () => { toast('تم'); qc.invalidateQueries({ queryKey: ['adm-content'] }); qc.invalidateQueries({ queryKey: ['overview'] }); if (item?.authorId) qc.invalidateQueries({ queryKey: ['adm-teacher', item.authorId] }); setItem(null); }, onError: e => toast(errMsg(e)) });
+  const list = useQuery({ queryKey: ['adm-content', status, page], queryFn: () => api.get<{ data: ContentItem[]; meta: PageMeta }>('/admin/content', { status, page, limit: 30 }) });
+  const file = useMutation({ mutationFn: (it: ContentItem) => api.get<any>(`/admin/content/${it.entityType}/${it.id}/file`) });
+  const decide = useMutation({ mutationFn: (b: { decision: string; reason?: string | null }) => api.post(`/admin/content/${item!.entityType}/${item!.id}/decision`, { ...b, checklist: checks }), onSuccess: () => { toast('تم'); qc.invalidateQueries({ queryKey: ['adm-content'] }); qc.invalidateQueries({ queryKey: ['overview'] }); if (item?.authorId) qc.invalidateQueries({ queryKey: ['adm-teacher', item.authorId] }); setItem(null); }, onError: e => toast(errMsg(e)) });
   const allChecked = CHECKS.every(([k]) => checks[k]);
   // القرار لِما هو «بانتظار المراجعة» فقط — سحب منشور يمرّ بالأرشفة لا بالرفض
   const decidable = item?.status === 'pending_review';
-  const teacherCell = (it: any) => can(me, 'support', 'finance') ? <TeacherLink id={it.authorId} name={it.author} /> : <span>{it.author ?? `#${it.authorId}`}</span>;
-  const reject = async () => { const r = await confirm({ title: `رفض «${item.title}»`, body: 'يصل السبب للمعلّم ولا يُنشر المحتوى.', reasonRequired: true, reasonLabel: 'سبب الرفض (يصل للمعلّم)', danger: true, confirmLabel: 'رفض' }); if (r) decide.mutate({ decision: 'rejected', reason: r.reason }); };
+  const teacherCell = (it: ContentItem) => can(me, 'support', 'finance') ? <TeacherLink id={it.authorId} name={it.author} /> : <span>{it.author ?? `#${it.authorId}`}</span>;
+  const reject = async () => { const r = await confirm({ title: `رفض «${item!.title}»`, body: 'يصل السبب للمعلّم ولا يُنشر المحتوى.', reasonRequired: true, reasonLabel: 'سبب الرفض (يصل للمعلّم)', danger: true, confirmLabel: 'رفض' }); if (r) decide.mutate({ decision: 'rejected', reason: r.reason }); };
+  const cols: Column<ContentItem>[] = [
+    { key: 'entityType', label: 'النوع', render: it => <Badge tone={it.entityType === 'book' ? 'info' : 'gold'}>{ar(it.entityType)}</Badge> },
+    { key: 'title', label: 'العنوان', render: it => <>{<b>{it.title}</b>}{it.type ? <div className="muted small">{it.type}</div> : null}</> },
+    { key: 'status', label: 'الحالة', render: it => <Badge tone={STATUS_TONE[it.status]}>{ar(it.status)}</Badge> },
+    { key: 'author', label: 'المعلّم', render: teacherCell },
+    { key: 'subjectGrade', label: 'المادة / الصف', render: it => <>{it.subject} · {it.grade}</> },
+    { key: 'price', label: 'السعر', className: 'num', render: it => money(it.price) },
+    { key: 'updated_at', label: 'آخر تحديث', className: 'num small', render: it => when(it.updated_at) },
+    { key: 'actions', label: '', className: 'actions', render: it => <button className="btn secondary sm" onClick={() => { setItem(it); setChecks({}); }}>مراجعة</button> },
+  ];
   return (
     <Page title="مراجعة المحتوى" sub="لا يُنشر شيء دون مراجعة">
-      <div className="toolbar">{['pending_review', 'published', 'rejected', 'draft', 'archived', 'all'].map(s => <button key={s} className={`chip ${status === s ? 'on' : ''}`} onClick={() => setStatus(s)}>{s === 'all' ? 'الكل' : ar(s)}</button>)}</div>
-      <div className="card tbl">
-        {list.isError ? <ErrorState error={list.error} /> : list.data?.data.length ? (
-          <table><thead><tr><th>النوع</th><th>العنوان</th><th>الحالة</th><th>المعلّم</th><th>المادة / الصف</th><th>السعر</th><th>آخر تحديث</th><th></th></tr></thead>
-            <tbody>{list.data.data.map(it => <tr key={`${it.entityType}-${it.id}`}><td><Badge tone={it.entityType === 'book' ? 'info' : 'gold'}>{ar(it.entityType)}</Badge></td><td><b>{it.title}</b>{it.type ? <div className="muted small">{it.type}</div> : null}</td><td><Badge tone={STATUS_TONE[it.status]}>{ar(it.status)}</Badge></td><td>{teacherCell(it)}</td><td>{it.subject} · {it.grade}</td><td className="num">{money(it.price)}</td><td className="num small">{when(it.updated_at)}</td><td className="actions"><button className="btn secondary sm" onClick={() => { setItem(it); setChecks({}); }}>مراجعة</button></td></tr>)}</tbody></table>
-        ) : <Empty text={list.isLoading ? 'جارٍ التحميل…' : 'لا محتوى في هذه الحالة'} />}
-      </div>
+      <div className="toolbar">{['pending_review', 'published', 'rejected', 'draft', 'archived', 'all'].map(s => <button key={s} className={`chip ${status === s ? 'on' : ''}`} onClick={() => { setStatus(s); setPage(1); }}>{s === 'all' ? 'الكل' : ar(s)}</button>)}</div>
+      <div className="card"><DataTable columns={cols} rows={list.data?.data} meta={list.data?.meta} onPage={setPage} rowKey={it => `${it.entityType}-${it.id}`} loading={list.isLoading} error={list.error} empty="لا محتوى في هذه الحالة" /></div>
       {item ? (
         <Modal title={item.title} onClose={() => setItem(null)} footer={decidable ? <><button className="btn danger" disabled={decide.isPending} onClick={reject}>رفض (بسبب)</button><button className="btn success" disabled={decide.isPending || !allChecked} onClick={() => decide.mutate({ decision: 'approved', reason: null })}>اعتماد ونشر</button></> : <span className="muted small">القرار متاح لما هو «بانتظار المراجعة» فقط.</span>}>
           <div className="row" style={{ marginBottom: 12 }}><Badge tone={STATUS_TONE[item.status]}>{ar(item.status)}</Badge><span className="muted small">{item.author} · {item.subject} · {item.grade} · {money(item.price)}</span>

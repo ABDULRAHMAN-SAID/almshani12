@@ -58,3 +58,8 @@ export const compactNumber = (n: number) =>
 /** أحرف الاسم الأولى — بلا أقواس أو أرقام (مثل «عبدالرحمن (١١)» → «ع») */
 export const initials = (name: string) =>
   name.replace(/[^\p{L}\s]/gu, ' ').trim().split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0] ?? '').join('');
+
+/** لون ثابت لكل اسم — يميّز الطالب معلّميه/أبناءه بسرعة بلا صور. مشترك بين Avatar وLearnerAvatar */
+const AVATAR_PALETTE = ['#2F6FED', '#7A5AF8', '#0EA5A5', '#3FA34D', '#F08A24', '#E5488A', '#1F8A70', '#D7263D'];
+export const avatarColor = (name: string) =>
+  AVATAR_PALETTE[[...name].reduce((s, c) => s + c.charCodeAt(0), 0) % AVATAR_PALETTE.length];

@@ -108,6 +108,7 @@ function BootOffline() {
 }
 
 export default function RootLayout() {
+  const { t } = useTranslation();
   const [fontsLoaded] = useFonts({ ReadexPro_400Regular, ReadexPro_500Medium, ReadexPro_600SemiBold, ReadexPro_700Bold, BalooBhaijaan2_700Bold, BalooBhaijaan2_800ExtraBold });
   const ready = useAuth(s => s.ready);
   const bootOffline = useAuth(s => s.bootOffline);
@@ -148,8 +149,8 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <QueryClientProvider client={queryClient}>
           <StatusBar style={themeName === 'dark' ? 'light' : 'dark'} />
-          {isDemo() ? <View style={{ backgroundColor: colors.brand.goldSoft, paddingVertical: 5, paddingHorizontal: 12, alignItems: 'center' }}><Text role="caption" color={colors.brand.goldDark}>نسخة عرض بلا خادم — بيانات تجريبية · رمز الدخول 000000</Text></View> : null}
-          {!isDemo() && serverUrl ? <View style={{ backgroundColor: colors.state.infoSoft, paddingVertical: 4, paddingHorizontal: 12, alignItems: 'center' }}><Text role="caption" color={colors.state.info} numberOfLines={1}>متصل بالخادم: {serverUrl}</Text></View> : null}
+          {isDemo() ? <View style={{ backgroundColor: colors.brand.goldSoft, paddingVertical: 5, paddingHorizontal: 12, alignItems: 'center' }}><Text role="caption" color={colors.brand.goldDark}>{t('common.demoModeBanner')}</Text></View> : null}
+          {!isDemo() && serverUrl ? <View style={{ backgroundColor: colors.state.infoSoft, paddingVertical: 4, paddingHorizontal: 12, alignItems: 'center' }}><Text role="caption" color={colors.state.info} numberOfLines={1}>{t('common.connectedToServer', { url: serverUrl })}</Text></View> : null}
           {!online ? <OfflineBar /> : null}
           <AuthGate />
           <ToastBar />

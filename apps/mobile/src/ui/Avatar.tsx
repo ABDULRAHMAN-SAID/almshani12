@@ -3,13 +3,10 @@ import { Image } from 'expo-image';
 import { colors, themed } from '@manassah/tokens';
 import { Text } from './Text';
 import { Icon } from './Icon';
-import { initials } from '@/lib/format';
+import { initials, avatarColor } from '@/lib/format';
 
 export type AvatarSize = 'sm' | 'md' | 'lg' | 'xl';
 const SIZES: Record<AvatarSize, number> = { sm: 36, md: 48, lg: 68, xl: 100 };
-/** لون ثابت لكل اسم — حتى يميّز الطالب معلّميه بسرعة بلا صور */
-const PALETTE = ['#2F6FED', '#7A5AF8', '#0EA5A5', '#3FA34D', '#F08A24', '#E5488A', '#1F8A70', '#D7263D'];
-const hue = (name: string) => PALETTE[[...name].reduce((s, c) => s + c.charCodeAt(0), 0) % PALETTE.length];
 
 export interface AvatarProps {
   name: string;
@@ -29,7 +26,7 @@ export function Avatar({ name, url, size = 'md', verified, ring }: AvatarProps) 
       {url ? (
         <Image source={{ uri: url }} style={[styles.img, { width: px, height: px, borderRadius: r }, ring && styles.ring]} contentFit="cover" transition={150} accessibilityLabel={name} />
       ) : (
-        <View style={[styles.fallback, { width: px, height: px, borderRadius: r, backgroundColor: hue(name || '?') }, ring && styles.ring]} accessibilityLabel={name}>
+        <View style={[styles.fallback, { width: px, height: px, borderRadius: r, backgroundColor: avatarColor(name || '?') }, ring && styles.ring]} accessibilityLabel={name}>
           <Text role={size === 'sm' ? 'caption' : size === 'xl' ? 'h1' : size === 'lg' ? 'h2' : 'h3'} tone="inverse">{initials(name)}</Text>
         </View>
       )}

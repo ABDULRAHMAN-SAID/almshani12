@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api, money, when } from '../../api';
-import { Badge, DataTable, TeacherLink, useToast, errMsg, useConfirm, type Column } from '../../ui';
+import { Badge, DataTable, STATUS_TONE, TeacherLink, useToast, errMsg, useConfirm, type Column } from '../../ui';
 
 export type PayoutRow = { id: number; teacherId: number; teacherName: string; amount: number; method: string; details: Record<string, unknown>; status: string; note: string | null; requestedAt: string; processedAt: string | null };
+// مفردات خاصّة بالسحوبات («موافَق»/«مصروف») أدقّ من عامّة STATUS_TONE («مقبول»/«مدفوع») — لكن ألوان الشارات نفسها فتُستمَدّ من STATUS_TONE لا تُكرَّر
 const PAYOUT_AR: Record<string, string> = { pending: 'قيد الانتظار', approved: 'موافَق', paid: 'مصروف', rejected: 'مرفوض', all: 'الكل' };
 
 /** سحوبات المعلّمين: موافقة → صرف (يربط الأرباح المتاحة بالصرف) أو رفض (يعيد الرصيد) — مشترك مع تبويب المعلّم */
@@ -23,7 +24,7 @@ export function PayoutsTable({ params = {}, initialStatus = 'pending', hideTeach
     { key: 'method', label: 'الوسيلة', render: p => p.method === 'bank' ? 'تحويل بنكي' : 'محفظة' },
     { key: 'details', label: 'التفاصيل', className: 'small num', render: p => <>{Object.entries(p.details ?? {}).map(([k, v]) => `${k}: ${v}`).join(' · ') || '—'}{p.note ? <div className="muted">{p.note}</div> : null}</> },
     { key: 'at', label: 'طُلب في', className: 'num small', render: p => when(p.requestedAt) },
-    { key: 'status', label: 'الحالة', render: p => <Badge tone={p.status === 'paid' ? 'success' : p.status === 'rejected' ? 'danger' : p.status === 'approved' ? 'info' : 'warning'}>{PAYOUT_AR[p.status] ?? p.status}</Badge> },
+    { key: 'status', label: 'الحالة', render: p => <Badge tone={STATUS_TONE[p.status] ?? 'warning'}>{PAYOUT_AR[p.status] ?? p.status}</Badge> },
     { key: 'act', label: '', className: 'actions', render: p => <>{p.status === 'pending' ? <><button className="btn secondary sm" disabled={decide.isPending} onClick={() => approve(p)}>موافقة</button> <button className="btn danger sm" disabled={decide.isPending} onClick={() => reject(p)}>رفض</button></> : null} {['pending', 'approved'].includes(p.status) ? <button className="btn success sm" disabled={decide.isPending} onClick={() => pay(p)}>تم الصرف</button> : null}</> },
   ];
   return (
