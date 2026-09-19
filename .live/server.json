@@ -1,8 +1,8 @@
 {
-  "status": "down",
-  "url": null,
-  "startedAt": null,
-  "expiresAt": null,
-  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/35429139956",
+  "status": "up",
+  "url": "https://coordinate-birth-yea-eugene.trycloudflare.com",
+  "startedAt": "2026-09-19T12:25:01Z",
+  "expiresAt": "2026-09-19T17:25:01Z",
+  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/35442739776",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
