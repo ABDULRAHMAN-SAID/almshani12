@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://financing-applicants-grain-expense.trycloudflare.com",
-  "startedAt": "2026-09-20T18:34:11Z",
-  "expiresAt": "2026-09-20T23:34:11Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/35529399290",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
