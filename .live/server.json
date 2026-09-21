@@ -1,8 +1,8 @@
 {
-  "status": "down",
-  "url": null,
-  "startedAt": null,
-  "expiresAt": null,
-  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/35613583799",
+  "status": "up",
+  "url": "https://multimedia-entirely-automobiles-applicant.trycloudflare.com",
+  "startedAt": "2026-09-21T19:42:21Z",
+  "expiresAt": "2026-09-22T00:42:21Z",
+  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/35646347758",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
