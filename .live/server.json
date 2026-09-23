@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://daughter-cas-administrators-mazda.trycloudflare.com",
-  "startedAt": "2026-09-23T11:56:15Z",
-  "expiresAt": "2026-09-23T16:56:15Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/35857299484",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
