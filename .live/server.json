@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://related-var-dirt-achievements.trycloudflare.com",
-  "startedAt": "2026-09-23T01:53:04Z",
-  "expiresAt": "2026-09-23T06:53:04Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/35808020630",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
