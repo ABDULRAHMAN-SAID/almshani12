@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://studying-photographer-skirt-wooden.trycloudflare.com",
-  "startedAt": "2026-09-23T21:59:21Z",
-  "expiresAt": "2026-09-24T02:59:21Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/35925593729",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
