@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://lamps-barry-platforms-signs.trycloudflare.com",
-  "startedAt": "2026-09-25T09:10:42Z",
-  "expiresAt": "2026-09-25T14:10:42Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/36116837077",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
