@@ -1,8 +1,8 @@
 {
-  "status": "down",
-  "url": null,
-  "startedAt": null,
-  "expiresAt": null,
-  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/36116837077",
+  "status": "up",
+  "url": "https://translator-circuits-pub-opt.trycloudflare.com",
+  "startedAt": "2026-09-25T14:12:16Z",
+  "expiresAt": "2026-09-25T19:12:16Z",
+  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/36145754096",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
