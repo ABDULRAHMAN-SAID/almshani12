@@ -1,8 +1,8 @@
 {
-  "status": "down",
-  "url": null,
-  "startedAt": null,
-  "expiresAt": null,
-  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/36204060421",
+  "status": "up",
+  "url": "https://beijing-headers-buzz-centuries.trycloudflare.com",
+  "startedAt": "2026-09-26T05:16:28Z",
+  "expiresAt": "2026-09-26T10:16:28Z",
+  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/36220246676",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
