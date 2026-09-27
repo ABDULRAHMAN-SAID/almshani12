@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://pressure-farms-mainstream-fighter.trycloudflare.com",
-  "startedAt": "2026-09-26T20:21:47Z",
-  "expiresAt": "2026-09-27T01:21:47Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/36269174515",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
