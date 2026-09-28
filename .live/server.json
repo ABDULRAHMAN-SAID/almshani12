@@ -1,8 +1,8 @@
 {
-  "status": "down",
-  "url": null,
-  "startedAt": null,
-  "expiresAt": null,
-  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/36392127063",
+  "status": "up",
+  "url": "https://creates-tropical-brussels-harper.trycloudflare.com",
+  "startedAt": "2026-09-28T12:34:56Z",
+  "expiresAt": "2026-09-28T17:34:56Z",
+  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/36422571652",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
