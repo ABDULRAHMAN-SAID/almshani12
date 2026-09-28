@@ -1,8 +1,8 @@
 {
-  "status": "down",
-  "url": null,
-  "startedAt": null,
-  "expiresAt": null,
-  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/36351850808",
+  "status": "up",
+  "url": "https://mechanics-contain-ips-hose.trycloudflare.com",
+  "startedAt": "2026-09-28T02:31:33Z",
+  "expiresAt": "2026-09-28T07:31:33Z",
+  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/36370041769",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
