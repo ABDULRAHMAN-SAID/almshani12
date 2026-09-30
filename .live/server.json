@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://bare-seemed-regional-supporting.trycloudflare.com",
-  "startedAt": "2026-09-30T09:49:46Z",
-  "expiresAt": "2026-09-30T14:49:46Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/36698458290",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
