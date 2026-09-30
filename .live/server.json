@@ -1,8 +1,8 @@
 {
-  "status": "down",
-  "url": null,
-  "startedAt": null,
-  "expiresAt": null,
-  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/36732077715",
+  "status": "up",
+  "url": "https://seem-theories-parameters-elite.trycloudflare.com",
+  "startedAt": "2026-09-30T19:53:11Z",
+  "expiresAt": "2026-10-01T00:53:11Z",
+  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/36768601514",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
