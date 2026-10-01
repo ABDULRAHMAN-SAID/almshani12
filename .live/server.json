@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://hydraulic-allocation-scanner-vote.trycloudflare.com",
-  "startedAt": "2026-10-01T05:56:27Z",
-  "expiresAt": "2026-10-01T10:56:27Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/36822067557",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
