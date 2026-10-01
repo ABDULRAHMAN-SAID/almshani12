@@ -1,8 +1,8 @@
 {
-  "status": "down",
-  "url": null,
-  "startedAt": null,
-  "expiresAt": null,
-  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/36768601514",
+  "status": "up",
+  "url": "https://interpretation-financing-provincial-nice.trycloudflare.com",
+  "startedAt": "2026-10-01T00:54:45Z",
+  "expiresAt": "2026-10-01T05:54:45Z",
+  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/36798405612",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
