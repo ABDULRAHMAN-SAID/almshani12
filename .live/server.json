@@ -1,8 +1,8 @@
 {
-  "status": "down",
-  "url": null,
-  "startedAt": null,
-  "expiresAt": null,
-  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/37092251741",
+  "status": "up",
+  "url": "https://refer-generators-nationally-extras.trycloudflare.com",
+  "startedAt": "2026-10-03T08:12:16Z",
+  "expiresAt": "2026-10-03T13:12:16Z",
+  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/37108830372",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
