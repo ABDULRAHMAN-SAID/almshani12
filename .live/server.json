@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://soccer-marks-phrases-footage.trycloudflare.com",
-  "startedAt": "2026-10-03T23:17:11Z",
-  "expiresAt": "2026-10-04T04:17:11Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/37161197698",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
