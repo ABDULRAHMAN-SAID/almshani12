@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://code-enclosure-adopt-receivers.trycloudflare.com",
-  "startedAt": "2026-10-06T16:36:41Z",
-  "expiresAt": "2026-10-06T21:36:41Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/37496849164",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
