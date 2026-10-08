@@ -1,0 +1,111 @@
+rules_version = '2';
+// قواعد أمان مبادرة البصيرة — تُلصق في Firebase Console ← Firestore Database ← Rules
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function me() { return request.auth.uid; }
+    function isTeacher() { return signedIn() && exists(/databases/$(database)/documents/basira_admins/$(me())); }
+    function myRole() { return get(/databases/$(database)/documents/basira_users/$(me())).data.role; }
+    function approvedParentOf(sid) {
+      return signedIn() && exists(/databases/$(database)/documents/basira_links/$(me() + '_' + sid))
+        && get(/databases/$(database)/documents/basira_links/$(me() + '_' + sid)).data.status == 'approved';
+    }
+
+    // رمز تفعيل لوحة المعلمة: يُطلب مرة واحدة عند إنشاء حسابها
+    match /basira_admins/{uid} {
+      allow read: if signedIn() && me() == uid;
+      allow create: if signedIn() && me() == uid && request.resource.data.key == "506887";
+      allow update, delete: if false;
+    }
+
+    // الحسابات: الاسم الثلاثي ونوع الحساب والنقاط
+    match /basira_users/{uid} {
+      allow read: if signedIn();
+      allow create: if signedIn() && me() == uid
+        && request.resource.data.keys().hasOnly(['name', 'key', 'role', 'points', 'createdAt'])
+        && request.resource.data.name is string && request.resource.data.name.size() <= 60
+        && request.resource.data.points == 0
+        && (request.resource.data.role in ['student', 'parent']
+            || (request.resource.data.role == 'teacher'
+                && getAfter(/databases/$(database)/documents/basira_admins/$(uid)).data.key == "506887"));
+      allow update: if isTeacher() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['points']);
+      allow delete: if isTeacher();
+    }
+
+    // طلبات أولياء الأمور: المعرّف = uidولي الأمر_uidالطالبة
+    match /basira_links/{id} {
+      allow read: if isTeacher() || (signedIn() && resource.data.parentUid == me());
+      allow create: if signedIn() && myRole() == 'parent'
+        && id == me() + '_' + request.resource.data.studentUid
+        && request.resource.data.parentUid == me()
+        && request.resource.data.status == 'pending'
+        && get(/databases/$(database)/documents/basira_users/$(request.resource.data.studentUid)).data.role == 'student';
+      allow update: if isTeacher() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'decidedAt']);
+      allow delete: if isTeacher() || (signedIn() && resource.data.parentUid == me());
+    }
+
+    // نتائج الاختبارات والألعاب
+    match /basira_results/{id} {
+      allow read: if isTeacher() || (signedIn() && resource.data.uid == me()) || approvedParentOf(resource.data.uid);
+      allow create: if signedIn() && request.resource.data.uid == me() && myRole() == 'student';
+      allow update: if false;
+      allow delete: if isTeacher();
+    }
+
+    // ملاحظات المعلمة وولي الأمر حول الطالبة
+    match /basira_notes/{id} {
+      allow read: if isTeacher() || approvedParentOf(resource.data.sid);
+      allow create: if isTeacher()
+        || (approvedParentOf(request.resource.data.sid) && request.resource.data.from == 'parent' && request.resource.data.uid == me());
+      allow update: if false;
+      allow delete: if isTeacher();
+    }
+
+    // تلخيصات الكتب
+    match /basira_summaries/{id} {
+      allow read: if isTeacher() || (signedIn() && resource.data.uid == me());
+      allow create: if signedIn() && request.resource.data.uid == me() && myRole() == 'student';
+      allow update, delete: if isTeacher();
+    }
+
+    // النقاط: وثيقة لكل مكافأة، معرّفها uid_النوع_المرجع فلا تُحسب المكافأة مرتين
+    function ptsDoc(id) { return /databases/$(database)/documents/basira_points/$(id); }
+    match /basira_points/{pid} {
+      allow read: if isTeacher() || (signedIn() && resource.data.uid == me()) || approvedParentOf(resource.data.uid);
+      allow create: if signedIn() && myRole() == 'student'
+        && request.resource.data.keys().hasOnly(['uid', 'name', 'kind', 'ref', 'label', 'pts', 'createdAt'])
+        && request.resource.data.uid == me()
+        && request.resource.data.ref is string && request.resource.data.ref.size() <= 40
+        && request.resource.data.label is string && request.resource.data.label.size() <= 80
+        && pid == me() + '_' + request.resource.data.kind + '_' + request.resource.data.ref
+        && request.resource.data.pts == {'novel': 30, 'novelq': 10, 'book': 20, 'game': 10, 'test': 10, 'testx': 10, 'act': 2}.get(request.resource.data.kind, -1);
+      allow update: if false;
+      allow delete: if isTeacher();
+    }
+
+    // مجموع نقاط كل طالبة (تقرؤه لوحة المتصدرات): لا يزيد إلا بقيمة مكافأة جديدة أُنشئت في العملية نفسها
+    match /basira_scores/{uid} {
+      allow read: if signedIn();
+      allow create: if signedIn() && me() == uid
+        && request.resource.data.keys().hasOnly(['name', 'total', 'last', 'updatedAt'])
+        && request.resource.data.name == get(/databases/$(database)/documents/basira_users/$(uid)).data.name
+        && request.resource.data.last is string
+        && !exists(ptsDoc(request.resource.data.last))
+        && getAfter(ptsDoc(request.resource.data.last)).data.uid == uid
+        && request.resource.data.total == getAfter(ptsDoc(request.resource.data.last)).data.pts;
+      allow update: if signedIn() && me() == uid
+        && request.resource.data.keys().hasOnly(['name', 'total', 'last', 'updatedAt'])
+        && request.resource.data.name == get(/databases/$(database)/documents/basira_users/$(uid)).data.name
+        && request.resource.data.last is string
+        && !exists(ptsDoc(request.resource.data.last))
+        && getAfter(ptsDoc(request.resource.data.last)).data.uid == uid
+        && request.resource.data.total == resource.data.total + getAfter(ptsDoc(request.resource.data.last)).data.pts;
+      allow delete: if isTeacher();
+    }
+
+    // محتوى عام يقرؤه الجميع وتكتبه المعلمة
+    match /basira_posts/{id} { allow read: if true; allow write: if isTeacher(); }
+    match /basira_books/{id} { allow read: if true; allow write: if isTeacher(); }
+    match /basira_site/{id}  { allow read: if true; allow write: if isTeacher(); }
+  }
+}

@@ -113,18 +113,19 @@ async function boot() {
 }
 
 /* ================= ROUTER ================= */
-const VIEWS = ["home", "units", "unit", "games", "about", "register", "library", "summary", "posts", "parents", "teacher"];
+const VIEWS = ["home", "units", "unit", "games", "read", "leaders", "about", "register", "library", "summary", "posts", "parents", "teacher"];
 let current = null, gameInst = null;
 function route() {
   let h = (location.hash || "#home").slice(1); let unitId = null, sub = "lessons";
   const m = h.match(/^(u[1-9])(?:-(lessons|acts|test|game))?$/); if (m) { unitId = m[1]; sub = m[2] || "lessons"; h = "unit"; }
+  let nid = null, nch = null; const nm = h.match(/^read-(n\d+)(?:-(\d+))?$/); if (nm) { nid = nm[1]; nch = nm[2] != null ? +nm[2] : null; h = "read"; }
   if (!VIEWS.includes(h)) h = "home";
   if (gameInst) { gameInst.destroy(); gameInst = null; }
   VIEWS.forEach(v => { $("#v-" + v).hidden = v !== h; });
   $$(".nav a").forEach(a => { const t = a.getAttribute("href").slice(1); if (t === h || (h === "unit" && t === "units")) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
   $("#nav").classList.remove("open"); $("#menuT").setAttribute("aria-expanded", "false");
   if (current !== location.hash) window.scrollTo({ top: 0 }); current = location.hash;
-  ({ home: loadHome, about: loadAbout, register: loadAccount, library: loadBooks, summary: loadSummary, posts: loadPosts, parents: loadParents, teacher: loadTeacher, unit: () => openUnit(unitId, sub) }[h] || (() => {}))();
+  ({ home: loadHome, about: loadAbout, register: loadAccount, library: loadBooks, summary: loadSummary, posts: loadPosts, parents: loadParents, teacher: loadTeacher, read: () => loadRead(nid, nch), leaders: loadLeaders, unit: () => openUnit(unitId, sub) }[h] || (() => {}))();
 }
 window.addEventListener("hashchange", route);
 $("#menuT").onclick = () => { const n = $("#nav"); n.classList.toggle("open"); $("#menuT").setAttribute("aria-expanded", n.classList.contains("open")); };
@@ -205,6 +206,8 @@ function scrollToBody() { const y = $("#uBody").getBoundingClientRect().top + wi
 const KIND = { mcq: "اختيار من متعدد", tf: "صواب أم خطأ", match: "توصيل", order: "ترتيب", classify: "تصنيف", fill: "أكملي الفراغ" };
 function verdict(box, ok, explain, extra) {
   box.innerHTML = `<div class="verdict ${ok ? "ok" : "soft"}"><b>${ok ? pick(PRAISE) : pick(RETRY)}</b>${extra ? `<div>${extra}</div>` : ""}${explain ? `<div class="explain">${esc(explain)}</div>` : ""}</div>`;
+  const act = ok && U && box.closest ? box.closest(".act[data-a]") : null;
+  if (act && !act._pt) { act._pt = 1; award("act", U.id + "-" + act.dataset.a, U.theme, true); }
 }
 function renderActs() {
   $("#uBody").innerHTML = `<div class="acts">${U.activities.map((a, i) => `<div class="act" data-a="${i}"></div>`).join("")}</div><div class="row" style="margin-top:18px;justify-content:center"><a class="pill-btn orange big" href="#${U.id}-test">ابدئي الاختبار التدريبي ←</a></div>`;
@@ -287,7 +290,11 @@ function renderTest() {
     const sv = box.querySelector("[data-save]");
     if (!ME || ME.role !== "student") { sv.innerHTML = `سجّلي الدخول بحسابك لتُحفظ نتيجتك وتراها المعلمة. <a href="#register">الدخول / التسجيل</a>`; return; }
     try { await store.add("results", { uid: UID, name: ME.name, unit: U.id, kind: "test", score, total: Q.length, createdAt: now() }); sv.textContent = "حُفظت نتيجتك ✓"; myResults(); }
-    catch (e) { sv.textContent = "لم تُحفظ النتيجة الآن، تأكدي من الاتصال."; }
+    catch (e) { sv.textContent = "لم تُحفظ النتيجة الآن، تأكدي من الاتصال."; return; }
+    try { const r1 = await award("test", U.id, U.theme); const r2 = pct >= 85 ? await award("testx", U.id, U.theme) : {};
+      const got = (r1.ok ? r1.pts : 0) + (r2.ok ? r2.pts : 0); if (got) sv.textContent = `حُفظت نتيجتك ✓ وحصلتِ على ${ar(got)} نقطة 🎉`;
+      else if (pct < 85 && !hasPt("testx", U.id)) sv.textContent = `حُفظت نتيجتك ✓ · أعيدي الاختبار وحقّقي ٨٥٪ لتحصلي على ${ar(PTS.testx)} نقاط إضافية`; }
+    catch (e) {}
   }
   draw();
 }
@@ -297,7 +304,7 @@ function renderGame() {
   $("#uBody").innerHTML = `<div class="game-box" id="gameBox"></div><p class="note" style="margin-top:12px">${esc(BasiraGames.meta[U.game.type].how)} تعمل اللعبة على الجوال والحاسوب.</p>`;
   const unit = U;
   const start = () => { gameInst = BasiraGames.mount($("#gameBox"), unit, async (score, total) => {
-    if (!ME || ME.role !== "student") return; try { await store.add("results", { uid: UID, name: ME.name, unit: unit.id, kind: "game", score, total, createdAt: now() }); myResults(); } catch (e) {} }); };
+    if (!ME || ME.role !== "student") return; try { await store.add("results", { uid: UID, name: ME.name, unit: unit.id, kind: "game", score, total, createdAt: now() }); myResults(); } catch (e) {} award("game", unit.id, unit.theme); }); };
   if (document.fonts && document.fonts.load) Promise.race([document.fonts.load('800 40px "Tajawal"'), new Promise(r => setTimeout(r, 1500))]).then(start); else start();
 }
 
@@ -349,8 +356,8 @@ async function doLogout() { await acct.logout(); toast("خرجت من حسابك
 async function refreshMe() {
   if (ME && UID) { try { const p = await loadProfile(UID); if (p) ME = p; } catch (e) {} }
   $("#meTxt").textContent = ME ? ME.name.split(" ")[0] : "دخول / تسجيل";
-  await myResults(); renderAxes();
-  $("#fPts").textContent = ME && ME.role === "student" ? ar(ME.points || 0) + " نقطة" : "سجّلي لتجمعي النقاط";
+  await Promise.all([myResults(), loadMyPoints()]); renderAxes();
+  $("#fPts").textContent = isStu() ? ar(myTotal()) + " نقطة" : "سجّلي لتجمعي النقاط";
 }
 async function loadAccount() {
   await refreshMe();
@@ -365,10 +372,191 @@ async function loadAccount() {
   else A.innerHTML = `<div class="msg ok">أنتِ مسجّلة الدخول باسم «${esc(ME.name)}». تُحفظ نتائجك وألعابك ونقاطك تلقائيًّا.</div><div class="row" style="margin-top:14px"><a class="pill-btn orange" href="#units">ادرسي الوحدات</a><a class="pill-btn ghost" href="#summary">اكتبي تلخيصًا</a><button class="pill-btn ghost" data-out>خروج</button></div>`;
   A.querySelector("[data-out]").onclick = doLogout;
   const tests = RESULTS.filter(r => r.kind === "test").sort(byTime), games = RESULTS.filter(r => r.kind === "game").length;
-  I.innerHTML = `<div style="display:flex;gap:14px;align-items:center"><span class="avatar">${esc(ME.name.trim()[0] || "")}</span><div><b style="font-size:20px;color:var(--ink)">${esc(ME.name)}</b><br><span class="muted">${ROLE_AR[ME.role] || ""}</span></div></div>
-  ${ME.role === "student" ? `<div class="mestats"><div><b>${ar(ME.points || 0)}</b><span>نقطة</span></div><div><b>${ar(tests.length)}</b><span>اختبار</span></div><div><b>${ar(games)}</b><span>لعبة</span></div></div>
+  I.innerHTML = `<div style="display:flex;gap:14px;align-items:center"><span class="avatar">${esc(ini(ME.name))}</span><div><b style="font-size:20px;color:var(--ink)">${esc(ME.name)}</b><br><span class="muted">${ROLE_AR[ME.role] || ""}</span></div></div>
+  ${ME.role === "student" ? `<div class="mestats"><div><b data-mypts>${ar(myTotal())}</b><span>نقطة</span></div><div><b>${ar([...MYPTS.values()].filter(p => p.kind === "novel").length)}</b><span>رواية</span></div><div><b>${ar(tests.length)}</b><span>اختبار</span></div><div><b>${ar(games)}</b><span>لعبة</span></div></div>
+  <div class="row" style="margin-top:10px"><a class="pill-btn soft" href="#leaders">🏆 لوحة المتصدرات</a><a class="pill-btn soft" href="#read">📖 اقرئي رواية</a></div>
+  ${MYPTS.size ? `<div class="sub-h" style="margin-top:14px">آخر نقاطك</div><div class="pts-log">${[...MYPTS.values()].sort(byTime).slice(0, 8).map(p => `<div><span>${PTS_IC[p.kind] || "⭐"}</span><span class="grow">${esc(PTS_AR[p.kind] || "")}${p.label ? `: ${esc(p.label)}` : ""}</span><b>${plus(p.pts)}</b></div>`).join("")}</div>` : ""}
   <div style="margin-top:10px">${tests.length ? `<table class="res-table"><thead><tr><th>الوحدة</th><th>الدرجة</th><th>التاريخ</th></tr></thead><tbody>${tests.slice(0, 12).map(r => { const u = UNITS.find(x => x.id === r.unit); return `<tr><td>${u ? esc(u.theme) : ""}</td><td><b>${ar(r.score)}/${ar(r.total)}</b></td><td>${fmtDate(r.createdAt)}</td></tr>`; }).join("")}</tbody></table>` : `<span class="muted">لم تحلّي اختبارًا تدريبيًّا بعد.</span>`}</div>` : ""}`;
 }
+
+/* ================= POINTS =================
+   every reward is a document basira_points/{uid}_{kind}_{ref}: the id makes it count once only,
+   and basira_scores/{uid} keeps the running total that the leaderboard reads (checked by the rules) */
+const PTS = { novel: 30, novelq: 10, book: 20, game: 10, test: 10, testx: 10, act: 2 };
+const PTS_AR = { novel: "قراءة رواية", novelq: "اختبار الرواية بلا أخطاء", book: "قراءة كتاب من المكتبة", game: "إنهاء لعبة وحدة", test: "حلّ اختبار تدريبي", testx: "إتقان الاختبار (٨٥٪ فأكثر)", act: "حلّ نشاط" };
+const PTS_IC = { novel: "📖", novelq: "🧠", book: "📚", game: "🎮", test: "📝", testx: "🏅", act: "✏️", teacher: "⭐" };
+let MYPTS = new Map(), SCORE = 0, ptsQ = Promise.resolve();
+const isStu = () => !!(ME && UID && ME.role === "student");
+const ptId = (kind, ref) => UID + "_" + kind + "_" + String(ref).slice(0, 40);
+const hasPt = (kind, ref) => !!UID && MYPTS.has(ptId(kind, ref));
+const myTotal = () => SCORE + ((ME && ME.points) || 0);
+async function loadMyPoints() {
+  MYPTS = new Map(); SCORE = 0; if (!isStu()) return;
+  try { (await store.list("points", ["uid", UID])).forEach(p => MYPTS.set(p.id, p)); } catch (e) {}
+  try { const s = await store.get("scores", UID); SCORE = s ? (s.total || 0) : 0; } catch (e) { SCORE = [...MYPTS.values()].reduce((a, p) => a + (p.pts || 0), 0); }
+}
+function updPts() {
+  const t = ar(myTotal());
+  if (isStu()) $("#fPts").textContent = t + " نقطة";
+  $$("[data-mypts]").forEach(e => e.textContent = t);
+}
+function award(kind, ref, label, quiet) {
+  if (!isStu() || !PTS[kind]) return Promise.resolve({ need: true });
+  const id = ptId(kind, ref);
+  if (MYPTS.has(id)) return Promise.resolve({ dup: true });
+  const run = async () => {
+    if (MYPTS.has(id)) return { dup: true };
+    const pts = PTS[kind], doc = { uid: UID, name: ME.name, kind, ref: String(ref).slice(0, 40), label: String(label || "").slice(0, 80), pts, createdAt: now() };
+    for (let tries = 0; tries < 2; tries++) {
+      try {
+        let total;
+        if (db) {
+          const s = await db.collection(P + "scores").doc(UID).get(); total = (s.exists ? (s.data().total || 0) : 0) + pts;
+          const b = db.batch();
+          b.set(db.collection(P + "points").doc(id), doc);
+          b.set(db.collection(P + "scores").doc(UID), { name: ME.name, total, last: id, updatedAt: now() });
+          await b.commit();
+        } else {
+          if (await store.get("points", id)) { MYPTS.set(id, { id, ...doc }); return { dup: true }; }
+          const s = await store.get("scores", UID); total = ((s && s.total) || 0) + pts;
+          await store.set("points", id, doc); await store.set("scores", UID, { name: ME.name, total, last: id, updatedAt: now() });
+        }
+        SCORE = total; MYPTS.set(id, { id, ...doc }); updPts();
+        toast(quiet ? `+${ar(pts)} نقطة ✨` : `+${ar(pts)} نقطة 🎉 ${PTS_AR[kind]}`);
+        return { ok: true, pts };
+      } catch (e) { if (tries) return { err: true }; await loadMyPoints(); if (MYPTS.has(id)) return { dup: true }; }
+    }
+    return { err: true };
+  };
+  ptsQ = ptsQ.then(run, run); return ptsQ;
+}
+const plus = n => `<span dir="ltr">+${ar(n)}</span>`;
+const ini = s => { const c = String(s || "").trim()[0] || ""; return c === "ه" ? "هـ" : c; };
+function ptsNudge() { return `<a href="#register">سجّلي الدخول بحسابك</a> لتُحسب لكِ النقاط وتظهري في لوحة المتصدرات.`; }
+
+/* ================= NOVELS («اقرئي») ================= */
+const NOVELS = window.BASIRA_NOVELS || [];
+const NV_GENRE = {
+  "غموض": ["#1F2A5C", "#4B4FA8", "🗝️"], "مغامرة": ["#7A3B12", "#C0611A", "⛰️"], "تاريخية": ["#6B4A1E", "#B58A3C", "🏺"],
+  "خيال علمي": ["#0F3D4C", "#1C8C9E", "🤖"], "صداقة": ["#8E2F55", "#D85F84", "✉️"], "بيئة": ["#11523D", "#2E9A6B", "🐢"],
+  "مدرسية": ["#064E57", "#0A6E79", "🎓"], "أسرة": ["#5B3A8C", "#8C6BC2", "🏡"], "خيال": ["#2B1F5C", "#6D4BC2", "✨"],
+  "مجتمع": ["#3E5A1E", "#7A9A32", "💧"], "فن ومثابرة": ["#7C2D2D", "#C25A3C", "🖋️"]
+};
+const NV_ICON = { n1: "📜", n2: "⭐", n3: "🦪", n4: "🤖", n5: "✉️", n6: "🐢", n7: "⚖️", n8: "🌫️", n9: "📚", n10: "💧", n11: "⏳", n12: "🐪", n13: "🖋️", n14: "🎤", n15: "📈" };
+const nvWords = n => n.chapters.reduce((s, c) => s + c.text.split(/\s+/).length, 0);
+const nvMins = n => Math.max(5, Math.round(nvWords(n) / 170));
+const nvCol = n => NV_GENRE[n.genre] || ["#064E57", "#0A6E79", "📖"];
+const NVK = id => "basira:nv:" + id;
+const nvPos = id => { try { return JSON.parse(localStorage.getItem(NVK(id)) || "null"); } catch (e) { return null; } };
+const nvSave = (id, v) => { try { localStorage.setItem(NVK(id), JSON.stringify(v)); } catch (e) {} };
+let nvFilter = "الكل", nvFont = (() => { try { return +localStorage.getItem("basira:nvfont") || 19; } catch (e) { return 19; } })();
+function nvCover(n, big) {
+  const [c1, c2] = nvCol(n);
+  return `<div class="nv-cover${big ? " big" : ""}" style="--c1:${c1};--c2:${c2}"><span class="nv-ic">${NV_ICON[n.id] || nvCol(n)[2]}</span><span class="nv-g">${esc(n.genre)}</span><b>${esc(n.title)}</b><small>روايات البصيرة</small></div>`;
+}
+async function loadRead(nid, ch) {
+  await refreshMe();
+  const done = NOVELS.filter(n => hasPt("novel", n.id)).length; $("#nvDone").textContent = ar(done);
+  if (nid) { const n = NOVELS.find(x => x.id === nid); if (n) { $("#nvList").hidden = true; $("#reader").hidden = false; openNovel(n, ch); return; } }
+  $("#nvList").hidden = false; $("#reader").hidden = true;
+  const genres = ["الكل", ...new Set(NOVELS.map(n => n.genre))];
+  $("#nvFilters").innerHTML = genres.map(g => `<button class="chip-f" aria-pressed="${g === nvFilter}" data-g="${esc(g)}">${g === "الكل" ? "الكل" : (nvCol({ genre: g })[2] + " " + esc(g))}</button>`).join("");
+  $$("#nvFilters [data-g]").forEach(b => b.onclick = () => { nvFilter = b.dataset.g; loadRead(); });
+  const list = NOVELS.filter(n => nvFilter === "الكل" || n.genre === nvFilter);
+  $("#nvGrid").innerHTML = list.map(n => {
+    const read = hasPt("novel", n.id), pos = nvPos(n.id), started = !read && pos && pos.ch > 0;
+    return `<a class="nv-card" href="#read-${n.id}">${nvCover(n)}<div class="nv-b"><h3>${esc(n.title)}</h3><p>${esc(n.blurb)}</p><div class="nv-meta"><span>⏱ ${ar(nvMins(n))} دقائق</span><span>${ar(n.chapters.length)} فصول</span>${read ? `<span class="ok">✓ قرأتِها</span>` : started ? `<span class="go">تابعي: الفصل ${ar(pos.ch + 1)}</span>` : `<span class="pts">${plus(PTS.novel)} نقطة</span>`}</div></div></a>`;
+  }).join("");
+}
+function openNovel(n, ch) {
+  const R = $("#reader"), last = n.chapters.length; // index "last" = the closing page (words, quiz, «لقد قرأتُ»)
+  let i = ch != null ? ch : ((nvPos(n.id) || {}).ch || 0); i = Math.max(0, Math.min(last, i));
+  nvSave(n.id, { ch: i, t: now() });
+  const [c1, c2] = nvCol(n);
+  const steps = n.chapters.map((c, k) => `<button class="nv-step${k === i ? " on" : ""}${k < i ? " past" : ""}" data-ch="${k}" title="${esc(c.title)}">${ar(k + 1)}</button>`).join("") + `<button class="nv-step end${i === last ? " on" : ""}" data-ch="${last}" title="ختام الرواية">✓</button>`;
+  let body;
+  if (i < last) {
+    const c = n.chapters[i];
+    body = `<article class="nv-text" style="font-size:${nvFont}px"><div class="nv-chn">الفصل ${ORDL[i] || ar(i + 1)}</div><h3>${esc(c.title)}</h3>${c.text.split(/\n\s*\n/).map(p => `<p>${esc(p.trim())}</p>`).join("")}</article>
+    <div class="nv-nav">${i > 0 ? `<button class="pill-btn ghost" data-go="${i - 1}">→ الفصل السابق</button>` : `<span></span>`}<button class="pill-btn orange big" data-go="${i + 1}">${i + 1 < last ? "الفصل التالي ←" : "ختام الرواية ←"}</button></div>`;
+  } else {
+    const read = hasPt("novel", n.id), qd = hasPt("novelq", n.id);
+    body = `<div class="nv-end">
+      <div class="card nv-vals"><div class="sub-h">قيم في الرواية</div><div class="row">${n.values.map(v => `<span class="chip-v">${esc(v)}</span>`).join("")}</div></div>
+      <div class="card"><div class="sub-h">📘 معاني كلمات</div><div class="nv-vocab">${n.vocab.map(v => `<div><b>${esc(v.w)}</b><span>${esc(v.m)}</span></div>`).join("")}</div></div>
+      <div class="card"><div class="sub-h">🧠 اختبري فهمك ${qd ? `<span class="chip-s done-badge">✓ أنجزتِه</span>` : `<span class="chip-s">${plus(PTS.novelq)} نقاط إن أجبتِ كلها من المحاولة الأولى</span>`}</div><div id="nvQuiz"></div></div>
+      <div class="card"><div class="sub-h">💬 للنقاش</div><ol class="nv-disc">${n.discuss.map(d => `<li>${esc(d)}</li>`).join("")}</ol><a class="pill-btn ghost" href="#summary" data-sum>اكتبي رأيك في ورقة التلخيص</a></div>
+      <div class="nv-done${read ? " is" : ""}" id="nvDoneBox">${read
+        ? `<div class="big-ok">✓</div><h3>قرأتِ هذه الرواية</h3><p>أُضيفت ${ar(PTS.novel)} نقطة إلى رصيدك. اختاري روايتك التالية!</p><div class="row" style="justify-content:center"><a class="pill-btn orange" href="#read">روايات أخرى</a><a class="pill-btn ghost" href="#leaders">لوحة المتصدرات</a></div>`
+        : `<h3>أنهيتِ «${esc(n.title)}»؟</h3><p>اضغطي الزر لتُسجَّل قراءتك وتحصلي على <b>${ar(PTS.novel)} نقطة</b>.</p><button class="pill-btn orange big" id="nvRead">📖 لقد قرأتُ الرواية</button><div class="muted" id="nvReadMsg" style="font-size:14px;margin-top:8px">${isStu() ? "" : ptsNudge()}</div>`}</div>
+    </div>`;
+  }
+  R.innerHTML = `<div class="nv-head" style="--c1:${c1};--c2:${c2}">${nvCover(n, true)}<div class="nv-hd"><a class="nv-back" href="#read">→ كل الروايات</a><span class="nv-g2">${esc(n.genre)} · ⏱ ${ar(nvMins(n))} دقائق</span><h2>${esc(n.title)}</h2><p>${esc(n.blurb)}</p></div></div>
+  <div class="nv-bar"><div class="nv-steps">${steps}</div><div class="nv-font" aria-label="حجم الخط"><button data-fs="-1" aria-label="تصغير الخط">أ−</button><button data-fs="1" aria-label="تكبير الخط">أ+</button></div></div>
+  <div class="nv-prog"><i style="width:${Math.round(i / last * 100)}%"></i></div>
+  <div class="nv-wrap">${body}</div>`;
+  const go = k => { location.hash = "read-" + n.id + "-" + k; };
+  R.querySelectorAll("[data-ch]").forEach(b => b.onclick = () => go(+b.dataset.ch));
+  R.querySelectorAll("[data-go]").forEach(b => b.onclick = () => go(+b.dataset.go));
+  R.querySelectorAll("[data-fs]").forEach(b => b.onclick = () => { nvFont = Math.max(15, Math.min(26, nvFont + 2 * b.dataset.fs)); try { localStorage.setItem("basira:nvfont", nvFont); } catch (e) {} const t = R.querySelector(".nv-text"); if (t) t.style.fontSize = nvFont + "px"; });
+  const sum = R.querySelector("[data-sum]"); if (sum) sum.addEventListener("click", () => setTimeout(() => { $("#sBook").value = n.title; $("#sAuthor").value = "روايات البصيرة"; }, 60));
+  if (i === last) { nvQuiz(n); const b = $("#nvRead"); if (b) b.onclick = async () => {
+    if (!isStu()) { $("#nvReadMsg").innerHTML = ptsNudge(); return; }
+    b.disabled = true; const r = await award("novel", n.id, n.title);
+    if (r.ok || r.dup) { openNovel(n, last); confetti(); } else { b.disabled = false; $("#nvReadMsg").textContent = "لم تُسجَّل القراءة الآن، تأكدي من الاتصال ثم أعيدي المحاولة."; }
+  }; }
+}
+function nvQuiz(n) {
+  const box = $("#nvQuiz"); let k = 0, first = 0, tried = false;
+  const draw = () => {
+    if (k >= n.quiz.length) {
+      const all = first === n.quiz.length;
+      box.innerHTML = `<div class="verdict ${all ? "ok" : "soft"}"><b>${all ? "أجبتِ الأسئلة كلها من المحاولة الأولى! 🌟" : `أجبتِ ${ar(first)} من ${ar(n.quiz.length)} من المحاولة الأولى`}</b><div><button class="mini" data-re>أعيدي الأسئلة</button></div></div>`;
+      box.querySelector("[data-re]").onclick = () => { k = 0; first = 0; draw(); };
+      if (all) award("novelq", n.id, n.title);
+      return;
+    }
+    const q = n.quiz[k]; tried = false;
+    box.innerHTML = `<div class="muted" style="font-size:13px">سؤال ${ar(k + 1)} من ${ar(n.quiz.length)}</div><h4 style="margin:4px 0 10px">${esc(q.q)}</h4><div class="opts">${q.opts.map((o, j) => `<button class="opt" data-j="${j}">${esc(o)}</button>`).join("")}</div><div data-v></div>`;
+    box.querySelectorAll("[data-j]").forEach(b => b.onclick = () => {
+      if (box._lock) return; const j = +b.dataset.j;
+      if (j === q.a) { if (!tried) first++; b.classList.add("right"); verdict(box.querySelector("[data-v]"), true, q.explain); box._lock = true;
+        box.querySelector("[data-v]").insertAdjacentHTML("beforeend", `<div style="margin-top:8px"><button class="pill-btn teal" data-next>${k + 1 < n.quiz.length ? "السؤال التالي ←" : "النتيجة"}</button></div>`);
+        box.querySelector("[data-next]").onclick = () => { box._lock = false; k++; draw(); };
+      } else { tried = true; b.classList.add("soft"); b.disabled = true; verdict(box.querySelector("[data-v]"), false, ""); }
+    });
+  };
+  draw();
+}
+function confetti() {
+  const c = document.createElement("div"); c.className = "confetti"; const cols = ["#EC7F16", "#0A6E79", "#D85F84", "#4B4FA8", "#FFD36B"];
+  c.innerHTML = Array.from({ length: 70 }, (_, k) => `<i style="left:${Math.random() * 100}%;background:${cols[k % 5]};animation-delay:${Math.random() * .6}s;animation-duration:${1.6 + Math.random() * 1.4}s;transform:rotate(${Math.random() * 360}deg)"></i>`).join("");
+  document.body.appendChild(c); setTimeout(() => c.remove(), 3600);
+}
+
+/* ================= LEADERBOARD ================= */
+const short2 = s => String(s || "").split(" ").slice(0, 2).join(" ");
+async function loadLeaders() {
+  await refreshMe();
+  $("#ptsGuide").innerHTML = `<h3 style="font-size:20px;font-weight:900">كيف أجمع النقاط؟</h3><ul class="pts-guide">${Object.keys(PTS).map(k => `<li><span>${PTS_IC[k]}</span><b>${esc(PTS_AR[k])}</b><em>${plus(PTS[k])}</em></li>`).join("")}<li><span>${PTS_IC.teacher}</span><b>نقاط تمنحها المعلمة للمتميزات</b><em>★</em></li></ul><p class="muted" style="font-size:14px;margin:10px 0 0">تُحسب كل رواية وكل كتاب وكل لعبة واختبار ونشاط مرة واحدة فقط.</p>${isStu() ? `<div class="my-total"><span>رصيدك</span><b data-mypts>${ar(myTotal())}</b><span>نقطة</span></div>` : ""}`;
+  const el = $("#leaders");
+  if (db && !UID) { el.innerHTML = `<div class="empty"><b>لوحة المتصدرات للطالبات المسجّلات</b>سجّلي الدخول بحسابك لتري الترتيب. <div style="margin-top:12px"><a class="pill-btn orange" href="#register">دخول / تسجيل</a></div></div>`; return; }
+  el.innerHTML = `<div class="card muted">جارٍ تحميل الترتيب…</div>`;
+  let sc = [], us = [];
+  try { us = await store.list("users", ["role", "student"]); } catch (e) {}
+  try { sc = await store.list("scores"); } catch (e) {}
+  const m = new Map(us.map(u => [u.id, { id: u.id, name: u.name, total: u.points || 0 }]));
+  sc.forEach(s => { const r = m.get(s.id); if (r) r.total += s.total || 0; });
+  const rows = [...m.values()].filter(r => r.total > 0).sort((a, b) => b.total - a.total || a.name.localeCompare(b.name, "ar"));
+  let rank = 0, prev = null; rows.forEach((r, k) => { if (r.total !== prev) { rank = k + 1; prev = r.total; } r.rank = rank; });
+  if (!rows.length) { el.innerHTML = `<div class="empty"><b>لم تجمع أي طالبة نقاطًا بعد</b>كوني الأولى! اقرئي رواية أو العبي لعبة وحدة.<div class="row" style="justify-content:center;margin-top:12px"><a class="pill-btn orange" href="#read">اقرئي رواية</a><a class="pill-btn ghost" href="#games">العبي</a></div></div>`; return; }
+  const top = rows.slice(0, 3), medal = ["🥇", "🥈", "🥉"], order = [1, 0, 2];
+  const pod = `<div class="podium">${order.filter(k => top[k]).map(k => { const r = top[k]; return `<div class="pod p${k + 1}${r.id === UID ? " me" : ""}"><span class="pav">${esc(ini(r.name))}</span><b>${esc(short2(r.name))}</b><span class="ppts">${ar(r.total)} نقطة</span><div class="pbar"><span>${medal[r.rank - 1] || ar(r.rank)}</span></div></div>`; }).join("")}</div>`;
+  const rest = rows.slice(3, 30), meRow = rows.find(r => r.id === UID), meOut = meRow && rows.indexOf(meRow) >= 30;
+  el.innerHTML = pod + (rest.length || meOut ? `<div class="card lb-list">${rest.map(r => lbRow(r)).join("")}${meOut ? `<div class="lb-gap">⋯</div>` + lbRow(meRow) : ""}</div>` : "") +
+    (isStu() && !meRow ? `<p class="note" style="margin-top:14px">لم تظهري في اللوحة بعد: أول رواية تقرئينها تضعك فيها! <a href="#read">اقرئي الآن</a></p>` : "");
+}
+const lbRow = r => `<div class="lb-row${r.id === UID ? " me" : ""}"><span class="lb-r">${ar(r.rank)}</span><span class="lb-av">${esc(ini(r.name))}</span><b class="grow">${esc(short2(r.name))}${r.id === UID ? ` <small>(أنتِ)</small>` : ""}</b><span class="lb-p">${ar(r.total)}</span></div>`;
 
 /* ================= HOME / ABOUT ================= */
 async function siteData() { try { const s = await store.get("site", "main"); return { ...DEFAULT_SITE, ...(s || {}) }; } catch (e) { return DEFAULT_SITE; } }
@@ -379,9 +567,14 @@ async function loadAbout() { const s = await siteData(); $("#aboutDesc").textCon
 const COVERS = ["linear-gradient(160deg,#0A6E79,#13919C)", "linear-gradient(160deg,#EC7F16,#F3A24B)", "linear-gradient(160deg,#C84A72,#E0688A)", "linear-gradient(160deg,#4B4FA8,#6D72C7)"];
 const FIXED_BOOKS = [{ title: "لغتي الجميلة · الصف العاشر · الفصل الدراسي الأول", author: "وزارة التعليم – سلطنة عُمان", desc: "كتاب الطالبة كاملًا: المحاور الثلاثة والوحدات التسع. افتحيه للقراءة أو للرجوع إلى صفحة أي درس.", url: BOOK_URL, color: 0, fixed: true }];
 async function loadBooks() {
+  await refreshMe();
   const el = $("#books"); let b = []; try { b = (await store.list("books")).sort(byTime); } catch (e) {}
   b = FIXED_BOOKS.concat(b);
-  el.innerHTML = b.map((x, i) => `<div class="card book"><div class="cover" style="background:${COVERS[(x.color ?? i) % 4]}">${esc(x.title.split("·")[0].slice(0, 34))}</div><div class="info"><h3>${esc(x.title)}</h3>${x.author ? `<span class="muted" style="font-size:14px">${esc(x.author)}</span>` : ""}<p>${esc(x.desc || "")}</p><div class="row" style="margin-top:auto">${x.url ? `<a class="pill-btn teal" href="${esc(x.url)}" target="_blank" rel="noopener">اقرئي الكتاب</a>` : ""}${x.fixed ? `<a class="pill-btn ghost" href="#units">الدروس مشروحة</a>` : `<a class="pill-btn ghost" href="#summary" data-book="${esc(x.title)}">لخّصيه</a>`}</div></div></div>`).join("");
+  el.innerHTML = b.map((x, i) => `<div class="card book"><div class="cover" style="background:${COVERS[(x.color ?? i) % 4]}">${esc(x.title.split("·")[0].slice(0, 34))}</div><div class="info"><h3>${esc(x.title)}</h3>${x.author ? `<span class="muted" style="font-size:14px">${esc(x.author)}</span>` : ""}<p>${esc(x.desc || "")}</p><div class="row" style="margin-top:auto">${x.url ? `<a class="pill-btn teal" href="${esc(x.url)}" target="_blank" rel="noopener">اقرئي الكتاب</a>` : ""}${x.fixed ? `<a class="pill-btn ghost" href="#units">الدروس مشروحة</a>` : `<a class="pill-btn ghost" href="#summary" data-book="${esc(x.title)}">لخّصيه</a>`}${x.id ? (hasPt("book", x.id) ? `<span class="chip-s done-badge">✓ قرأتِه</span>` : `<button class="pill-btn soft" data-read="${esc(x.id)}" data-t="${esc(x.title)}">📚 قرأتُ الكتاب ${plus(PTS.book)}</button>`) : ""}</div></div></div>`).join("");
+  $$("#books [data-read]").forEach(btn => btn.onclick = async () => {
+    if (!isStu()) { toast("سجّلي الدخول بحسابك لتُحسب لكِ النقاط"); location.hash = "register"; return; }
+    btn.disabled = true; const r = await award("book", btn.dataset.read, btn.dataset.t);
+    if (r.ok || r.dup) { btn.outerHTML = `<span class="chip-s done-badge">✓ قرأتِه</span>`; confetti(); } else { btn.disabled = false; toast("لم تُسجَّل القراءة، تأكدي من الاتصال"); } });
   $$("#books [data-book]").forEach(a => a.addEventListener("click", () => setTimeout(() => { $("#sBook").value = a.dataset.book; }, 60)));
 }
 
@@ -443,11 +636,13 @@ async function showFollow(l) {
   const box = document.createElement("div"); box.className = "card"; box.style.marginTop = "18px"; $("#follow").appendChild(box);
   let st = null, notes = [], res = [];
   try { st = await store.get("users", l.studentUid); } catch (e) {}
+  let stS = 0, nRead = 0; try { const sc = await store.get("scores", l.studentUid); stS = (sc && sc.total) || 0; } catch (e) {}
+  try { nRead = (await store.list("points", ["uid", l.studentUid])).filter(p => p.kind === "novel" || p.kind === "book").length; } catch (e) {}
   try { res = (await store.list("results", ["uid", l.studentUid])).sort(byTime); } catch (e) {}
   try { notes = (await store.list("notes", ["sid", l.studentUid])).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)); } catch (e) {}
   const tests = res.filter(r => r.kind === "test"), games = res.filter(r => r.kind === "game");
-  box.innerHTML = `<div class="row" style="justify-content:space-between"><h3 style="font-size:22px;font-weight:900">متابعة ${esc(l.studentName)}</h3><span class="stars" style="font-size:18px">نقاط البصيرة: ${ar((st && st.points) || 0)} ★</span></div>
-  <div class="mestats"><div><b>${ar(tests.length)}</b><span>اختبار تدريبي</span></div><div><b>${ar(games.length)}</b><span>لعبة</span></div><div><b>${tests.length ? ar(Math.round(tests.reduce((s, r) => s + r.score / r.total, 0) / tests.length * 100)) + "٪" : "—"}</b><span>متوسط الاختبارات</span></div></div>
+  box.innerHTML = `<div class="row" style="justify-content:space-between"><h3 style="font-size:22px;font-weight:900">متابعة ${esc(l.studentName)}</h3><span class="stars" style="font-size:18px">نقاط البصيرة: ${ar(((st && st.points) || 0) + stS)} ★</span></div>
+  <div class="mestats"><div><b>${ar(nRead)}</b><span>رواية وكتاب</span></div><div><b>${ar(tests.length)}</b><span>اختبار تدريبي</span></div><div><b>${ar(games.length)}</b><span>لعبة</span></div><div><b>${tests.length ? ar(Math.round(tests.reduce((s, r) => s + r.score / r.total, 0) / tests.length * 100)) + "٪" : "—"}</b><span>متوسط الاختبارات</span></div></div>
   <div class="sub-h" style="margin-top:14px">نتائج الاختبارات التدريبية</div>${tests.length ? `<div class="tbl"><table class="res-table"><thead><tr><th>الوحدة</th><th>الدرجة</th><th>التاريخ</th></tr></thead><tbody>${tests.map(r => { const u = UNITS.find(x => x.id === r.unit); return `<tr><td>${u ? esc(u.theme) : ""}</td><td><b>${ar(r.score)}/${ar(r.total)}</b></td><td>${fmtDate(r.createdAt)}</td></tr>`; }).join("")}</tbody></table></div>` : `<p class="muted">لم تحلّ اختبارًا بعد.</p>`}
   <div class="sub-h" style="margin-top:14px">ملاحظات المعلمة</div><div class="notes">${notes.length ? notes.map(n => `<div class="bubble ${n.from === "parent" ? "p" : "t"}"><small>${n.from === "parent" ? "أنت" : "أ. عائشة الكحالي"} · ${fmtDate(n.createdAt)}</small>${esc(n.text)}</div>`).join("") : `<p class="muted">لا توجد ملاحظات بعد.</p>`}</div>
   <form class="form" style="margin-top:14px"><div class="field"><label>ملاحظة للمعلمة</label><textarea maxlength="600" style="min-height:80px" required></textarea></div><button class="pill-btn teal" type="submit">أرسل الملاحظة</button></form>`;
@@ -476,11 +671,12 @@ function openTab(t) { curTab = t; $$("#tTabs button").forEach(b => b.setAttribut
 async function badges() { try { const r = (await store.list("links", ["status", "pending"])).length; $("#reqN").hidden = !r; $("#reqN").textContent = ar(r); } catch (e) {} try { const s = (await store.list("summaries")).filter(x => x.status === "new").length; $("#sumN").hidden = !s; $("#sumN").textContent = ar(s); } catch (e) {} }
 async function tStudents() {
   const el = $("#tStu"); let st = [], notes = []; try { st = (await store.list("users", ["role", "student"])).sort((a, b) => a.name.localeCompare(b.name, "ar")); notes = await store.list("notes"); } catch (e) {}
+  let sc = {}; try { (await store.list("scores")).forEach(x => sc[x.id] = x.total || 0); } catch (e) {}
   $("#stuNames").innerHTML = st.map(s => `<option value="${esc(s.name)}">`).join("");
   if (!st.length) { el.innerHTML = `<div class="empty"><b>لم تسجّل أي طالبة بعد</b>شاركي رابط الموقع مع الطالبات ليسجّلن أسماءهن.</div>`; return; }
-  el.innerHTML = `<p class="muted" style="margin:0 0 6px">عدد المسجّلات: ${ar(st.length)}</p>` + st.map(s => { const n = notes.filter(x => x.sid === s.id); return `<div class="li" data-s="${s.id}"><div class="grow"><b>${esc(s.name)}</b><br><span class="muted" style="font-size:14px">سُجّلت ${fmtDate(s.createdAt)}</span></div><span class="stars">${ar(s.points || 0)} ★</span><button class="mini o" data-a="plus">+ نقطة</button><button class="mini" data-a="minus">− نقطة</button><button class="mini" data-a="note">ملاحظة${n.length ? " (" + ar(n.length) + ")" : ""}</button><button class="mini no" data-a="del">حذف</button><div data-box style="flex-basis:100%" hidden></div></div>`; }).join("");
+  el.innerHTML = `<p class="muted" style="margin:0 0 6px">عدد المسجّلات: ${ar(st.length)}</p>` + st.map(s => { const n = notes.filter(x => x.sid === s.id); return `<div class="li" data-s="${s.id}"><div class="grow"><b>${esc(s.name)}</b><br><span class="muted" style="font-size:14px">سُجّلت ${fmtDate(s.createdAt)}</span></div><span class="stars" title="نقاط النشاط ${ar(sc[s.id] || 0)} + نقاط المعلمة ${ar(s.points || 0)}">${ar((sc[s.id] || 0) + (s.points || 0))} ★</span><button class="mini o" data-a="plus">+٥ نقاط</button><button class="mini" data-a="minus">−٥</button><button class="mini" data-a="note">ملاحظة${n.length ? " (" + ar(n.length) + ")" : ""}</button><button class="mini no" data-a="del">حذف</button><div data-box style="flex-basis:100%" hidden></div></div>`; }).join("");
   el.querySelectorAll("[data-a]").forEach(b => b.onclick = async () => { const row = b.closest("[data-s]"), id = row.dataset.s, s = st.find(x => x.id === id);
-    if (b.dataset.a === "plus" || b.dataset.a === "minus") { await store.update("users", id, { points: Math.max(0, (s.points || 0) + (b.dataset.a === "plus" ? 1 : -1)) }); tStudents(); }
+    if (b.dataset.a === "plus" || b.dataset.a === "minus") { await store.update("users", id, { points: Math.max(0, (s.points || 0) + (b.dataset.a === "plus" ? 5 : -5)) }); tStudents(); }
     if (b.dataset.a === "del") { if (b.dataset.c) { await store.del("users", id); tStudents(); } else { b.dataset.c = 1; b.textContent = "تأكيد الحذف"; } }
     if (b.dataset.a === "note") { const box = row.querySelector("[data-box]"); box.hidden = !box.hidden; if (box.hidden) return; const nn = notes.filter(x => x.sid === id).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
       box.innerHTML = `<div class="notes">${nn.map(n => `<div class="bubble ${n.from === "parent" ? "p" : "t"}"><small>${n.from === "parent" ? "ولي الأمر" : "أنتِ"} · ${fmtDate(n.createdAt)}</small>${esc(n.text)}</div>`).join("") || '<span class="muted">لا ملاحظات بعد.</span>'}</div><div class="row" style="margin-top:8px"><input style="flex:1;border:1.5px solid var(--line);border-radius:12px;padding:8px 12px;min-width:0" placeholder="ملاحظة تظهر لولي الأمر بعد الموافقة"><button class="mini ok">إرسال</button></div>`;
