@@ -35,19 +35,80 @@ const store = {
 };
 const byTime = (a, b) => (b.createdAt || 0) - (a.createdAt || 0);
 
+/* ================= ACCOUNTS: triple name + PIN =================
+   - the triple name is the username and cannot be registered twice
+   - Firebase mode: the name maps to a hidden e-mail, the PIN to the password (Firebase Auth keeps the login)
+   - roles: student / parent / teacher (teacher activated once with a code checked by the security rules) */
+const ROLE_AR = { student: "طالبة", parent: "ولي أمر", teacher: "المعلمة" };
+const normName = s => String(s || "").replace(/[ً-ْـ]/g, "").replace(/\s+/g, " ").trim();
+const nameKey = s => normName(s).replace(/[أإآٱ]/g, "ا").replace(/ى/g, "ي").replace(/ة/g, "ه");
+function checkName(n) {
+  n = normName(n); const w = n.split(" ").filter(Boolean);
+  if (!/^[ء-ي\s]+$/.test(n)) return "اكتب الاسم بالحروف العربية فقط.";
+  if (w.length < 3) return "اكتب الاسم الثلاثي كاملًا: الاسم واسم الأب واسم الجد أو القبيلة.";
+  if (w.some(x => x.length < 2)) return "تأكّد من كتابة كل جزء من الاسم كاملًا.";
+  return "";
+}
+function checkPin(p) { p = String(p || ""); if (p.length < 4) return "الرقم السري ٤ أرقام أو أحرف على الأقل."; if (/\s/.test(p)) return "الرقم السري بلا مسافات."; return ""; }
+async function sha(t) { const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, "0")).join(""); }
+const fbEmail = async n => "u" + (await sha("basira|" + nameKey(n))).slice(0, 32) + "@basira-school.app";
+const fbPass = pin => "Bz!" + pin + "#2026";
+const LOCAL_T_CODE = "1234";
+let ME = null;
+const ERR = { exists: "هذا الاسم مسجّل من قبل. إن كان حسابك فاختر «تسجيل الدخول»، وإن كان لشخص آخر فأضف اسم الجد الثاني أو اللقب.", bad: "الاسم أو الرقم السري غير صحيح.", many: "محاولات كثيرة. انتظر دقائق ثم حاول مرة أخرى.", net: "تعذّر الاتصال بالإنترنت. تأكد من الشبكة ثم حاول مرة أخرى.", code: "رمز تفعيل لوحة المعلمة غير صحيح.", gone: "هذا الحساب حُذف من الموقع. تواصل مع المعلمة.", role: "" };
+function fbErr(e) { const c = (e && e.code) || ""; if (c.includes("email-already-in-use")) return ERR.exists; if (/wrong-password|user-not-found|invalid-credential|invalid-login|invalid-email/.test(c)) return ERR.bad; if (c.includes("too-many")) return ERR.many; if (c.includes("network")) return ERR.net; if (c.includes("permission")) return ERR.code; return "حدث خطأ غير متوقع، حاول مرة أخرى."; }
+async function loadProfile(uid) {
+  const p = await store.get("users", uid); if (!p) return null;
+  let admin = false; if (p.role === "teacher") { try { admin = !!(await store.get("admins", uid)); } catch (e) {} }
+  return { uid, ...p, admin };
+}
+const acct = {
+  async register(name, pin, role, code) {
+    name = normName(name); const key = nameKey(name);
+    const prof = { name, key, role, points: 0, createdAt: now() };
+    if (db) {
+      let cred; try { cred = await auth.createUserWithEmailAndPassword(await fbEmail(name), fbPass(pin)); } catch (e) { throw new Error(fbErr(e)); }
+      const uid = cred.user.uid;
+      try { const b = db.batch(); if (role === "teacher") b.set(db.collection(P + "admins").doc(uid), { key: String(code || ""), createdAt: now() }); b.set(db.collection(P + "users").doc(uid), prof); await b.commit(); }
+      catch (e) { try { await cred.user.delete(); } catch (x) {} throw new Error(role === "teacher" ? ERR.code : fbErr(e)); }
+      UID = uid; ME = await loadProfile(uid); return ME;
+    }
+    const users = LS.all("users"); if (Object.values(users).some(u => u.key === key)) throw new Error(ERR.exists);
+    if (role === "teacher" && String(code) !== LOCAL_T_CODE) throw new Error(ERR.code);
+    const uid = "u" + Math.random().toString(36).slice(2, 12);
+    await store.set("users", uid, { ...prof, ph: await sha(pin + "|" + key) });
+    if (role === "teacher") await store.set("admins", uid, { createdAt: now() });
+    try { localStorage.setItem("basira:sess", uid); } catch (e) {}
+    UID = uid; ME = await loadProfile(uid); return ME;
+  },
+  async login(name, pin) {
+    name = normName(name); const key = nameKey(name);
+    if (db) {
+      let cred; try { cred = await auth.signInWithEmailAndPassword(await fbEmail(name), fbPass(pin)); } catch (e) { throw new Error(fbErr(e)); }
+      UID = cred.user.uid; ME = await loadProfile(UID); if (!ME) { await auth.signOut(); UID = null; throw new Error(ERR.gone); } return ME;
+    }
+    const ph = await sha(pin + "|" + key); const hit = Object.entries(LS.all("users")).find(([, u]) => u.key === key && u.ph === ph);
+    if (!hit) throw new Error(ERR.bad);
+    try { localStorage.setItem("basira:sess", hit[0]); } catch (e) {}
+    UID = hit[0]; ME = await loadProfile(UID); return ME;
+  },
+  async logout() { if (db) { try { await auth.signOut(); } catch (e) {} } else { try { localStorage.removeItem("basira:sess"); } catch (e) {} } UID = null; ME = null; IS_T = false; }
+};
+
 async function boot() {
   if (hasFB) {
     try {
       firebase.initializeApp(cfg.firebase); auth = firebase.auth(); db = firebase.firestore();
-      await new Promise(res => { const un = auth.onAuthStateChanged(async u => { if (!u) { try { await auth.signInAnonymously(); } catch (e) { console.warn(e); res(); } return; } UID = u.uid; IS_T = !u.isAnonymous && !!u.email && u.email.toLowerCase() === String(cfg.teacherEmail || "").toLowerCase(); un(); res(); }); });
+      try { await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL); } catch (e) {}
+      await new Promise(res => { const un = auth.onAuthStateChanged(async u => { un(); if (u && !u.isAnonymous) { UID = u.uid; try { ME = await loadProfile(u.uid); } catch (e) { ME = null; } } res(); }); });
     } catch (e) { console.warn("firebase off", e); db = null; }
   }
   if (!db) {
     $("#demo").hidden = false;
-    try { UID = localStorage.getItem("basira:uid"); } catch (e) {}
-    if (!UID) { UID = "u" + Math.random().toString(36).slice(2, 12); try { localStorage.setItem("basira:uid", UID); } catch (e) {} }
-    try { IS_T = sessionStorage.getItem("basira:t") === "1"; } catch (e) {}
+    let s = null; try { s = localStorage.getItem("basira:sess"); } catch (e) {}
+    if (s) { UID = s; ME = await loadProfile(s); if (!ME) UID = null; }
   }
+  IS_T = !!(ME && ME.admin);
   renderAxes(); renderGamesGrid(); route(); refreshMe();
 }
 
@@ -63,7 +124,7 @@ function route() {
   $$(".nav a").forEach(a => { const t = a.getAttribute("href").slice(1); if (t === h || (h === "unit" && t === "units")) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
   $("#nav").classList.remove("open"); $("#menuT").setAttribute("aria-expanded", "false");
   if (current !== location.hash) window.scrollTo({ top: 0 }); current = location.hash;
-  ({ home: loadHome, about: loadAbout, register: refreshMe, library: loadBooks, summary: loadSummary, posts: loadPosts, parents: loadParents, teacher: loadTeacher, unit: () => openUnit(unitId, sub) }[h] || (() => {}))();
+  ({ home: loadHome, about: loadAbout, register: loadAccount, library: loadBooks, summary: loadSummary, posts: loadPosts, parents: loadParents, teacher: loadTeacher, unit: () => openUnit(unitId, sub) }[h] || (() => {}))();
 }
 window.addEventListener("hashchange", route);
 $("#menuT").onclick = () => { const n = $("#nav"); n.classList.toggle("open"); $("#menuT").setAttribute("aria-expanded", n.classList.contains("open")); };
@@ -71,7 +132,7 @@ $("#menuT").onclick = () => { const n = $("#nav"); n.classList.toggle("open"); $
 /* ================= UNITS ================= */
 const AXES = [{ n: 1, name: "الوطن" }, { n: 2, name: "قضايا معاصرة" }, { n: 3, name: "العمل والصناعات" }];
 let RESULTS = [];
-async function myResults() { try { RESULTS = await store.list("results", ["uid", UID]); } catch (e) { RESULTS = []; } return RESULTS; }
+async function myResults() { if (!UID || !ME || ME.role !== "student") { RESULTS = []; return RESULTS; } try { RESULTS = await store.list("results", ["uid", UID]); } catch (e) { RESULTS = []; } return RESULTS; }
 function bestFor(uid) { const r = RESULTS.filter(x => x.unit === uid); return r.length ? Math.max(...r.map(x => Math.round(x.score / x.total * 100))) : null; }
 function renderAxes() {
   const html = AXES.map(a => `<section class="axis a${a.n}"><div class="axis-h"><small>المحور ${["", "الأول", "الثاني", "الثالث"][a.n]}</small><b>${esc(a.name)}</b></div><div class="units">${UNITS.filter(u => u.axisN === a.n).map(u => {
@@ -224,8 +285,8 @@ function renderTest() {
     <div class="row" style="justify-content:center"><button class="pill-btn orange" data-again>أعيدي الاختبار</button><a class="pill-btn ghost" href="#${U.id}-game">العبي لعبة الوحدة</a></div><div data-save class="muted" style="font-size:14px"></div></div></div>`;
     box.querySelector("[data-again]").onclick = renderTest;
     const sv = box.querySelector("[data-save]");
-    if (!ME) { sv.innerHTML = `سجّلي اسمك لتُحفظ نتيجتك وتراها المعلمة. <a href="#register">سجّلي الآن</a>`; return; }
-    try { await store.add("results", { uid: UID, name: ME.name, cls: ME.cls, unit: U.id, kind: "test", score, total: Q.length, createdAt: now() }); sv.textContent = "حُفظت نتيجتك ✓"; myResults(); }
+    if (!ME || ME.role !== "student") { sv.innerHTML = `سجّلي الدخول بحسابك لتُحفظ نتيجتك وتراها المعلمة. <a href="#register">الدخول / التسجيل</a>`; return; }
+    try { await store.add("results", { uid: UID, name: ME.name, unit: U.id, kind: "test", score, total: Q.length, createdAt: now() }); sv.textContent = "حُفظت نتيجتك ✓"; myResults(); }
     catch (e) { sv.textContent = "لم تُحفظ النتيجة الآن، تأكدي من الاتصال."; }
   }
   draw();
@@ -236,30 +297,78 @@ function renderGame() {
   $("#uBody").innerHTML = `<div class="game-box" id="gameBox"></div><p class="note" style="margin-top:12px">${esc(BasiraGames.meta[U.game.type].how)} تعمل اللعبة على الجوال والحاسوب.</p>`;
   const unit = U;
   const start = () => { gameInst = BasiraGames.mount($("#gameBox"), unit, async (score, total) => {
-    if (!ME) return; try { await store.add("results", { uid: UID, name: ME.name, cls: ME.cls, unit: unit.id, kind: "game", score, total, createdAt: now() }); } catch (e) {} }); };
+    if (!ME || ME.role !== "student") return; try { await store.add("results", { uid: UID, name: ME.name, unit: unit.id, kind: "game", score, total, createdAt: now() }); myResults(); } catch (e) {} }); };
   if (document.fonts && document.fonts.load) Promise.race([document.fonts.load('800 40px "Tajawal"'), new Promise(r => setTimeout(r, 1500))]).then(start); else start();
 }
 
-/* ================= ME ================= */
-let ME = null;
-async function refreshMe() {
-  try { ME = await store.get("students", UID); } catch (e) { ME = null; }
-  $("#meTxt").textContent = ME ? ME.name.split(" ")[0] : "تسجيل الطالبات";
-  await myResults(); renderAxes();
-  if (ME) {
-    $("#fPts").textContent = ar(ME.points || 0) + " نقطة";
-    $("#regBox").innerHTML = `<div class="msg ok">أنتِ مسجّلة باسم «${esc(ME.name)}». تُحفظ الآن نتائج اختباراتك وألعابك.</div><div class="row" style="margin-top:14px"><a class="pill-btn orange" href="#units">ادرسي الوحدات</a><a class="pill-btn ghost" href="#summary">اكتبي تلخيصًا</a></div>`;
-    const tests = RESULTS.filter(r => r.kind === "test").sort(byTime);
-    $("#meInfo").innerHTML = `<div style="display:flex;gap:14px;align-items:center"><span style="width:64px;height:64px;border-radius:20px;background:var(--rose-l);color:#A33A5B;display:grid;place-items:center;font-size:28px;font-weight:900">${esc(ME.name.trim()[0] || "")}</span><div><b style="font-size:20px;color:var(--ink)">${esc(ME.name)}</b><br>الصف ${esc(ME.cls)}</div></div><div style="margin-top:12px;font-weight:800;color:var(--ink)">نقاط البصيرة: <span class="stars">${ar(ME.points || 0)} ★</span></div>
-    <div style="margin-top:10px">${tests.length ? `<table class="res-table"><thead><tr><th>الوحدة</th><th>الدرجة</th><th>التاريخ</th></tr></thead><tbody>${tests.slice(0, 12).map(r => { const u = UNITS.find(x => x.id === r.unit); return `<tr><td>${u ? esc(u.theme) : ""}</td><td><b>${ar(r.score)}/${ar(r.total)}</b></td><td>${fmtDate(r.createdAt)}</td></tr>`; }).join("")}</tbody></table>` : `<span class="muted">لم تحلّي اختبارًا تدريبيًّا بعد.</span>`}</div>`;
+/* ================= AUTH FORMS ================= */
+/* authForm(el, {roles, fixed, teacher, title, onDone}) — login / new account with triple name + PIN */
+function authForm(el, o) {
+  let mode = o.mode || "login", role = o.fixed || (o.roles && o.roles[0]) || "student";
+  const roleBtns = o.fixed ? "" : `<div class="field" data-rolef hidden><label>نوع الحساب</label><div class="seg">${(o.roles || ["student", "parent"]).map(r => `<button type="button" data-r="${r}" aria-pressed="${r === role}">${ROLE_AR[r]}</button>`).join("")}</div></div>`;
+  el.innerHTML = `${o.title ? `<h3 class="auth-t">${esc(o.title)}</h3>` : ""}<div class="seg seg-main" role="tablist"><button type="button" data-m="login" aria-pressed="${mode === "login"}">تسجيل الدخول</button><button type="button" data-m="new" aria-pressed="${mode === "new"}">حساب جديد</button></div>
+  <form class="form" autocomplete="on" novalidate>${roleBtns}
+    <div class="field"><label>الاسم الثلاثي</label><input name="n" required maxlength="60" autocomplete="username" placeholder="${o.fixed === "parent" ? "مثال: سالم محمد الهنائي" : o.fixed === "teacher" ? "اسمك الثلاثي" : "مثال: مريم سالم الهنائية"}"></div>
+    <div class="field"><label>الرقم السري</label><div class="pinrow"><input name="p" type="password" inputmode="numeric" required minlength="4" maxlength="12" dir="ltr" autocomplete="current-password"><button type="button" class="eye" aria-label="إظهار الرقم السري">👁</button></div></div>
+    <div class="field" data-newf hidden><label>أعد كتابة الرقم السري</label><input name="p2" type="password" inputmode="numeric" maxlength="12" dir="ltr" autocomplete="new-password"></div>
+    ${o.teacher ? `<div class="field" data-newf hidden><label>رمز تفعيل لوحة المعلمة</label><input name="c" inputmode="numeric" maxlength="12" dir="ltr"></div>` : ""}
+    <button class="pill-btn orange big" type="submit" data-go>دخول</button><div data-msg></div>
+    <p class="muted hint" data-hint></p>
+  </form>`;
+  const f = el.querySelector("form"), M = el.querySelector("[data-msg]");
+  function paint() {
+    el.querySelectorAll("[data-m]").forEach(b => b.setAttribute("aria-pressed", b.dataset.m === mode));
+    el.querySelectorAll("[data-newf],[data-rolef]").forEach(x => x.hidden = mode !== "new");
+    el.querySelectorAll("[data-r]").forEach(b => b.setAttribute("aria-pressed", b.dataset.r === role));
+    f.p.setAttribute("autocomplete", mode === "new" ? "new-password" : "current-password");
+    el.querySelector("[data-go]").textContent = mode === "new" ? (role === "parent" ? "أنشئ حساب ولي الأمر" : role === "teacher" ? "أنشئي حساب المعلمة" : "أنشئي حسابي") : "دخول";
+    el.querySelector("[data-hint]").textContent = mode === "new" ? "الاسم الثلاثي هو اسم الدخول، ولا يتكرر. احفظ الرقم السري جيدًا، فلا يمكن استرجاعه إلا عن طريق المعلمة." : "يبقى الدخول محفوظًا على هذا الجهاز حتى تضغط «خروج».";
+    msg(M, "");
   }
+  el.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { mode = b.dataset.m; paint(); });
+  el.querySelectorAll("[data-r]").forEach(b => b.onclick = () => { role = b.dataset.r; paint(); });
+  el.querySelector(".eye").onclick = () => { f.p.type = f.p.type === "password" ? "text" : "password"; };
+  f.onsubmit = async e => {
+    e.preventDefault(); const name = f.n.value, pin = f.p.value.trim();
+    const en = checkName(name); if (en) { msg(M, en); f.n.focus(); return; }
+    const ep = checkPin(pin); if (ep) { msg(M, ep); f.p.focus(); return; }
+    if (mode === "new" && pin !== f.p2.value.trim()) { msg(M, "الرقمان السريان غير متطابقين."); f.p2.focus(); return; }
+    const btn = el.querySelector("[data-go]"); btn.disabled = true; const t0 = btn.textContent; btn.textContent = "لحظة…";
+    try {
+      const me = mode === "new" ? await acct.register(name, pin, role, f.c ? f.c.value.trim() : "") : await acct.login(name, pin);
+      IS_T = !!me.admin; toast(mode === "new" ? "أهلًا " + me.name.split(" ")[0] + "! أُنشئ حسابك ✓" : "أهلًا بعودتك " + me.name.split(" ")[0]);
+      await refreshMe(); o.onDone && o.onDone(me);
+    } catch (err) { msg(M, err.message || ERR.bad); }
+    finally { btn.disabled = false; btn.textContent = t0; if (!el.isConnected) return; }
+  };
+  paint();
 }
-$("#regForm").addEventListener("submit", async e => {
-  e.preventDefault(); const name = $("#rName").value.trim().replace(/\s+/g, " "), cls = $("#rCls").value;
-  if (name.split(" ").length < 2) { msg($("#regMsg"), "اكتبي اسمك واسم والدك على الأقل."); return; }
-  try { await store.set("students", UID, { name, cls, createdAt: now() }); toast("حُفظ اسمك"); refreshMe(); }
-  catch (err) { msg($("#regMsg"), "لم يُحفظ الاسم. تأكدي من اتصال الإنترنت ثم حاولي مرة أخرى."); }
-});
+async function doLogout() { await acct.logout(); toast("خرجت من حسابك"); await refreshMe(); route(); }
+
+/* ================= ME (account page) ================= */
+async function refreshMe() {
+  if (ME && UID) { try { const p = await loadProfile(UID); if (p) ME = p; } catch (e) {} }
+  $("#meTxt").textContent = ME ? ME.name.split(" ")[0] : "دخول / تسجيل";
+  await myResults(); renderAxes();
+  $("#fPts").textContent = ME && ME.role === "student" ? ar(ME.points || 0) + " نقطة" : "سجّلي لتجمعي النقاط";
+}
+async function loadAccount() {
+  await refreshMe();
+  const A = $("#regAuth"), I = $("#meInfo");
+  if (!ME) {
+    authForm(A, { roles: ["student", "parent"], onDone: me => { location.hash = me.role === "parent" ? "parents" : me.role === "teacher" ? "teacher" : "register"; loadAccount(); } });
+    I.innerHTML = `<h3 style="font-size:20px;font-weight:900">لماذا أسجّل؟</h3><ul class="why"><li>تُحفظ نتائج اختباراتك وألعابك ونقاطك.</li><li>تتابع المعلمة تقدّمك في كل وحدة.</li><li>ترسلين تلخيصاتك فتصل للمعلمة باسمك.</li><li>يستطيع وليّ أمرك متابعتك بعد موافقة المعلمة.</li></ul>`;
+    return;
+  }
+  if (ME.role === "parent") { A.innerHTML = `<div class="msg ok">أنت مسجّل الدخول باسم «${esc(ME.name)}» (ولي أمر).</div><div class="row" style="margin-top:14px"><a class="pill-btn teal" href="#parents">صفحة المتابعة</a><button class="pill-btn ghost" data-out>خروج</button></div>`; }
+  else if (ME.role === "teacher") { A.innerHTML = `<div class="msg ok">مرحبًا أ. ${esc(ME.name)}.</div><div class="row" style="margin-top:14px"><a class="pill-btn teal" href="#teacher">لوحة المعلمة</a><button class="pill-btn ghost" data-out>خروج</button></div>`; }
+  else A.innerHTML = `<div class="msg ok">أنتِ مسجّلة الدخول باسم «${esc(ME.name)}». تُحفظ نتائجك وألعابك ونقاطك تلقائيًّا.</div><div class="row" style="margin-top:14px"><a class="pill-btn orange" href="#units">ادرسي الوحدات</a><a class="pill-btn ghost" href="#summary">اكتبي تلخيصًا</a><button class="pill-btn ghost" data-out>خروج</button></div>`;
+  A.querySelector("[data-out]").onclick = doLogout;
+  const tests = RESULTS.filter(r => r.kind === "test").sort(byTime), games = RESULTS.filter(r => r.kind === "game").length;
+  I.innerHTML = `<div style="display:flex;gap:14px;align-items:center"><span class="avatar">${esc(ME.name.trim()[0] || "")}</span><div><b style="font-size:20px;color:var(--ink)">${esc(ME.name)}</b><br><span class="muted">${ROLE_AR[ME.role] || ""}</span></div></div>
+  ${ME.role === "student" ? `<div class="mestats"><div><b>${ar(ME.points || 0)}</b><span>نقطة</span></div><div><b>${ar(tests.length)}</b><span>اختبار</span></div><div><b>${ar(games)}</b><span>لعبة</span></div></div>
+  <div style="margin-top:10px">${tests.length ? `<table class="res-table"><thead><tr><th>الوحدة</th><th>الدرجة</th><th>التاريخ</th></tr></thead><tbody>${tests.slice(0, 12).map(r => { const u = UNITS.find(x => x.id === r.unit); return `<tr><td>${u ? esc(u.theme) : ""}</td><td><b>${ar(r.score)}/${ar(r.total)}</b></td><td>${fmtDate(r.createdAt)}</td></tr>`; }).join("")}</tbody></table>` : `<span class="muted">لم تحلّي اختبارًا تدريبيًّا بعد.</span>`}</div>` : ""}`;
+}
 
 /* ================= HOME / ABOUT ================= */
 async function siteData() { try { const s = await store.get("site", "main"); return { ...DEFAULT_SITE, ...(s || {}) }; } catch (e) { return DEFAULT_SITE; } }
@@ -278,14 +387,14 @@ async function loadBooks() {
 
 /* ================= SUMMARY ================= */
 async function loadSummary() {
-  await refreshMe();
-  $("#sumName").textContent = ME ? ME.name : "سجّلي اسمك أولًا"; $("#sumName").className = ME ? "" : "muted"; $("#sumCls").textContent = ME ? ME.cls : "…/…";
-  const el = $("#mySums"); let s = []; try { s = (await store.list("summaries", ["uid", UID])).sort(byTime); } catch (e) {}
+  await refreshMe(); const okS = ME && ME.role === "student";
+  $("#sumName").textContent = okS ? ME.name : "سجّلي الدخول أولًا"; $("#sumName").className = okS ? "" : "muted"; $("#sumCls").textContent = "العاشر";
+  const el = $("#mySums"); let s = []; if (okS) { try { s = (await store.list("summaries", ["uid", UID])).sort(byTime); } catch (e) {} }
   el.innerHTML = s.length ? s.map(x => `<div class="li"><div class="grow"><b>${esc(x.book)}</b><br><span class="muted" style="font-size:14px">${esc(x.author)} · ${fmtDate(x.createdAt)}</span></div><span class="status ${x.status === "published" ? "approved" : "pending"}">${x.status === "published" ? "نُشر في المشاركات" : "وصل للمعلمة"}</span></div>`).join("") : `<p class="muted" style="margin:6px 0 0">لم ترسلي تلخيصًا بعد.</p>`;
 }
 $("#sumForm").addEventListener("submit", async e => {
-  e.preventDefault(); if (!ME) { msg($("#sumMsg"), "سجّلي اسمك أولًا من صفحة التسجيل."); return; }
-  const v = { uid: UID, name: ME.name, cls: ME.cls, book: $("#sBook").value.trim(), author: $("#sAuthor").value.trim(), text: $("#sText").value.trim(), status: "new", createdAt: now() };
+  e.preventDefault(); if (!ME || ME.role !== "student") { msg($("#sumMsg"), "سجّلي الدخول بحسابك أولًا من صفحة «دخول / تسجيل»."); return; }
+  const v = { uid: UID, name: ME.name, book: $("#sBook").value.trim(), author: $("#sAuthor").value.trim(), text: $("#sText").value.trim(), status: "new", createdAt: now() };
   if (v.text.length < 40) { msg($("#sumMsg"), "التلخيص قصير. اكتبي فقرة أو أكثر."); return; }
   try { await store.add("summaries", v); $("#sumForm").reset(); msg($("#sumMsg"), "أُرسل تلخيصك إلى المعلمة. أحسنتِ!", true); loadSummary(); } catch (err) { msg($("#sumMsg"), "لم يُرسل التلخيص. تأكدي من الاتصال ثم أعيدي المحاولة."); }
 });
@@ -299,79 +408,103 @@ async function loadPosts() {
 }
 
 /* ================= PARENTS ================= */
+const ST_AR = { pending: "بانتظار موافقة المعلمة", approved: "تمت الموافقة", rejected: "لم تتم الموافقة" };
 async function loadParents() {
-  let req = null; try { req = await store.get("parents", UID); } catch (e) {}
-  if (req) {
-    $("#parentReq").innerHTML = `<h3 style="font-size:20px;font-weight:900">طلبك</h3><p style="margin:8px 0">${esc(req.pname)} (${esc(req.rel)}) · متابعة الطالبة <b>${esc(req.sname)}</b></p><span class="status ${req.status}">${{ pending: "بانتظار موافقة المعلمة", approved: "تمت الموافقة", rejected: "لم تتم الموافقة" }[req.status]}</span>${req.status === "rejected" ? `<p class="muted" style="margin-top:10px">تواصل مع المعلمة عبر المدرسة إن كان هناك خطأ.</p>` : ""}`;
-    if (req.status === "approved") showParentView(req); else $("#parentView").hidden = true; return;
+  await refreshMe();
+  const A = $("#parAuth"), area = $("#parentArea");
+  if (!ME || ME.role !== "parent") {
+    area.innerHTML = ""; $("#parHow").hidden = false; A.style.gridColumn = "";
+    if (ME) { A.innerHTML = `<div class="msg bad">هذه الصفحة لأولياء الأمور. أنت مسجّل الدخول بحساب ${ROLE_AR[ME.role]}.</div><button class="pill-btn ghost" style="margin-top:12px" data-out>خروج ثم دخول بحساب ولي الأمر</button>`; A.querySelector("[data-out]").onclick = doLogout; return; }
+    authForm(A, { fixed: "parent", title: "دخول ولي الأمر", onDone: () => loadParents() }); return;
   }
-  let st = []; try { st = (await store.list("students")).sort((a, b) => a.name.localeCompare(b.name, "ar")); } catch (e) {}
-  $("#pStu").innerHTML = st.length ? `<option value="">اختر من القائمة</option>` + st.map(s => `<option value="${s.id}">${esc(s.name)} — ${esc(s.cls)}</option>`).join("") : `<option value="">لم تسجّل أي طالبة بعد</option>`;
-  $("#pStu")._st = st;
+  $("#parHow").hidden = true; A.style.gridColumn = "1 / -1";
+  A.innerHTML = `<div class="row" style="justify-content:space-between"><div><b style="font-size:19px">${esc(ME.name)}</b><br><span class="muted">ولي أمر</span></div><button class="mini" data-out>خروج</button></div>`;
+  A.querySelector("[data-out]").onclick = doLogout;
+  let links = [], studs = [];
+  try { links = (await store.list("links", ["parentUid", UID])).sort(byTime); } catch (e) {}
+  try { studs = (await store.list("users", ["role", "student"])).sort((x, y) => x.name.localeCompare(y.name, "ar")); } catch (e) {}
+  const linked = new Set(links.map(l => l.studentUid));
+  area.innerHTML = `<div class="grid2" style="margin-top:18px">
+    <div class="card"><h3 class="auth-t">اختر ابنتك</h3><p class="muted" style="margin:0 0 10px">أسماء الطالبات المسجّلات في الموقع. اختر ابنتك وأرسل الطلب، ثم تنتظر موافقة المعلمة.</p>
+      <input class="search" id="stuQ" placeholder="ابحث بالاسم…" autocomplete="off">
+      <div class="list stu-pick" id="stuList"></div></div>
+    <div class="card"><h3 class="auth-t">طلباتي</h3><div class="list" id="myLinks">${links.length ? links.map(l => `<div class="li"><div class="grow"><b>${esc(l.studentName)}</b><br><span class="muted" style="font-size:13.5px">${fmtDate(l.createdAt)}</span></div><span class="status ${l.status}">${ST_AR[l.status]}</span></div>`).join("") : `<p class="muted">لم ترسل طلبًا بعد.</p>`}</div></div>
+  </div><div id="follow"></div>`;
+  const draw = q => { const k = nameKey(q || ""); const f = studs.filter(x => !k || nameKey(x.name).includes(k));
+    $("#stuList").innerHTML = f.length ? f.slice(0, 60).map(x => `<div class="li"><div class="grow"><b>${esc(x.name)}</b></div>${linked.has(x.id) ? `<span class="muted" style="font-size:13px">أُرسل الطلب</span>` : `<button class="mini o" data-sid="${x.id}">هذه ابنتي</button>`}</div>`).join("") : `<p class="muted">${studs.length ? "لا يوجد اسم مطابق." : "لم تسجّل أي طالبة بعد."}</p>`;
+    $$("#stuList [data-sid]").forEach(b => b.onclick = async () => { const st = studs.find(x => x.id === b.dataset.sid); if (!st) return; b.disabled = true;
+      try { await store.set("links", UID + "_" + st.id, { parentUid: UID, parentName: ME.name, studentUid: st.id, studentName: st.name, status: "pending", createdAt: now() }); toast("أُرسل الطلب إلى المعلمة"); loadParents(); }
+      catch (e) { b.disabled = false; toast("لم يُرسل الطلب، حاول مرة أخرى"); } }); };
+  draw(""); $("#stuQ").oninput = e => draw(e.target.value);
+  const ok = links.filter(l => l.status === "approved");
+  for (const l of ok) await showFollow(l);
 }
-$("#parForm").addEventListener("submit", async e => {
-  e.preventDefault(); const sid = $("#pStu").value; const s = ($("#pStu")._st || []).find(x => x.id === sid); if (!s) { msg($("#parMsg"), "اختر ابنتك من القائمة."); return; }
-  try { await store.set("parents", UID, { pname: $("#pName").value.trim(), rel: $("#pRel").value, sid, sname: s.name, status: "pending", createdAt: now() }); toast("أُرسل الطلب إلى المعلمة"); loadParents(); } catch (err) { msg($("#parMsg"), "لم يُرسل الطلب. أعد المحاولة بعد قليل."); }
-});
-async function showParentView(req) {
-  const v = $("#parentView"); v.hidden = false;
-  let st = null, notes = [], res = []; try { st = await store.get("students", req.sid); } catch (e) {} try { notes = (await store.list("notes", ["sid", req.sid])).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)); } catch (e) {} try { res = (await store.list("results", ["uid", req.sid])).filter(r => r.kind === "test").sort(byTime); } catch (e) {}
-  v.innerHTML = `<div class="row" style="justify-content:space-between"><h3 style="font-size:22px;font-weight:900">متابعة ${esc(req.sname)}</h3>${st ? `<span class="stars" style="font-size:18px">نقاط البصيرة: ${ar(st.points || 0)} ★</span>` : ""}</div>
-  <div class="sub-h" style="margin-top:14px">نتائج الاختبارات التدريبية</div>${res.length ? `<div class="tbl"><table class="res-table"><thead><tr><th>الوحدة</th><th>الدرجة</th><th>التاريخ</th></tr></thead><tbody>${res.map(r => { const u = UNITS.find(x => x.id === r.unit); return `<tr><td>${u ? esc(u.theme) : ""}</td><td><b>${ar(r.score)}/${ar(r.total)}</b></td><td>${fmtDate(r.createdAt)}</td></tr>`; }).join("")}</tbody></table></div>` : `<p class="muted">لم تحلّ اختبارًا بعد.</p>`}
+async function showFollow(l) {
+  const box = document.createElement("div"); box.className = "card"; box.style.marginTop = "18px"; $("#follow").appendChild(box);
+  let st = null, notes = [], res = [];
+  try { st = await store.get("users", l.studentUid); } catch (e) {}
+  try { res = (await store.list("results", ["uid", l.studentUid])).sort(byTime); } catch (e) {}
+  try { notes = (await store.list("notes", ["sid", l.studentUid])).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)); } catch (e) {}
+  const tests = res.filter(r => r.kind === "test"), games = res.filter(r => r.kind === "game");
+  box.innerHTML = `<div class="row" style="justify-content:space-between"><h3 style="font-size:22px;font-weight:900">متابعة ${esc(l.studentName)}</h3><span class="stars" style="font-size:18px">نقاط البصيرة: ${ar((st && st.points) || 0)} ★</span></div>
+  <div class="mestats"><div><b>${ar(tests.length)}</b><span>اختبار تدريبي</span></div><div><b>${ar(games.length)}</b><span>لعبة</span></div><div><b>${tests.length ? ar(Math.round(tests.reduce((s, r) => s + r.score / r.total, 0) / tests.length * 100)) + "٪" : "—"}</b><span>متوسط الاختبارات</span></div></div>
+  <div class="sub-h" style="margin-top:14px">نتائج الاختبارات التدريبية</div>${tests.length ? `<div class="tbl"><table class="res-table"><thead><tr><th>الوحدة</th><th>الدرجة</th><th>التاريخ</th></tr></thead><tbody>${tests.map(r => { const u = UNITS.find(x => x.id === r.unit); return `<tr><td>${u ? esc(u.theme) : ""}</td><td><b>${ar(r.score)}/${ar(r.total)}</b></td><td>${fmtDate(r.createdAt)}</td></tr>`; }).join("")}</tbody></table></div>` : `<p class="muted">لم تحلّ اختبارًا بعد.</p>`}
   <div class="sub-h" style="margin-top:14px">ملاحظات المعلمة</div><div class="notes">${notes.length ? notes.map(n => `<div class="bubble ${n.from === "parent" ? "p" : "t"}"><small>${n.from === "parent" ? "أنت" : "أ. عائشة الكحالي"} · ${fmtDate(n.createdAt)}</small>${esc(n.text)}</div>`).join("") : `<p class="muted">لا توجد ملاحظات بعد.</p>`}</div>
-  <form class="form" id="pNoteF" style="margin-top:14px"><div class="field"><label for="pNote">ملاحظة للمعلمة</label><textarea id="pNote" maxlength="600" style="min-height:80px" required></textarea></div><button class="pill-btn teal" type="submit">أرسل الملاحظة</button></form>`;
-  $("#pNoteF").onsubmit = async e => { e.preventDefault(); try { await store.add("notes", { sid: req.sid, from: "parent", uid: UID, text: $("#pNote").value.trim(), createdAt: now() }); toast("وصلت ملاحظتك"); showParentView(req); } catch (err) { toast("لم تُرسل الملاحظة"); } };
+  <form class="form" style="margin-top:14px"><div class="field"><label>ملاحظة للمعلمة</label><textarea maxlength="600" style="min-height:80px" required></textarea></div><button class="pill-btn teal" type="submit">أرسل الملاحظة</button></form>`;
+  box.querySelector("form").onsubmit = async e => { e.preventDefault(); const t = box.querySelector("textarea").value.trim(); if (!t) return;
+    try { await store.add("notes", { sid: l.studentUid, from: "parent", uid: UID, pname: ME.name, text: t, createdAt: now() }); toast("وصلت ملاحظتك"); box.remove(); showFollow(l); } catch (err) { toast("لم تُرسل الملاحظة"); } };
 }
 
 /* ================= TEACHER ================= */
 async function loadTeacher() {
+  await refreshMe(); IS_T = !!(ME && ME.admin);
   $("#tLogin").hidden = IS_T; $("#tPanel").hidden = !IS_T;
-  if (!db) { $("#tEmail").closest(".field").hidden = true; $("#tPass").placeholder = "كلمة السر التجريبية: 1234"; }
-  if (IS_T) { $("#tWho").textContent = db ? ("مسجّلة الدخول: " + (auth.currentUser.email || "")) : "وضع تجريبي"; openTab(curTab); }
+  if (!IS_T) {
+    const L = $("#tLogin");
+    if (ME) { L.innerHTML = `<div class="msg bad">هذه اللوحة للمعلمة فقط. أنت مسجّل الدخول بحساب ${ROLE_AR[ME.role]}.</div><button class="pill-btn ghost" style="margin-top:12px" data-out>خروج</button>`; L.querySelector("[data-out]").onclick = doLogout; return; }
+    authForm(L, { fixed: "teacher", teacher: true, title: "دخول المعلمة", onDone: () => loadTeacher() });
+    if (!db) L.insertAdjacentHTML("beforeend", `<p class="note" style="margin-top:12px">النسخة التجريبية: رمز التفعيل ١٢٣٤.</p>`);
+    return;
+  }
+  $("#tWho").textContent = "أ. " + ME.name; openTab(curTab);
 }
-$("#tForm").addEventListener("submit", async e => {
-  e.preventDefault();
-  if (!db) { if ($("#tPass").value === "1234") { IS_T = true; try { sessionStorage.setItem("basira:t", "1"); } catch (e) {} loadTeacher(); } else msg($("#tMsg"), "كلمة السر غير صحيحة."); return; }
-  try { const c = await auth.signInWithEmailAndPassword($("#tEmail").value.trim(), $("#tPass").value); UID = c.user.uid; IS_T = c.user.email.toLowerCase() === String(cfg.teacherEmail).toLowerCase(); if (!IS_T) { msg($("#tMsg"), "هذا الحساب ليس حساب المعلمة."); return; } loadTeacher(); }
-  catch (err) { msg($("#tMsg"), "البريد أو كلمة السر غير صحيحة."); }
-});
-$("#tOut").onclick = async () => { IS_T = false; try { sessionStorage.removeItem("basira:t"); } catch (e) {} if (db) { await auth.signOut(); await auth.signInAnonymously(); UID = auth.currentUser.uid; } loadTeacher(); };
-let curTab = "stu";
+$("#tOut").onclick = doLogout;
+let curTab = "req";
 $$("#tTabs button").forEach(b => b.onclick = () => openTab(b.dataset.t));
 function openTab(t) { curTab = t; $$("#tTabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.t === t)); $$("[data-p]").forEach(p => p.hidden = p.dataset.p !== t);
   ({ stu: tStudents, res: tResults, req: tRequests, sum: tSummaries, post: tPosts, book: tBooks, site: tSite }[t])(); badges(); }
-async function badges() { try { const r = (await store.list("parents")).filter(x => x.status === "pending").length; $("#reqN").hidden = !r; $("#reqN").textContent = ar(r); } catch (e) {} try { const s = (await store.list("summaries")).filter(x => x.status === "new").length; $("#sumN").hidden = !s; $("#sumN").textContent = ar(s); } catch (e) {} }
+async function badges() { try { const r = (await store.list("links", ["status", "pending"])).length; $("#reqN").hidden = !r; $("#reqN").textContent = ar(r); } catch (e) {} try { const s = (await store.list("summaries")).filter(x => x.status === "new").length; $("#sumN").hidden = !s; $("#sumN").textContent = ar(s); } catch (e) {} }
 async function tStudents() {
-  const el = $("#tStu"); let st = [], notes = []; try { st = (await store.list("students")).sort((a, b) => a.cls.localeCompare(b.cls) || a.name.localeCompare(b.name, "ar")); notes = await store.list("notes"); } catch (e) {}
+  const el = $("#tStu"); let st = [], notes = []; try { st = (await store.list("users", ["role", "student"])).sort((a, b) => a.name.localeCompare(b.name, "ar")); notes = await store.list("notes"); } catch (e) {}
   $("#stuNames").innerHTML = st.map(s => `<option value="${esc(s.name)}">`).join("");
   if (!st.length) { el.innerHTML = `<div class="empty"><b>لم تسجّل أي طالبة بعد</b>شاركي رابط الموقع مع الطالبات ليسجّلن أسماءهن.</div>`; return; }
-  el.innerHTML = `<p class="muted" style="margin:0 0 6px">عدد المسجّلات: ${ar(st.length)}</p>` + st.map(s => { const n = notes.filter(x => x.sid === s.id); return `<div class="li" data-s="${s.id}"><div class="grow"><b>${esc(s.name)}</b><br><span class="muted" style="font-size:14px">الصف ${esc(s.cls)} · سُجّلت ${fmtDate(s.createdAt)}</span></div><span class="stars">${ar(s.points || 0)} ★</span><button class="mini o" data-a="plus">+ نقطة</button><button class="mini" data-a="minus">− نقطة</button><button class="mini" data-a="note">ملاحظة${n.length ? " (" + ar(n.length) + ")" : ""}</button><button class="mini no" data-a="del">حذف</button><div data-box style="flex-basis:100%" hidden></div></div>`; }).join("");
+  el.innerHTML = `<p class="muted" style="margin:0 0 6px">عدد المسجّلات: ${ar(st.length)}</p>` + st.map(s => { const n = notes.filter(x => x.sid === s.id); return `<div class="li" data-s="${s.id}"><div class="grow"><b>${esc(s.name)}</b><br><span class="muted" style="font-size:14px">سُجّلت ${fmtDate(s.createdAt)}</span></div><span class="stars">${ar(s.points || 0)} ★</span><button class="mini o" data-a="plus">+ نقطة</button><button class="mini" data-a="minus">− نقطة</button><button class="mini" data-a="note">ملاحظة${n.length ? " (" + ar(n.length) + ")" : ""}</button><button class="mini no" data-a="del">حذف</button><div data-box style="flex-basis:100%" hidden></div></div>`; }).join("");
   el.querySelectorAll("[data-a]").forEach(b => b.onclick = async () => { const row = b.closest("[data-s]"), id = row.dataset.s, s = st.find(x => x.id === id);
-    if (b.dataset.a === "plus" || b.dataset.a === "minus") { await store.update("students", id, { points: Math.max(0, (s.points || 0) + (b.dataset.a === "plus" ? 1 : -1)) }); tStudents(); }
-    if (b.dataset.a === "del") { if (b.dataset.c) { await store.del("students", id); tStudents(); } else { b.dataset.c = 1; b.textContent = "تأكيد الحذف"; } }
+    if (b.dataset.a === "plus" || b.dataset.a === "minus") { await store.update("users", id, { points: Math.max(0, (s.points || 0) + (b.dataset.a === "plus" ? 1 : -1)) }); tStudents(); }
+    if (b.dataset.a === "del") { if (b.dataset.c) { await store.del("users", id); tStudents(); } else { b.dataset.c = 1; b.textContent = "تأكيد الحذف"; } }
     if (b.dataset.a === "note") { const box = row.querySelector("[data-box]"); box.hidden = !box.hidden; if (box.hidden) return; const nn = notes.filter(x => x.sid === id).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
       box.innerHTML = `<div class="notes">${nn.map(n => `<div class="bubble ${n.from === "parent" ? "p" : "t"}"><small>${n.from === "parent" ? "ولي الأمر" : "أنتِ"} · ${fmtDate(n.createdAt)}</small>${esc(n.text)}</div>`).join("") || '<span class="muted">لا ملاحظات بعد.</span>'}</div><div class="row" style="margin-top:8px"><input style="flex:1;border:1.5px solid var(--line);border-radius:12px;padding:8px 12px;min-width:0" placeholder="ملاحظة تظهر لولي الأمر بعد الموافقة"><button class="mini ok">إرسال</button></div>`;
       const inp = box.querySelector("input"); box.querySelector(".mini.ok").onclick = async () => { if (!inp.value.trim()) return; await store.add("notes", { sid: id, from: "teacher", text: inp.value.trim(), createdAt: now() }); toast("حُفظت الملاحظة"); tStudents(); }; }
   });
 }
 async function tResults() {
-  const el = $("#tRes"); let r = [], st = []; try { r = await store.list("results"); st = await store.list("students"); } catch (e) {}
+  const el = $("#tRes"); let r = [], st = []; try { r = await store.list("results"); st = await store.list("users", ["role", "student"]); } catch (e) {}
   r = r.filter(x => x.kind === "test");
   if (!st.length) { el.innerHTML = `<div class="empty"><b>لا توجد نتائج بعد</b>تظهر هنا درجات الطالبات في الاختبارات التدريبية لكل وحدة.</div>`; return; }
   const best = (sid, u) => { const x = r.filter(y => y.uid === sid && y.unit === u); return x.length ? Math.max(...x.map(y => y.score)) : null; };
-  el.innerHTML = `<table class="res-table"><thead><tr><th>الطالبة</th>${UNITS.map(u => `<th title="${esc(u.theme)}">و${ar(u.axisN)}/${ar(u.unitN)}</th>`).join("")}</tr></thead><tbody>${st.sort((a, b) => a.name.localeCompare(b.name, "ar")).map(s => `<tr><td><b>${esc(s.name)}</b><br><span class="muted" style="font-size:12.5px">${esc(s.cls)}</span></td>${UNITS.map(u => { const b = best(s.id, u.id); return `<td>${b == null ? '<span class="muted">—</span>' : `<b style="color:${b >= 10 ? "var(--ok)" : b >= 7 ? "var(--orange-d)" : "var(--rose)"}">${ar(b)}</b>`}</td>`; }).join("")}</tr>`).join("")}</tbody></table><p class="muted" style="font-size:13px">أعلى درجة من ١٢ في الاختبار التدريبي لكل وحدة (المحور/الوحدة).</p>`;
+  el.innerHTML = `<table class="res-table"><thead><tr><th>الطالبة</th>${UNITS.map(u => `<th title="${esc(u.theme)}">و${ar(u.axisN)}/${ar(u.unitN)}</th>`).join("")}</tr></thead><tbody>${st.sort((a, b) => a.name.localeCompare(b.name, "ar")).map(s => `<tr><td><b>${esc(s.name)}</b></td>${UNITS.map(u => { const b = best(s.id, u.id); return `<td>${b == null ? '<span class="muted">—</span>' : `<b style="color:${b >= 10 ? "var(--ok)" : b >= 7 ? "var(--orange-d)" : "var(--rose)"}">${ar(b)}</b>`}</td>`; }).join("")}</tr>`).join("")}</tbody></table><p class="muted" style="font-size:13px">أعلى درجة من ١٢ في الاختبار التدريبي لكل وحدة (المحور/الوحدة).</p>`;
 }
 async function tRequests() {
-  const el = $("#tReq"); let r = []; try { r = (await store.list("parents")).sort(byTime); } catch (e) {}
-  if (!r.length) { el.innerHTML = `<div class="empty"><b>لا توجد طلبات</b>حين يطلب وليّ أمر متابعة ابنته يظهر طلبه هنا لتوافقي عليه.</div>`; return; }
+  const el = $("#tReq"); let r = []; try { r = (await store.list("links")).sort((a, b) => (a.status === "pending" ? -1 : 0) - (b.status === "pending" ? -1 : 0) || byTime(a, b)); } catch (e) {}
+  if (!r.length) { el.innerHTML = `<div class="empty"><b>لا توجد طلبات</b>حين يسجّل وليّ أمر ويختار ابنته يظهر طلبه هنا لتوافقي عليه أو ترفضيه.</div>`; return; }
   const L = { pending: "بانتظار الموافقة", approved: "موافَق", rejected: "مرفوض" };
-  el.innerHTML = r.map(x => `<div class="li" data-r="${x.id}"><div class="grow"><b>${esc(x.pname)}</b> (${esc(x.rel)})<br><span class="muted" style="font-size:14px">يطلب متابعة: ${esc(x.sname)} · ${fmtDate(x.createdAt)}</span></div><span class="status ${x.status}">${L[x.status]}</span>${x.status !== "approved" ? '<button class="mini ok" data-a="approved">موافقة</button>' : ""}${x.status !== "rejected" ? '<button class="mini no" data-a="rejected">رفض</button>' : ""}</div>`).join("");
-  el.querySelectorAll("[data-a]").forEach(b => b.onclick = async () => { await store.update("parents", b.closest("[data-r]").dataset.r, { status: b.dataset.a }); toast(b.dataset.a === "approved" ? "تمت الموافقة" : "رُفض الطلب"); tRequests(); badges(); });
+  el.innerHTML = r.map(x => `<div class="li" data-r="${x.id}"><div class="grow"><b>${esc(x.parentName)}</b> <span class="muted">(ولي أمر)</span><br><span style="font-size:14.5px">يطلب متابعة الطالبة: <b>${esc(x.studentName)}</b></span><br><span class="muted" style="font-size:13px">${fmtDate(x.createdAt)}</span></div><span class="status ${x.status}">${L[x.status]}</span>${x.status !== "approved" ? '<button class="mini ok" data-a="approved">موافقة</button>' : ""}${x.status !== "rejected" ? '<button class="mini no" data-a="rejected">رفض</button>' : ""}</div>`).join("");
+  el.querySelectorAll("[data-a]").forEach(b => b.onclick = async () => { b.disabled = true; try { await store.update("links", b.closest("[data-r]").dataset.r, { status: b.dataset.a, decidedAt: now() }); toast(b.dataset.a === "approved" ? "تمت الموافقة، يستطيع وليّ الأمر المتابعة الآن" : "رُفض الطلب"); } catch (e) { toast("لم يُحفظ القرار"); } tRequests(); badges(); });
 }
 async function tSummaries() {
   const el = $("#tSum"); let s = []; try { s = (await store.list("summaries")).sort(byTime); } catch (e) {}
   if (!s.length) { el.innerHTML = `<div class="empty"><b>لا توجد تلخيصات بعد</b>تصلك هنا تلخيصات الطالبات من ورقة «تلخيص كتاب».</div>`; return; }
-  el.innerHTML = s.map(x => `<div class="li" data-x="${x.id}" style="align-items:flex-start"><div class="grow"><b>${esc(x.book)}</b> — ${esc(x.author)}<br><span class="muted" style="font-size:14px">${esc(x.name)} · ${esc(x.cls)} · ${fmtDate(x.createdAt)}</span><p style="margin:8px 0 0;white-space:pre-line;color:var(--ink-2)">${esc(x.text)}</p></div>${x.status === "published" ? '<span class="status approved">منشور</span>' : '<button class="mini ok" data-a="pub">انشريه في المشاركات</button>'}<button class="mini no" data-a="del">حذف</button></div>`).join("");
+  el.innerHTML = s.map(x => `<div class="li" data-x="${x.id}" style="align-items:flex-start"><div class="grow"><b>${esc(x.book)}</b> — ${esc(x.author)}<br><span class="muted" style="font-size:14px">${esc(x.name)} · ${fmtDate(x.createdAt)}</span><p style="margin:8px 0 0;white-space:pre-line;color:var(--ink-2)">${esc(x.text)}</p></div>${x.status === "published" ? '<span class="status approved">منشور</span>' : '<button class="mini ok" data-a="pub">انشريه في المشاركات</button>'}<button class="mini no" data-a="del">حذف</button></div>`).join("");
   el.querySelectorAll("[data-a]").forEach(b => b.onclick = async () => { const id = b.closest("[data-x]").dataset.x, x = s.find(y => y.id === id);
     if (b.dataset.a === "pub") { await store.add("posts", { name: x.name, kind: "تلخيص كتاب", title: x.book + " — " + x.author, text: x.text, createdAt: now() }); await store.update("summaries", id, { status: "published" }); toast("نُشر في المشاركات"); }
     else { if (!b.dataset.c) { b.dataset.c = 1; b.textContent = "تأكيد"; return; } await store.del("summaries", id); }
@@ -379,7 +512,7 @@ async function tSummaries() {
 }
 function shrink(file) { return new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => { const im = new Image(); im.onload = () => { const k = Math.min(1, 900 / Math.max(im.width, im.height)); const c = document.createElement("canvas"); c.width = Math.round(im.width * k); c.height = Math.round(im.height * k); c.getContext("2d").drawImage(im, 0, 0, c.width, c.height); res(c.toDataURL("image/jpeg", .72)); }; im.onerror = rej; im.src = fr.result; }; fr.onerror = rej; fr.readAsDataURL(file); }); }
 async function tPosts() {
-  let st = []; try { st = await store.list("students"); } catch (e) {} $("#stuNames").innerHTML = st.map(s => `<option value="${esc(s.name)}">`).join("");
+  let st = []; try { st = await store.list("users", ["role", "student"]); } catch (e) {} $("#stuNames").innerHTML = st.map(s => `<option value="${esc(s.name)}">`).join("");
   const el = $("#tPosts"); let p = []; try { p = (await store.list("posts")).sort(byTime); } catch (e) {}
   el.innerHTML = p.length ? p.map(x => `<div class="li" data-x="${x.id}"><div class="grow"><b>${esc(x.title)}</b><br><span class="muted" style="font-size:14px">${esc(x.name)} · ${esc(x.kind || "")}</span></div><button class="mini no" data-a="del">حذف</button></div>`).join("") : `<p class="muted">لا مشاركات منشورة.</p>`;
   el.querySelectorAll("[data-a]").forEach(b => b.onclick = async () => { if (!b.dataset.c) { b.dataset.c = 1; b.textContent = "تأكيد"; return; } await store.del("posts", b.closest("[data-x]").dataset.x); tPosts(); });

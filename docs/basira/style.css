@@ -434,3 +434,31 @@ h1,h2,h3,h4,h5,.brand b,.teacher b,.stats b{font-weight:700;letter-spacing:0}
 .hero h1{line-height:1.3}
 .sec-h h2,.unit-hero h2,.lesson h3{font-weight:700}
 .verse,.bq{font-family:var(--fd);font-weight:600;font-size:18px}
+
+/* ---------- accounts ---------- */
+.auth-t{font-family:var(--fd);font-size:22px;font-weight:700;color:var(--teal-d);margin:0 0 12px}
+.seg{display:flex;gap:6px;background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:5px}
+.seg button{flex:1;border:0;background:transparent;border-radius:12px;padding:10px 12px;font:inherit;font-weight:800;color:var(--ink-2);cursor:pointer}
+.seg button[aria-pressed=true]{background:#fff;color:var(--teal-d);box-shadow:0 4px 12px rgba(6,60,70,.1)}
+.seg-main{margin-bottom:14px}
+.pinrow{display:flex;gap:8px}.pinrow input{flex:1;min-width:0;letter-spacing:4px}
+.pinrow .eye{border:1.5px solid var(--line);background:#fff;border-radius:12px;padding:0 12px;cursor:pointer;font-size:18px}
+.hint{font-size:13.5px;margin:4px 0 0;line-height:1.7}
+.avatar{width:64px;height:64px;border-radius:20px;background:var(--rose-l);color:#A33A5B;display:grid;place-items:center;font-size:28px;font-weight:900;flex:none;font-family:var(--fd)}
+.mestats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
+.mestats div{background:var(--teal-xl);border-radius:16px;padding:10px;text-align:center}
+.mestats b{display:block;font-family:var(--fd);font-size:24px;color:var(--teal-d)}
+.mestats span{font-size:13px;color:var(--ink-2);font-weight:700}
+.why{margin:10px 0 0;padding-inline-start:20px;line-height:2}
+.search{width:100%;border:1.5px solid var(--line);border-radius:14px;padding:11px 14px;font:inherit;margin-bottom:10px}
+.stu-pick{max-height:380px;overflow:auto}
+/* teacher sidebar */
+.t-layout{display:grid;grid-template-columns:240px minmax(0,1fr);gap:16px;align-items:start}
+.tabs.side{flex-direction:column;align-items:stretch;position:sticky;top:96px;background:var(--card);border:1px solid var(--line);border-radius:20px;padding:8px;gap:4px}
+.tabs.side button{justify-content:space-between;text-align:start;width:100%}
+.t-main>.card{min-width:0}
+@media (max-width:860px){.t-layout{grid-template-columns:1fr}.tabs.side{position:static;flex-direction:row;overflow-x:auto}.tabs.side button{width:auto;white-space:nowrap}}
+.tabs.side{border-bottom:1px solid var(--line);margin-bottom:0}
+.tabs.side button{display:flex;align-items:center;gap:8px;border-bottom:0;margin:0;border-radius:12px;padding:11px 14px}
+.tabs.side button[aria-selected=true]{background:var(--teal-xl);color:var(--teal-d);box-shadow:inset -4px 0 0 var(--orange)}
+.grid2>*{min-width:0}.field input,.field select,.field textarea{min-width:0;max-width:100%;box-sizing:border-box}

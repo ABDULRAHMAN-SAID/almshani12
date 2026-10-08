@@ -23,7 +23,7 @@
       <a href="#about">المبادرة</a>
     </nav>
     <div class="who">
-      <a class="pill-btn light" href="#register"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg><span id="meTxt">تسجيل الطالبات</span></a>
+      <a class="pill-btn light" href="#register"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg><span id="meTxt">دخول / تسجيل</span></a>
       <button class="menu-t" id="menuT" aria-label="القائمة" aria-expanded="false"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     </div>
   </div>
@@ -121,19 +121,12 @@
 
 <!-- ================= REGISTER ================= -->
 <section class="view" id="v-register" hidden>
-  <div class="page-h"><span class="ico" style="background:var(--teal);color:#fff"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg></span><div><h2>تسجيل الطالبات</h2><p>اسمك يُحفظ لتتابع المعلمة قراءتك ونتائجك</p></div><a class="pill-btn ghost back" href="#home">الرئيسية</a></div>
+  <div class="page-h"><span class="ico" style="background:var(--teal);color:#fff"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg></span><div><h2>الدخول والتسجيل</h2><p>بالاسم الثلاثي والرقم السري فقط</p></div><a class="pill-btn ghost back" href="#home">الرئيسية</a></div>
   <div class="grid2">
-    <div class="card" id="regBox">
-      <form class="form" id="regForm" autocomplete="off">
-        <div class="field"><label for="rName">اسمك الثلاثي</label><input id="rName" required maxlength="50" placeholder="مثال: مريم سالم الهنائية"></div>
-        <div class="field"><label for="rCls">صفّك</label><select id="rCls" required><option value="">اختاري الصف</option><option>١٠/١</option><option>١٠/٢</option><option>١٠/٣</option><option>١٠/٤</option><option>١٠/٥</option><option>١٠/٦</option></select></div>
-        <button class="pill-btn orange big" type="submit">احفظي اسمي</button>
-        <div id="regMsg"></div>
-      </form>
-    </div>
-    <div class="card"><h3 style="font-size:20px;font-weight:900">بطاقتي</h3><div id="meInfo" class="muted" style="margin-top:8px">بعد التسجيل تظهر هنا بطاقتك: اسمك وصفّك ونقاطك ونتائج اختباراتك.</div></div>
+    <div class="card" id="regAuth"></div>
+    <div class="card" id="meInfo"></div>
   </div>
-  <p class="note" style="margin-top:18px">نحفظ الاسم والصف والنتائج فقط. لا نطلب رقم هاتف ولا رقمًا مدنيًّا.</p>
+  <p class="note" style="margin-top:18px">نحفظ الاسم الثلاثي والنتائج فقط، والرقم السري محفوظ مشفّرًا. لا نطلب رقم هاتف ولا بريدًا ولا رقمًا مدنيًّا.</p>
 </section>
 
 <!-- ================= LIBRARY ================= -->
@@ -174,44 +167,29 @@
 <section class="view" id="v-parents" hidden>
   <div class="page-h"><span class="ico" style="background:var(--teal-xl);color:var(--teal)"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="7" r="3.5"/><path d="M2.5 20c1-4 3.6-6 6.5-6s5.5 2 6.5 6"/><circle cx="17" cy="9" r="2.5"/><path d="M16 14c3 0 5 2 5.5 5"/></svg></span><div><h2>أولياء الأمور</h2><p>متابعة الابنة بعد موافقة المعلمة</p></div><a class="pill-btn ghost back" href="#home">الرئيسية</a></div>
   <div class="grid2">
-    <div class="card" id="parentReq">
-      <form class="form" id="parForm" autocomplete="off">
-        <div class="field"><label for="pName">اسم ولي الأمر</label><input id="pName" required maxlength="50"></div>
-        <div class="field"><label for="pRel">صلة القرابة</label><select id="pRel" required><option value="">اختر</option><option>الأب</option><option>الأم</option><option>أخرى</option></select></div>
-        <div class="field"><label for="pStu">اختر ابنتك</label><select id="pStu" required><option value="">جاري تحميل أسماء الطالبات…</option></select></div>
-        <button class="pill-btn teal big" type="submit">أرسل طلب المتابعة</button>
-        <div id="parMsg"></div>
-      </form>
-    </div>
-    <div class="card"><h3 style="font-size:20px;font-weight:900">كيف تعمل المتابعة؟</h3>
-      <ol class="steps" style="margin-top:12px"><li><span>تسجّل باسمك وتختار ابنتك من قائمة الطالبات المسجّلات.</span></li><li><span>تراجع المعلمة الطلب وتوافق عليه، فلا يتابع أي وليّ أمر إلا ابنته.</span></li><li><span>بعد الموافقة تظهر لك ملاحظات المعلمة ونقاط ابنتك ونتائج اختباراتها، وتستطيع أن ترسل ملاحظة للمعلمة.</span></li></ol>
+    <div class="card" id="parAuth"></div>
+    <div class="card" id="parHow"><h3 style="font-size:20px;font-weight:900">كيف تعمل المتابعة؟</h3>
+      <ol class="steps" style="margin-top:12px"><li><span>تسجّل باسمك الثلاثي ورقم سري، ثم تختار ابنتك من قائمة الطالبات المسجّلات.</span></li><li><span>تراجع المعلمة الطلب وتوافق عليه، فلا يتابع أي وليّ أمر إلا ابنته.</span></li><li><span>بعد الموافقة تظهر لك ملاحظات المعلمة ونقاط ابنتك ونتائج اختباراتها، وتستطيع أن ترسل ملاحظة للمعلمة.</span></li></ol>
     </div>
   </div>
-  <div class="card" id="parentView" style="margin-top:18px" hidden></div>
+  <div id="parentArea"></div>
 </section>
 
 <!-- ================= TEACHER ================= -->
 <section class="view" id="v-teacher" hidden>
   <div class="page-h"><span class="ico" style="background:var(--teal);color:#fff"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></span><div><h2>لوحة المعلمة</h2><p>أ. عائشة الكحالي</p></div><a class="pill-btn ghost back" href="#home">الرئيسية</a></div>
-  <div class="card" id="tLogin" style="max-width:460px">
-    <form class="form" id="tForm">
-      <div class="field"><label for="tEmail">البريد الإلكتروني</label><input id="tEmail" type="email" dir="ltr" autocomplete="username"></div>
-      <div class="field"><label for="tPass">كلمة السر</label><input id="tPass" type="password" dir="ltr" autocomplete="current-password" required></div>
-      <button class="pill-btn teal big" type="submit">دخول</button>
-      <div id="tMsg"></div>
-    </form>
-  </div>
+  <div class="card" id="tLogin" style="max-width:520px"></div>
   <div id="tPanel" hidden>
     <div class="row" style="justify-content:space-between;margin-bottom:10px"><span class="muted" id="tWho"></span><button class="mini" id="tOut">تسجيل الخروج</button></div>
-    <div class="tabs" role="tablist" id="tTabs">
-      <button role="tab" data-t="stu" aria-selected="true">الطالبات</button>
+    <div class="t-layout"><nav class="tabs side" role="tablist" id="tTabs">
+      <button role="tab" data-t="req" aria-selected="true">طلبات أولياء الأمور<span class="badge" id="reqN" hidden></span></button>
+      <button role="tab" data-t="stu">الطالبات</button>
       <button role="tab" data-t="res">النتائج</button>
-      <button role="tab" data-t="req">طلبات أولياء الأمور<span class="badge" id="reqN" hidden></span></button>
       <button role="tab" data-t="sum">التلخيصات<span class="badge" id="sumN" hidden></span></button>
       <button role="tab" data-t="post">مشاركة جديدة</button>
       <button role="tab" data-t="book">الكتب</button>
       <button role="tab" data-t="site">التوصيف والأهداف</button>
-    </div>
+    </nav><div class="t-main">
     <div class="card" data-p="stu"><div id="tStu" class="list"></div></div>
     <div class="card" data-p="res" hidden><div id="tRes" class="tbl"></div></div>
     <div class="card" data-p="req" hidden><div id="tReq" class="list"></div></div>
@@ -244,6 +222,7 @@
         <button class="pill-btn orange" type="submit">احفظي</button><div id="siteMsg"></div>
       </form>
     </div>
+  </div></div>
   </div>
 </section>
 </main>
