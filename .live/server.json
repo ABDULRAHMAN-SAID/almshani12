@@ -1,8 +1,8 @@
 {
-  "status": "down",
-  "url": null,
-  "startedAt": null,
-  "expiresAt": null,
-  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/37752220842",
+  "status": "up",
+  "url": "https://likewise-drainage-lovely-speeds.trycloudflare.com",
+  "startedAt": "2026-10-08T13:50:47Z",
+  "expiresAt": "2026-10-08T18:50:47Z",
+  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/37787415840",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
