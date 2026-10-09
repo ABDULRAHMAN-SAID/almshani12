@@ -1,4 +1,4 @@
-<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="description" content="مبادرة البصيرة – لغتي الجميلة للصف العاشر – أ. عائشة الكحالي – مدرسة نفيسة بنت الحسن"><link rel="icon" href="assets/logo.png"></head><body>
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="description" content="مبادرة البصيرة – لغتي الجميلة للصف العاشر – أ. عائشة الكحالي – مدرسة نفيسة بنت الحسن"><link rel="icon" href="assets/logo.png"><link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#0A6E79"><link rel="apple-touch-icon" href="assets/icon-192.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="البصيرة"></head><body>
 <title>مبادرة البصيرة</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -110,6 +110,8 @@
     <button role="tab" data-t="game">🎮 اللعبة</button>
   </div>
   <div id="uBody"></div>
+  <button class="ask-fab" id="askFab" type="button">💬 اسألي البصيرة</button>
+  <div class="ask-panel" id="askPanel" hidden aria-live="polite"></div>
 </section>
 
 <!-- ================= GAMES ================= -->
@@ -189,7 +191,8 @@
     <label for="sText" class="muted" style="font-size:14px">التلخيص</label>
     <textarea id="sText" class="lined" required maxlength="4000"></textarea>
     <div class="sign">أ: عائشة الكحالي</div>
-    <div class="row" style="justify-content:center;margin-top:10px"><button class="pill-btn orange big" type="submit">أرسلي التلخيص للمعلمة</button></div>
+    <div class="row" style="justify-content:center;margin-top:10px"><button class="pill-btn ghost big" type="button" id="sumReview">✨ راجعي تلخيصي قبل الإرسال</button><button class="pill-btn orange big" type="submit">أرسلي التلخيص للمعلمة</button></div>
+    <div id="sumAI" style="margin-top:10px"></div>
     <div id="sumMsg" style="margin-top:10px"></div>
   </form>
   <div class="card" style="margin:18px auto 0;max-width:780px"><h3 style="font-size:19px;font-weight:900">تلخيصاتي</h3><div id="mySums" class="list"></div></div>
@@ -226,6 +229,7 @@
       <button role="tab" data-t="ev">التقييم والمتابعة</button>
       <button role="tab" data-t="quiz">اختبارات المعلمة</button>
       <button role="tab" data-t="prep">تحضير منصة نور ✨</button>
+      <button role="tab" data-t="ws">أوراق العمل ✨</button>
       <button role="tab" data-t="ann">الإعلانات والصور</button>
       <button role="tab" data-t="srv">الاستبيان</button>
       <button role="tab" data-t="res">النتائج</button>
@@ -239,6 +243,7 @@
     <div class="card" data-p="ev" hidden><div id="tEval"></div></div>
     <div class="card" data-p="quiz" hidden><div id="tQuiz"></div></div>
     <div class="card" data-p="prep" hidden><div id="tPrep"></div></div>
+    <div class="card" data-p="ws" hidden><div id="tWs"></div></div>
     <div class="card" data-p="ann" hidden><div id="tAnn"></div></div>
     <div class="card" data-p="srv" hidden><div id="tSrv"></div></div>
     <div class="card" data-p="res" hidden><div id="tRes" class="tbl"></div></div>
@@ -277,7 +282,7 @@
 </section>
 </main>
 
-<footer><div class="wrap"><div class="row"><img src="assets/logo.png" alt=""><div><b style="color:#fff;font-size:18px">مبادرة البصيرة</b><br>أ. عائشة الكحالي · مدرسة نفيسة بنت الحسن</div></div><div class="row" style="gap:18px"><a href="#survey" style="color:#FFD7B0;font-weight:700">الاستبيان</a><a href="#teacher" style="color:#FFD7B0;font-weight:700">لوحة المعلمة</a></div></div></footer>
+<footer><div class="wrap"><div class="row"><img src="assets/logo.png" alt=""><div><b style="color:#fff;font-size:18px">مبادرة البصيرة</b><br>أ. عائشة الكحالي · مدرسة نفيسة بنت الحسن</div></div><div class="row" style="gap:18px"><button id="installBtn" class="pill-btn light" type="button" hidden>📲 ثبّتي التطبيق على الجوال</button><a href="#survey" style="color:#FFD7B0;font-weight:700">الاستبيان</a><a href="#teacher" style="color:#FFD7B0;font-weight:700">لوحة المعلمة</a></div></div></footer>
 <div class="toast" id="toast" role="status"></div>
 
 <script>

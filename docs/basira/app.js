@@ -166,10 +166,12 @@ async function tEvals() {
   const el = $("#tEval"); const R = await allRoster(); if (!evCls && R[0]) evCls = R[0].id;
   let evs = {}; try { (await store.list("evals")).forEach(e => evs[e.id] = e); } catch (e) {}
   const C = R.find(c => c.id === evCls);
-  el.innerHTML = `<p class="muted" style="margin:0 0 8px">قيّمي كل طالبة في البنود المهمة؛ يُحفظ كل تغيير فورًا، ويراه وليّ أمرها في صفحة المتابعة.</p>
+  el.innerHTML = `<div class="row" style="justify-content:space-between;align-items:center;margin-bottom:6px"><span></span><button class="mini" data-exp>⬇ تصدير درجات الصف (Excel)</button></div><p class="muted" style="margin:0 0 8px">زر 📄 بجانب كل طالبة يُعدّ تقريرًا شهريًّا لها. قيّمي كل طالبة في البنود المهمة؛ يُحفظ كل تغيير فورًا، ويراه وليّ أمرها في صفحة المتابعة.</p>
     <div class="nv-filters">${R.map(c => `<button class="chip-f" data-c="${c.id}" aria-pressed="${c.id === evCls}">${esc(c.name)}</button>`).join("")}</div>
-    ${C ? `<div class="tbl"><table class="res-table ev-table"><thead><tr><th>الطالبة</th>${EV.map(([, n]) => `<th>${n}</th>`).join("")}<th>الغياب</th></tr></thead><tbody>${C.st.map(s => { const k = "r:" + s.id, e = evs[k] || {}; return `<tr data-k="${k}"><td><b>${esc(s.n)}</b></td>${EV.map(([c]) => `<td><select data-ev="${c}" aria-label="${c}"><option value="">—</option>${[4, 3, 2, 1].map(v => `<option value="${v}" ${e.c && +e.c[c] === v ? "selected" : ""}>${LV[v]}</option>`).join("")}</select></td>`).join("")}<td><input data-ab type="number" min="0" max="200" value="${e.absent != null ? e.absent : ""}" style="width:64px"></td></tr>`; }).join("")}</tbody></table></div>` : `<div class="empty">لا توجد قوائم صفوف.</div>`}`;
+    ${C ? `<div class="tbl"><table class="res-table ev-table"><thead><tr><th>الطالبة</th>${EV.map(([, n]) => `<th>${n}</th>`).join("")}<th>الغياب</th><th>تقرير</th></tr></thead><tbody>${C.st.map(s => { const k = "r:" + s.id, e = evs[k] || {}; return `<tr data-k="${k}"><td><b>${esc(s.n)}</b></td>${EV.map(([c]) => `<td><select data-ev="${c}" aria-label="${c}"><option value="">—</option>${[4, 3, 2, 1].map(v => `<option value="${v}" ${e.c && +e.c[c] === v ? "selected" : ""}>${LV[v]}</option>`).join("")}</select></td>`).join("")}<td><input data-ab type="number" min="0" max="200" value="${e.absent != null ? e.absent : ""}" style="width:64px"></td><td><button class="mini o" data-rep="${s.id}" title="تقرير شهري">📄</button></td></tr>`; }).join("")}</tbody></table></div><div id="evReport" hidden></div>` : `<div class="empty">لا توجد قوائم صفوف.</div>`}`;
+  $$("#tEval [data-rep]").forEach(b => b.onclick = () => monthlyReport($("#evReport"), C.st.find(x => x.id === b.dataset.rep), C.name));
   $$("#tEval [data-c]").forEach(b => b.onclick = () => { evCls = b.dataset.c; tEvals(); });
+  const ex = $("#tEval [data-exp]"); if (ex) ex.onclick = async () => { ex.disabled = true; await exportGrades(evCls); ex.disabled = false; };
   $$("#tEval tr[data-k]").forEach(tr => { const k = tr.dataset.k, s = C.st.find(x => "r:" + x.id === k);
     const save = async () => { const c = {}; tr.querySelectorAll("[data-ev]").forEach(x => { if (x.value) c[x.dataset.ev] = +x.value; });
       const ab = tr.querySelector("[data-ab]").value; const doc = { name: s.n, cls: evCls, c, updatedAt: now() }; if (ab !== "") doc.absent = Math.max(0, +ab);
@@ -214,22 +216,48 @@ async function tQuizzes() {
     if (a === "res") { const box = row.querySelector("[data-box]"); box.hidden = !box.hidden; if (!box.hidden) quizResults(box, q, rs.filter(x => x.qid === q.id)); }
   });
 }
+/* AI suggests marks and a short encouraging note for the written answers of one student */
+async function aiGradeOne(q, x) {
+  const items = q.qs.map((z, i) => [z, i]).filter(([z]) => qType(z) === "essay" || qType(z) === "short").map(([z, i]) => ({ i, type: qType(z) === "essay" ? "كتابة حرة" : "إجابة قصيرة", question: z.q, full: qPts(z), reference: qType(z) === "short" ? (z.ans || []).join("، ") : (z.model || ""), answer: (x.answers || [])[i] || "" }));
+  if (!items.length) return {};
+  const j = await aiJSON([{ text: (q.passage ? "نص القراءة:\n" + q.passage + "\n\n" : "") + "الأسئلة وإجابات الطالبة:\n" + JSON.stringify(items, null, 1) }],
+    `أنت معلمة لغة عربية لطالبات الصف العاشر في سلطنة عُمان. صحّحي إجابات الطالبة المرفقة سؤالًا سؤالًا.
+لكل سؤال: mark الدرجة من full (يجوز نصف درجة، ولا تتجاوز full)، و feedback ملاحظة قصيرة مشجّعة في سطر أو سطرين بالعربية الفصحى موجّهة للطالبة: ما أحسنت فيه وما ينقصها.
+في الإجابة القصيرة: إن وافق المعنى المرجع ولو بصياغة أخرى فهي صحيحة. في الكتابة الحرة: قيّمي الفكرة والمضمون واللغة والترابط مقارنةً بالمرجع إن وُجد. الإجابة الفارغة درجتها 0.`,
+    { type: "object", properties: { items: { type: "array", items: { type: "object", properties: { i: { type: "integer" }, mark: { type: "number" }, feedback: { type: "string" } }, required: ["i", "mark", "feedback"] } } }, required: ["items"] }, AI_FAST);
+  const out = {}; (j.items || []).forEach(it => { const z = q.qs[it.i]; if (!z) return; out[it.i] = { mark: Math.max(0, Math.min(qPts(z), Math.round((+it.mark || 0) * 2) / 2)), fb: String(it.feedback || "").trim() }; });
+  return out;
+}
 function quizResults(box, q, r) {
   r = r.slice().sort((x, y) => (y.pending ? 1 : 0) - (x.pending ? 1 : 0) || y.score / (y.total || 1) - x.score / (x.total || 1));
   const manual = q.qs.map((x, i) => [x, i]).filter(([x]) => qType(x) === "essay" || qType(x) === "short");
-  box.innerHTML = r.length ? `<div class="tbl"><table class="res-table"><thead><tr><th>الطالبة</th><th>الصف</th><th>الدرجة</th><th>الحالة</th><th>التاريخ</th><th></th></tr></thead><tbody>${r.map(x => `<tr data-r="${x.id}"><td>${esc(x.name)}</td><td>${esc(CLS(x.cls))}</td><td><b>${fmtN(x.score)} من ${fmtN(x.total)}</b></td><td>${x.pending ? `<span class="status pending">بانتظار تصحيح الكتابة</span>` : `<span class="status approved">مكتمل</span>`}</td><td>${fmtDate(x.createdAt)}</td><td>${manual.length ? `<button class="mini${x.pending ? " o" : ""}" data-g>${x.pending ? "صحّحي" : "راجعي"}</button>` : ""}</td></tr><tr class="g-row" hidden><td colspan="6"></td></tr>`).join("")}</tbody></table></div>` : `<p class="muted">لم تحلّه أي طالبة بعد.</p>`;
+  const pend = r.filter(x => x.pending);
+  box.innerHTML = (pend.length && manual.length ? `<div class="ai-grade-all"><span>✨ ${ar(pend.length)} ${pend.length === 1 ? "إجابة" : "إجابات"} بانتظار التصحيح.</span><button class="mini o" data-gall>صحّحيها كلها بالذكاء الاصطناعي</button><small class="muted">تُحفظ الدرجات مع ملاحظة لكل طالبة، ويمكنكِ مراجعة أي واحدة وتعديلها.</small><div data-gallm></div></div>` : "") + (r.length ? `<div class="tbl"><table class="res-table"><thead><tr><th>الطالبة</th><th>الصف</th><th>الدرجة</th><th>الحالة</th><th>التاريخ</th><th></th></tr></thead><tbody>${r.map(x => `<tr data-r="${x.id}"><td>${esc(x.name)}</td><td>${esc(CLS(x.cls))}</td><td><b>${fmtN(x.score)} من ${fmtN(x.total)}</b></td><td>${x.pending ? `<span class="status pending">بانتظار تصحيح الكتابة</span>` : x.aiGraded ? `<span class="status pending">صحّحها الذكاء الاصطناعي · راجعيها</span>` : `<span class="status approved">مكتمل</span>`}</td><td>${fmtDate(x.createdAt)}</td><td>${manual.length ? `<button class="mini${x.pending ? " o" : ""}" data-g>${x.pending ? "صحّحي" : "راجعي"}</button>` : ""}</td></tr><tr class="g-row" hidden><td colspan="6"></td></tr>`).join("")}</tbody></table></div>` : `<p class="muted">لم تحلّه أي طالبة بعد.</p>`);
+  const gall = box.querySelector("[data-gall]");
+  if (gall) gall.onclick = async () => { gall.disabled = true; const GM = box.querySelector("[data-gallm]"); let done = 0, fail = 0;
+    for (const x of pend) { GM.innerHTML = `<div class="msg ok ai-wait"><span class="spin"></span> يصحّح الذكاء الاصطناعي إجابة ${esc(x.name.split(" ")[0])}… (${ar(done + 1)} من ${ar(pend.length)})</div>`;
+      try { const g = await aiGradeOne(q, x), marks = resMarks(q, x).slice(), fb = (x.fb || q.qs.map(() => "")).slice();
+        Object.entries(g).forEach(([i, v]) => { marks[i] = v.mark; fb[i] = v.fb; });
+        const upd = { marks, fb, score: sumMarks(marks), pending: false, aiGraded: true, gradedAt: now() }; await store.update("qres", x.id, upd); Object.assign(x, upd); done++; }
+      catch (e) { fail++; GM.innerHTML = `<div class="msg bad">${esc(e.message || "تعذّر التصحيح")}</div>`; if (/الحد المجاني|Firebase فقط/.test(e.message || "")) break; } }
+    toast(`صُحّحت ${ar(done)} ${done === 1 ? "إجابة" : "إجابات"}${fail ? ` وتعذّرت ${ar(fail)}` : ""}`); quizResults(box, q, r); };
   box.querySelectorAll("[data-g]").forEach(b => b.onclick = () => { const tr = b.closest("tr"), gr = tr.nextElementSibling, x = r.find(y => y.id === tr.dataset.r); gr.hidden = !gr.hidden; if (gr.hidden) return;
-    const marks = resMarks(q, x).slice(), cell = gr.firstElementChild;
+    const marks = resMarks(q, x).slice(), fb = (x.fb || q.qs.map(() => "")).slice(), cell = gr.firstElementChild;
     cell.innerHTML = `<div class="grade-box">${manual.map(([z, i]) => `<div class="g-q"><div class="row" style="justify-content:space-between"><b>${ar(i + 1)}. ${esc(z.q)}</b><span class="chip-s">${QT[qType(z)]}</span></div>
       <div class="g-ans">${esc((x.answers || [])[i] || "— لم تكتب شيئًا —")}</div>
       ${qType(z) === "short" ? `<small class="muted">الإجابات المقبولة: ${esc((z.ans || []).join("، "))}</small>` : z.model ? `<small class="muted">الإجابة النموذجية: ${esc(z.model)}</small>` : ""}
-      <div class="row" style="margin-top:6px"><label>الدرجة</label><input type="number" min="0" max="${qPts(z)}" step="0.5" data-m="${i}" value="${marks[i] == null ? "" : marks[i]}" placeholder="—"><span class="muted">من ${fmtN(qPts(z))}</span>${qType(z) === "short" ? `<button type="button" class="mini ok" data-full="${i}">صحيحة</button><button type="button" class="mini no" data-zero="${i}">خطأ</button>` : ""}</div></div>`).join("")}
-      <div class="row"><button class="pill-btn teal" data-save>احفظي الدرجة</button><span data-gm></span></div></div>`;
+      <div class="row" style="margin-top:6px"><label>الدرجة</label><input type="number" min="0" max="${qPts(z)}" step="0.5" data-m="${i}" value="${marks[i] == null ? "" : marks[i]}" placeholder="—"><span class="muted">من ${fmtN(qPts(z))}</span>${qType(z) === "short" ? `<button type="button" class="mini ok" data-full="${i}">صحيحة</button><button type="button" class="mini no" data-zero="${i}">خطأ</button>` : ""}</div>
+      <div class="field" style="margin-top:6px"><label>ملاحظة للطالبة (اختياري)</label><input data-fb="${i}" maxlength="300" value="${esc(fb[i] || "")}" placeholder="مثال: فكرتك جميلة، انتبهي لعلامات الترقيم"></div></div>`).join("")}
+      <div class="row"><button type="button" class="pill-btn ghost" data-aig>✨ اقترحي الدرجات بالذكاء الاصطناعي</button><button class="pill-btn teal" data-save>احفظي الدرجة</button></div><div data-gm></div></div>`;
+    cell.querySelector("[data-aig]").onclick = async e => { const b = e.target; b.disabled = true; const stop = aiWait(cell.querySelector("[data-gm]"), "يقرأ الذكاء الاصطناعي إجابات الطالبة");
+      try { const g = await aiGradeOne(q, x); stop(); Object.entries(g).forEach(([i, v]) => { const mi = cell.querySelector(`[data-m="${i}"]`), fi = cell.querySelector(`[data-fb="${i}"]`); if (mi) mi.value = v.mark; if (fi) fi.value = v.fb; }); msg(cell.querySelector("[data-gm]"), "وُضعت الدرجات المقترحة. راجعيها ثم اضغطي «احفظي الدرجة».", true); }
+      catch (err) { stop(); msg(cell.querySelector("[data-gm]"), err.message); } b.disabled = false; };
     cell.querySelectorAll("[data-full]").forEach(k => k.onclick = () => { cell.querySelector(`[data-m="${k.dataset.full}"]`).value = qPts(q.qs[+k.dataset.full]); });
     cell.querySelectorAll("[data-zero]").forEach(k => k.onclick = () => { cell.querySelector(`[data-m="${k.dataset.zero}"]`).value = 0; });
     cell.querySelector("[data-save]").onclick = async () => {
       cell.querySelectorAll("[data-m]").forEach(inp => { const i = +inp.dataset.m, v = inp.value.trim(); marks[i] = v === "" ? null : Math.max(0, Math.min(qPts(q.qs[i]), +v)); });
-      const upd = { marks, score: sumMarks(marks), pending: marks.some((v, i) => v == null && qType(q.qs[i]) === "essay"), gradedAt: now() };
+      cell.querySelectorAll("[data-fb]").forEach(inp => { fb[+inp.dataset.fb] = inp.value.trim(); });
+      const upd = { marks, fb, score: sumMarks(marks), pending: marks.some((v, i) => v == null && qType(q.qs[i]) === "essay"), aiGraded: false, gradedAt: now() };
       try { await store.update("qres", x.id, upd); Object.assign(x, upd); toast(upd.pending ? "حُفظ، وبقيت أسئلة بلا درجة" : "حُفظت الدرجة"); quizResults(box, q, r); } catch (e) { msg(cell.querySelector("[data-gm]"), e && e.code ? fbErr(e) : "لم تُحفظ الدرجة."); } };
   });
 }
@@ -330,13 +358,20 @@ function parseAiQuiz(txt) {
 }
 /* one request to Gemini; on a retired model (404) it moves on to the model Google names */
 async function aiCall(parts, fb) { return parseAiQuiz(await aiRaw(parts, fb, AI_PROMPT, AI_SCHEMA)); }
+const aiFb = () => { const fb = cfg.firebase || (window.__basiraAI || {}).testFb; if (!fb || !fb.apiKey) throw new Error("هذه الخاصية تعمل في الموقع المربوط بـ Firebase فقط."); return fb; };
+const parseJ = t => { try { return JSON.parse(String(t).replace(/^\s*```(?:json)?/i, "").replace(/```\s*$/, "")); } catch (e) { throw new Error("لم يكتمل رد الذكاء الاصطناعي. حاولي مرة أخرى."); } };
+async function aiJSON(parts, prompt, schema, models) { return parseJ(await aiRaw(parts, aiFb(), prompt, schema, models)); }
+async function aiText(parts, prompt, models) { return String(await aiRaw(parts, aiFb(), prompt, null, models)).trim(); }
+const AI_FAST = ["gemini-3.1-flash-lite", "gemini-3.5-flash", "gemini-3.8-flash"];
+/* a spinner with seconds while an AI request runs */
+function aiWait(M, label) { const t0 = Date.now(), f = () => { M.innerHTML = `<div class="msg ok ai-wait"><span class="spin"></span> ${label}… ${ar(Math.round((Date.now() - t0) / 1000))} ث</div>`; }; f(); const t = setInterval(f, 500); return () => { clearInterval(t); M.innerHTML = ""; }; }
 /* a JSON example built from the schema, for the retry without a schema */
 const schemaHint = sc => sc.type === "object" ? Object.fromEntries(Object.entries(sc.properties || {}).map(([k, v]) => [k, schemaHint(v)])) : sc.type === "array" ? [schemaHint(sc.items || { type: "string" })] : sc.type === "string" ? "" : sc.type === "boolean" ? true : 0;
-async function aiRaw(parts, fb, prompt, schema) {
-  const mk = strict => JSON.stringify({ contents: [{ role: "user", parts: [...parts, { text: strict ? prompt : prompt + "\n\nأخرج النتيجة JSON فقط، بلا أي نص قبله أو بعده، بهذه البنية:\n" + JSON.stringify(schemaHint(schema)) }] }],
+async function aiRaw(parts, fb, prompt, schema, models) {
+  const mk = strict => JSON.stringify({ contents: [{ role: "user", parts: [...parts, { text: strict || !schema ? prompt : prompt + "\n\nأخرج النتيجة JSON فقط، بلا أي نص قبله أو بعده، بهذه البنية:\n" + JSON.stringify(schemaHint(schema)) }] }],
     /* low thinking keeps the answer inside Google's time limit; the plain retry drops schema and thinking settings in case a model rejects them */
-    generationConfig: strict ? { responseMimeType: "application/json", responseSchema: schema, thinkingConfig: { thinkingLevel: "LOW" } } : { responseMimeType: "application/json" } });
-  let last = null; const queue = AI_MODELS.slice(), tried = new Set();
+    generationConfig: !schema ? (strict ? { thinkingConfig: { thinkingLevel: "LOW" } } : {}) : strict ? { responseMimeType: "application/json", responseSchema: schema, thinkingConfig: { thinkingLevel: "LOW" } } : { responseMimeType: "application/json" } });
+  let last = null; const queue = (models || AI_MODELS).slice(), tried = new Set();
   while (queue.length) { const m = queue.shift(); if (tried.has(m)) continue; tried.add(m);
     for (const strict of [true, false]) {
       let r; try { r = await fetch(`https://firebasevertexai.googleapis.com/v1beta/projects/${encodeURIComponent(fb.projectId)}/models/${m}:generateContent`, { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": fb.apiKey, "x-goog-api-client": "gl-js/2.16.0 fire/2.16.0" }, body: mk(strict) }); }
@@ -435,20 +470,39 @@ function lessonText(uid, li) { const u = UNITS.find(x => x.id === uid); const l 
   return [`الوحدة ${u.unitN} من المحور ${u.axisN}: ${u.theme}`, `الدرس: ${l.type}: ${l.title} (ص ${l.page})`, l.about, l.idea && "الفكرة: " + l.idea,
     ...(l.cards || []).map(c => `${c.title}: ${c.text}${c.quote ? " «" + c.quote + "»" : ""}`), (l.vocab || []).length ? "المفردات: " + l.vocab.map(v => typeof v === "string" ? v : `${v.w || v.word || ""}: ${v.m || v.meaning || ""}`).join("، ") : "",
     (l.keyPoints || []).length ? "نقاط مهمة: " + l.keyPoints.join("، ") : ""].filter(Boolean).join("\n"); }
+/* choose content: one lesson, several lessons, a page range, or photos only (box holds [data-mode], [data-modebox], [data-sum]) */
+function mountScope(box, sel) {
+  const MB = box.querySelector("[data-modebox]"), SUM = box.querySelector("[data-sum]");
+  const sum = () => { const sc = scopeOf(sel); SUM.innerHTML = sc.items.length ? `<b>يشمل ${(n => n === 1 ? "درسًا واحدًا" : n === 2 ? "درسين" : n <= 10 ? ar(n) + " دروس" : ar(n) + " درسًا")(sc.items.length)}:</b> ${sc.items.map(y => `<span class="chip-s">${esc(y.l.type)}: ${esc(y.l.title.length > 38 ? y.l.title.slice(0, 38) + "…" : y.l.title)} <small>ص ${ar(y.from)}–${ar(y.to)}</small></span>`).join(" ")}${sc.note ? ` <span class="muted">(${ar(sc.note)})</span>` : ""}` : sel.mode === "img" ? `<span class="muted">سيعتمد على الصور التي ترفعينها فقط.</span>` : ""; };
+  const modeBox = () => { const m = sel.mode;
+    MB.innerHTML = m === "one" ? `<select data-one><option value="">اختاري الدرس…</option>${UNITS.map(u => `<optgroup label="الوحدة ${ORD[u.unitN]}: ${esc(u.theme)}">${u.lessons.map((l, i) => `<option value="${u.id}|${i}" ${sel.one === u.id + "|" + i ? "selected" : ""}>${esc(l.type)}: ${esc(l.title)} (ص ${ar(l.page)})</option>`).join("")}</optgroup>`).join("")}</select>`
+      : m === "many" ? `<div class="prep-many">${UNITS.map(u => `<div class="pm-unit"><label class="pm-uh"><input type="checkbox" data-unit="${u.id}" ${u.lessons.every((l, i) => sel.many.has(u.id + "|" + i)) ? "checked" : ""}> الوحدة ${ORD[u.unitN]}: ${esc(u.theme)} <small>ص ${ar(u.pages)}</small></label>${u.lessons.map((l, i) => `<label class="pm-l"><input type="checkbox" data-l="${u.id}|${i}" ${sel.many.has(u.id + "|" + i) ? "checked" : ""}> ${esc(l.type)}: ${esc(l.title)} <small>ص ${ar(l.page)}</small></label>`).join("")}</div>`).join("")}</div>`
+      : m === "pages" ? `<div class="row prep-pages"><label>من صفحة <input data-from type="number" min="13" max="214" value="${esc(sel.from)}"></label><label>إلى صفحة <input data-to type="number" min="13" max="214" value="${esc(sel.to)}"></label><span class="muted">صفحات الكتاب من ١٣ إلى ٢١٤</span></div>`
+      : `<p class="muted" style="margin:6px 0 0">ارفعي صور الصفحات أو ملف PDF في الأسفل.</p>`;
+    const one = MB.querySelector("[data-one]"); if (one) one.onchange = () => { sel.one = one.value; sum(); };
+    MB.querySelectorAll("[data-l]").forEach(c => c.onchange = () => { c.checked ? sel.many.add(c.dataset.l) : sel.many.delete(c.dataset.l); sum(); });
+    MB.querySelectorAll("[data-unit]").forEach(c => c.onchange = () => { const u = UNITS.find(x => x.id === c.dataset.unit); u.lessons.forEach((l, i) => c.checked ? sel.many.add(u.id + "|" + i) : sel.many.delete(u.id + "|" + i)); modeBox(); });
+    ["from", "to"].forEach(k => { const x = MB.querySelector(`[data-${k}]`); if (x) x.oninput = () => { sel[k] = x.value; sum(); }; });
+    sum(); };
+  box.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => { sel.mode = b.dataset.mode; box.querySelectorAll("[data-mode]").forEach(x => x.setAttribute("aria-pressed", x === b)); modeBox(); });
+  modeBox();
+}
+function scopeHTML(sel, label) { return `<div class="field" style="margin-top:12px"><label>${label}</label><div class="seg prep-mode" role="tablist">${[["one", "درس واحد"], ["many", "عدة دروس"], ["pages", "صفحات من الكتاب"], ["img", "من الصور فقط"]].map(([k, t]) => `<button type="button" data-mode="${k}" aria-pressed="${sel.mode === k}">${t}</button>`).join("")}</div><div data-modebox></div><div class="prep-sum" data-sum></div></div>`; }
+const scopeText = sc => sc.items.length ? `ملخص ${sc.items.length > 1 ? "الدروس" : "الدرس"} من موقع البصيرة:\n\n` + sc.items.map(y => lessonText(y.u, y.i) + `\n(صفحات الدرس في الكتاب: ${y.from}–${y.to})`).join("\n\n———\n\n") : "";
 let prepFiles = [], prepCur = null;
 const prepSel = { mode: "one", one: "", many: new Set(), from: "", to: "", periods: 1 };
 /* every lesson with the pages it covers (to the page before the next lesson, or the unit's last page) */
 function lessonSpans() { const out = []; UNITS.forEach(u => { const end = +String(u.pages).split(/[–-]/).pop(); u.lessons.forEach((l, i) => { const nx = u.lessons[i + 1]; out.push({ u: u.id, i, unit: u, l, from: l.page, to: nx ? nx.page - 1 : end }); }); }); return out; }
-function prepScope() { const all = lessonSpans(), m = prepSel.mode;
-  if (m === "one") { const x = all.find(y => y.u + "|" + y.i === prepSel.one); return { items: x ? [x] : [], note: "" }; }
-  if (m === "many") return { items: all.filter(y => prepSel.many.has(y.u + "|" + y.i)), note: "" };
-  if (m === "pages") { const f = +digits(prepSel.from), t = +digits(prepSel.to) || f; if (!f) return { items: [], note: "" }; const lo = Math.min(f, t), hi = Math.max(f, t);
+function scopeOf(sel) { const all = lessonSpans(), m = sel.mode;
+  if (m === "one") { const x = all.find(y => y.u + "|" + y.i === sel.one); return { items: x ? [x] : [], note: "" }; }
+  if (m === "many") return { items: all.filter(y => sel.many.has(y.u + "|" + y.i)), note: "" };
+  if (m === "pages") { const f = +digits(sel.from), t = +digits(sel.to) || f; if (!f) return { items: [], note: "" }; const lo = Math.min(f, t), hi = Math.max(f, t);
     return { items: all.filter(y => y.from <= hi && y.to >= lo), note: `الصفحات من ${lo} إلى ${hi} فقط` }; }
   return { items: [], note: "" }; }
 async function tPrep() {
   const el = $("#tPrep"); let hist = []; try { hist = (await store.list("preps")).sort(byTime); } catch (e) {}
   el.innerHTML = `<div class="ai-box prep-box" tabindex="0"><div class="ai-h"><span class="ai-ic">📝</span><div><b>تحضير منصة نور بالذكاء الاصطناعي</b><p>اختاري ما ستشرحينه: درسًا واحدًا، أو عدة دروس، أو صفحات محددة من الكتاب، أو ارفعي صور الصفحات. حدّدي عدد الحصص، فيكتب الذكاء الاصطناعي حقول التحضير الستة. راجعيها، ثم انسخي كل حقل والصقيه في منصة نور.</p></div></div>
-    <div class="field" style="margin-top:12px"><label>محتوى التحضير</label><div class="seg prep-mode" role="tablist">${[["one", "درس واحد"], ["many", "عدة دروس"], ["pages", "صفحات من الكتاب"], ["img", "من الصور فقط"]].map(([k, t]) => `<button type="button" data-mode="${k}" aria-pressed="${prepSel.mode === k}">${t}</button>`).join("")}</div><div data-modebox></div><div class="prep-sum" data-sum></div></div>
+    ${scopeHTML(prepSel, "محتوى التحضير")}
     <div class="field prep-periods"><label>عدد الحصص</label><input data-periods type="number" min="1" max="10" value="${prepSel.periods}"></div>
     <label class="ai-drop"><input type="file" accept="application/pdf,image/*" multiple><span class="ai-drop-ic">⇪</span><span><b>اسحبي صور الدرس أو ملف PDF وأفلتيها هنا</b><small>أو اضغطي لاختيارها · يمكن لصق صورة (Ctrl+V)</small></span></label>
     <div class="ai-files" data-list></div>
@@ -467,23 +521,10 @@ async function tPrep() {
   const onPaste = e => { if (!box.isConnected) { window.removeEventListener("paste", onPaste); return; } const its = [...((e.clipboardData || {}).items || [])].filter(x => x.kind === "file").map(x => x.getAsFile()).filter(Boolean); if (its.length) { e.preventDefault(); add(its.map((f, k) => new File([f], `صورة ملصقة ${prepFiles.length + k + 1}.png`, { type: f.type }))); } };
   window.addEventListener("paste", onPaste);
   draw();
-  const MB = box.querySelector("[data-modebox]"), SUM = box.querySelector("[data-sum]");
-  const sum = () => { const sc = prepScope(); SUM.innerHTML = sc.items.length ? `<b>يشمل التحضير ${(n => n === 1 ? "درسًا واحدًا" : n === 2 ? "درسين" : n <= 10 ? ar(n) + " دروس" : ar(n) + " درسًا")(sc.items.length)}:</b> ${sc.items.map(y => `<span class="chip-s">${esc(y.l.type)}: ${esc(y.l.title.length > 38 ? y.l.title.slice(0, 38) + "…" : y.l.title)} <small>ص ${ar(y.from)}–${ar(y.to)}</small></span>`).join(" ")}${sc.note ? ` <span class="muted">(${ar(sc.note)})</span>` : ""}` : prepSel.mode === "img" ? `<span class="muted">سيكتب التحضير من الصور التي ترفعينها فقط.</span>` : ""; };
-  const modeBox = () => { const m = prepSel.mode;
-    MB.innerHTML = m === "one" ? `<select data-one><option value="">اختاري الدرس…</option>${UNITS.map(u => `<optgroup label="الوحدة ${ORD[u.unitN]}: ${esc(u.theme)}">${u.lessons.map((l, i) => `<option value="${u.id}|${i}" ${prepSel.one === u.id + "|" + i ? "selected" : ""}>${esc(l.type)}: ${esc(l.title)} (ص ${ar(l.page)})</option>`).join("")}</optgroup>`).join("")}</select>`
-      : m === "many" ? `<div class="prep-many">${UNITS.map(u => `<div class="pm-unit"><label class="pm-uh"><input type="checkbox" data-unit="${u.id}" ${u.lessons.every((l, i) => prepSel.many.has(u.id + "|" + i)) ? "checked" : ""}> الوحدة ${ORD[u.unitN]}: ${esc(u.theme)} <small>ص ${ar(u.pages)}</small></label>${u.lessons.map((l, i) => `<label class="pm-l"><input type="checkbox" data-l="${u.id}|${i}" ${prepSel.many.has(u.id + "|" + i) ? "checked" : ""}> ${esc(l.type)}: ${esc(l.title)} <small>ص ${ar(l.page)}</small></label>`).join("")}</div>`).join("")}</div>`
-      : m === "pages" ? `<div class="row prep-pages"><label>من صفحة <input data-from type="number" min="13" max="214" value="${esc(prepSel.from)}"></label><label>إلى صفحة <input data-to type="number" min="13" max="214" value="${esc(prepSel.to)}"></label><span class="muted">صفحات الكتاب من ١٣ إلى ٢١٤</span></div>`
-      : `<p class="muted" style="margin:6px 0 0">ارفعي صور الصفحات أو ملف PDF في الأسفل.</p>`;
-    const one = MB.querySelector("[data-one]"); if (one) one.onchange = () => { prepSel.one = one.value; sum(); };
-    MB.querySelectorAll("[data-l]").forEach(c => c.onchange = () => { c.checked ? prepSel.many.add(c.dataset.l) : prepSel.many.delete(c.dataset.l); sum(); });
-    MB.querySelectorAll("[data-unit]").forEach(c => c.onchange = () => { const u = UNITS.find(x => x.id === c.dataset.unit); u.lessons.forEach((l, i) => c.checked ? prepSel.many.add(u.id + "|" + i) : prepSel.many.delete(u.id + "|" + i)); modeBox(); });
-    ["from", "to"].forEach(k => { const x = MB.querySelector(`[data-${k}]`); if (x) x.oninput = () => { prepSel[k] = x.value; sum(); }; });
-    sum(); };
-  box.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => { prepSel.mode = b.dataset.mode; box.querySelectorAll("[data-mode]").forEach(x => x.setAttribute("aria-pressed", x === b)); modeBox(); });
+  mountScope(box, prepSel);
   box.querySelector("[data-periods]").oninput = e => { prepSel.periods = Math.max(1, Math.min(10, +e.target.value || 1)); };
-  modeBox();
   go.onclick = async () => {
-    const sc = prepScope(), extra = box.querySelector("[data-extra]").value.trim();
+    const sc = scopeOf(prepSel), extra = box.querySelector("[data-extra]").value.trim();
     if (prepSel.mode === "pages" && !sc.items.length && !prepFiles.length) { msg(M, "اكتبي رقم صفحة البداية والنهاية (بين ١٣ و٢١٤)، أو ارفعي صور الصفحات."); return; }
     if (!sc.items.length && !prepFiles.length) { msg(M, prepSel.mode === "img" ? "ارفعي صور الصفحات أو ملف PDF." : "اختاري الدرس أو الدروس، أو ارفعي صور الصفحات."); return; }
     const fb = cfg.firebase || (window.__basiraAI || {}).testFb; if (!fb || !fb.apiKey) { msg(M, "هذه الخاصية تعمل في الموقع المربوط بـ Firebase فقط."); return; }
@@ -512,16 +553,231 @@ function showPrep(p, saved) {
   out.innerHTML = `<div class="prep-out"><div class="row" style="justify-content:space-between;align-items:center"><div><small class="muted">التحضير</small><input class="prep-title" data-k="lesson" value="${esc(p.lesson || "")}" placeholder="عنوان الدرس"></div>
     <div class="row"><button class="pill-btn ghost" data-all>📋 نسخ الكل</button><button class="pill-btn teal" data-save>${saved ? "احفظي التعديل" : "احفظي التحضير"}</button></div></div>
     <p class="muted" style="margin:6px 0 0">راجعي كل حقل وعدّلي ما تريدين، ثم اضغطي «نسخ» والصقيه في الحقل نفسه في منصة نور.</p>
-    ${PREP_F.map(([k, n], i) => `<div class="prep-f"><div class="prep-fh"><span class="prep-n">${ar(i + 1)}</span><b>${n}</b><button class="mini o" data-copy="${k}">📋 نسخ</button></div><textarea data-k="${k}" rows="5">${esc(p[k] || "")}</textarea></div>`).join("")}<div data-smsg></div></div>`;
+    ${PREP_F.map(([k, n], i) => `<div class="prep-f"><div class="prep-fh"><span class="prep-n">${ar(i + 1)}</span><b>${n}</b><button class="mini o" data-copy="${k}">📋 نسخ</button></div><textarea data-k="${k}" rows="5">${esc(p[k] || "")}</textarea>${k === "notes" ? `<div class="pub-row"><span>📢 انشري هذه الملاحظات في الموقع لـ</span><select data-pubcls><option value="">كل الصفوف (والصفحة الرئيسية)</option>${(ROSTER ? ROSTER.cls : RST.classes).map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select><button class="mini ok" data-pub>انشري</button></div>` : ""}</div>`).join("")}<div data-smsg></div></div>`;
   const grow = t => { t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight + 4, 520) + "px"; };
   out.querySelectorAll("textarea").forEach(t => { grow(t); t.oninput = () => { p[t.dataset.k] = t.value; grow(t); }; });
   out.querySelector(".prep-title").oninput = e => { p.lesson = e.target.value; };
+  out.querySelector("[data-pub]").onclick = async e => { const b = e.target, cls = out.querySelector("[data-pubcls]").value; if (!(p.notes || "").trim()) { toast("حقل الملاحظات فارغ"); return; } b.disabled = true;
+    try { await store.add("ann", { title: "خطة الأسبوع" + (p.lesson ? ": " + p.lesson.slice(0, 70) : ""), text: p.notes.trim(), cls, img: "", createdAt: now() }); b.textContent = "✓ نُشرت"; toast("نُشرت الملاحظات للطالبات وأولياء الأمور"); }
+    catch (err) { b.disabled = false; msg(out.querySelector("[data-smsg]"), err && err.code ? fbErr(err) : "لم تُنشر."); } };
   out.querySelectorAll("[data-copy]").forEach(b => b.onclick = async () => { const ok = await copyText(p[b.dataset.copy] || ""); b.textContent = ok ? "✓ نُسخ" : "انسخي يدويًّا"; b.classList.toggle("ok", ok); setTimeout(() => { b.textContent = "📋 نسخ"; b.classList.remove("ok"); }, 1800); });
   out.querySelector("[data-all]").onclick = async e => { const t = (p.lesson ? p.lesson + "\n\n" : "") + PREP_F.map(([k, n]) => `${n}:\n${p[k] || ""}`).join("\n\n"); const ok = await copyText(t); e.target.textContent = ok ? "✓ نُسخ الكل" : "تعذّر النسخ"; setTimeout(() => { e.target.textContent = "📋 نسخ الكل"; }, 1800); };
   out.querySelector("[data-save]").onclick = async () => { const doc = { lesson: p.lesson || "", ...Object.fromEntries(PREP_F.map(([k]) => [k, p[k] || ""])), createdAt: p.createdAt || now() };
     try { if (p.id) await store.set("preps", p.id, doc); else p.id = await store.add("preps", doc); toast("حُفظ التحضير"); const keep = p; await tPrep(); prepCur = keep; showPrep(keep, true); } catch (e) { msg(out.querySelector("[data-smsg]"), e && e.code ? fbErr(e) : "لم يُحفظ التحضير."); } };
   out.scrollIntoView({ behavior: "smooth", block: "start" });
 }
+
+/* ---------- print helper: shows only #printArea while printing ---------- */
+function printHTML(html, landscape) {
+  let pa = $("#printArea"); if (!pa) { pa = document.createElement("div"); pa.id = "printArea"; document.body.appendChild(pa); }
+  pa.innerHTML = html; document.body.classList.add("printing"); document.body.classList.toggle("print-land", !!landscape);
+  setTimeout(() => { window.print(); setTimeout(() => document.body.classList.remove("printing", "print-land"), 500); }, 120);
+}
+const SCHOOL_HEAD = `<div class="ws-top"><div>سلطنة عُمان<br>وزارة التعليم<br>مدرسة نفيسة بنت الحسن</div><div class="ws-c"><img src="assets/logo.png" alt=""><b>مبادرة البصيرة</b></div><div class="ws-l">المادة: لغتي الجميلة<br>الصف: العاشر<br>المعلمة: أ. عائشة الكحالي</div></div>`;
+
+/* ---------- teacher: worksheets and homework written by AI ---------- */
+const wsSel = { mode: "one", one: "", many: new Set(), from: "", to: "" };
+const WS_KINDS = { sheet: "ورقة عمل صفية", hw: "واجب منزلي", quiz: "اختبار قصير", review: "مراجعة قبل الاختبار" };
+let wsFiles = [], wsCur = null;
+async function tWorksheets() {
+  const el = $("#tWs");
+  el.innerHTML = `<div class="ai-box prep-box"><div class="ai-h"><span class="ai-ic">🧾</span><div><b>أوراق العمل والواجبات بالذكاء الاصطناعي</b><p>اختاري الدرس أو الدروس أو الصفحات، ونوع الورقة وعدد الأسئلة، فيكتب الذكاء الاصطناعي ورقة جاهزة للطباعة مع مفتاح الإجابة، ويمكنكِ تحويلها إلى اختبار إلكتروني بضغطة.</p></div></div>
+    ${scopeHTML(wsSel, "المحتوى")}
+    <label class="ai-drop" style="margin-top:6px"><input type="file" accept="application/pdf,image/*" multiple><span class="ai-drop-ic">⇪</span><span><b>صور الصفحات (اختياري)</b><small>اسحبيها هنا أو اضغطي لاختيارها</small></span></label><div class="ai-files" data-list></div>
+    <div class="grid2" style="margin-top:10px"><div class="field"><label>نوع الورقة</label><select data-kind>${Object.entries(WS_KINDS).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select></div>
+      <div class="field"><label>عدد الأسئلة</label><input data-n type="number" min="3" max="30" value="10"></div></div>
+    <div class="field"><label>أنواع الأسئلة</label><div class="ws-types">${Object.entries(QT).map(([k, v]) => `<label><input type="checkbox" data-qt="${k}" checked> ${v}</label>`).join("")}</div></div>
+    <div class="grid2"><div class="field"><label>المستوى</label><select data-lvl><option value="mix">متنوّع (سهل ومتوسط وصعب)</option><option value="easy">سهل</option><option value="mid">متوسط</option><option value="hard">متقدّم</option></select></div>
+      <div class="field"><label>توجيه إضافي (اختياري)</label><input data-extra maxlength="300" placeholder="مثال: ركّزي على الحال وصورها"></div></div>
+    <div class="ai-row"><button type="button" class="pill-btn orange" data-go>✨ اكتبي الورقة</button></div><div data-wmsg></div></div><div id="wsOut"></div>`;
+  const box = el.querySelector(".prep-box"), M = box.querySelector("[data-wmsg]"), L = box.querySelector("[data-list]"), inp = box.querySelector("input[type=file]");
+  mountScope(box, wsSel);
+  const draw = () => { L.innerHTML = wsFiles.map((f, i) => `<div class="ai-file"><span class="ai-n">${ar(i + 1)}</span><span class="ai-t">${/pdf/i.test(f.type) ? "📄" : "🖼"} <bdi dir="ltr">${esc(f.name)}</bdi></span><button type="button" class="mini no" data-rm="${i}">✕</button></div>`).join(""); L.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => { wsFiles.splice(+b.dataset.rm, 1); draw(); }); };
+  const add = list => { [...list].filter(f => /pdf|image\//.test(f.type)).forEach(f => wsFiles.push(f)); wsFiles = wsFiles.slice(0, 8); draw(); };
+  inp.onchange = () => { add(inp.files); inp.value = ""; };
+  box.addEventListener("dragover", e => { e.preventDefault(); box.classList.add("drag"); }); box.addEventListener("dragleave", e => { if (!box.contains(e.relatedTarget)) box.classList.remove("drag"); });
+  box.addEventListener("drop", e => { e.preventDefault(); box.classList.remove("drag"); if (e.dataTransfer) add(e.dataTransfer.files); });
+  draw(); if (wsCur) showWs(wsCur);
+  box.querySelector("[data-go]").onclick = async e => {
+    const sc = scopeOf(wsSel); if (!sc.items.length && !wsFiles.length) { msg(M, "اختاري الدرس أو الدروس أو الصفحات، أو ارفعي صورها."); return; }
+    const types = [...box.querySelectorAll("[data-qt]:checked")].map(c => c.dataset.qt); if (!types.length) { msg(M, "اختاري نوعًا واحدًا من الأسئلة على الأقل."); return; }
+    const kind = box.querySelector("[data-kind]").value, n = Math.max(3, Math.min(30, +box.querySelector("[data-n]").value || 10)), lvl = box.querySelector("[data-lvl]").selectedOptions[0].text, extra = box.querySelector("[data-extra]").value.trim();
+    const b = e.target; b.disabled = true; const stop = aiWait(M, "يكتب الذكاء الاصطناعي الورقة");
+    try {
+      const parts = [];
+      for (const f of wsFiles) { if (/pdf/i.test(f.type)) parts.push({ inlineData: { mimeType: "application/pdf", data: await fileB64(f) } }); else { const u = await shrink(f, 2000, .85); parts.push({ inlineData: { mimeType: "image/jpeg", data: u.split(",")[1] } }); } }
+      if (sc.items.length) parts.push({ text: scopeText(sc) });
+      parts.push({ text: `المطلوب: ${WS_KINDS[kind]} عدد أسئلتها ${n}. ${sc.note ? "النطاق: " + sc.note + "." : ""} الأنواع المسموحة: ${types.map(t => QT[t]).join("، ")}. المستوى: ${lvl}.${extra ? " توجيه المعلمة: " + extra : ""}` });
+      const txt = await aiRaw(parts, aiFb(), `أنت معلمة لغة عربية خبيرة بمنهج «لغتي الجميلة» للصف العاشر في سلطنة عُمان. اكتبي أسئلة جديدة أصيلة لورقة ${WS_KINDS[kind]} من المحتوى المرفق فقط (لا تنسخي أسئلة الكتاب حرفيًّا)، تقيس الفهم والمفردات والقواعد والتذوق بحسب الدرس.
+أنواع الأسئلة (type): "mc" اختيار من متعدد بأربعة خيارات و answer رقم الصحيح من 0، "tf" صح أو خطأ و options ["صح","خطأ"] و answer 0 للصحيحة و1 للخطأ، "short" إكمال أو إجابة قصيرة: اكتبي الفراغ ...... وضعي في accepted الإجابات المقبولة، "essay" كتابة: ضعي في model إجابة نموذجية مختصرة.
+وزّعي الأسئلة على الأنواع المسموحة فقط، ورتّبيها من الأسهل إلى الأصعب، وضعي points مناسبة لكل سؤال (١ للاختيار والصح والخطأ والإكمال، و٢ إلى ٤ للكتابة). title عنوان مناسب للورقة. إن احتاجت الأسئلة نصًّا قصيرًا (فقرة أو أبيات من الدرس) فضعيه في passage، وإلا فاتركيه فارغًا. اجعلي sure = true.`, AI_SCHEMA);
+      const r = parseAiQuiz(txt); stop();
+      wsCur = { kind, title: r.title || WS_KINDS[kind], passage: r.passage, qs: r.qs, scope: sc.items.map(y => y.l.title).join(" + ") }; showWs(wsCur);
+    } catch (err) { stop(); msg(M, err.message); }
+    b.disabled = false;
+  };
+}
+function wsSheet(w, key) {
+  const L = ["أ", "ب", "ج", "د"];
+  return `<div class="ws-sheet">${SCHOOL_HEAD}<h1>${esc(w.title)}${key ? " · مفتاح الإجابة" : ""}</h1>
+    <div class="ws-meta"><span>اسم الطالبة: ......................................</span><span>الصف: ............</span><span>التاريخ: ....../....../......</span><span>الدرجة: ...... / ${fmtN(w.qs.reduce((a, x) => a + qPts(x), 0))}</span></div>
+    ${w.passage ? `<div class="ws-pas">${esc(w.passage)}</div>` : ""}
+    <ol class="ws-qs">${w.qs.map(x => { const t = qType(x);
+      return `<li><div class="ws-q"><span>${esc(x.q)}</span><em>(${deg(qPts(x))})</em></div>${t === "mc" ? `<div class="ws-ch">${x.opts.filter(Boolean).map((o, j) => `<span class="${key && j === x.a ? "ws-key" : ""}">${L[j]}) ${esc(o)}</span>`).join("")}</div>`
+        : t === "tf" ? `<div class="ws-tf">( ${key ? (x.a === 0 ? "✓" : "✗") : "&nbsp;&nbsp;&nbsp;&nbsp;"} )</div>`
+        : t === "short" ? (key ? `<div class="ws-ans">الإجابة: ${esc((x.ans || []).join(" / "))}</div>` : `<div class="ws-line"></div>`)
+        : key ? `<div class="ws-ans">${esc(x.model || "تُقدَّر بحسب الفكرة واللغة.")}</div>` : `<div class="ws-line"></div><div class="ws-line"></div><div class="ws-line"></div>`}</li>`; }).join("")}</ol>
+    <div class="ws-foot">مع تمنياتي لكنّ بالتوفيق · أ. عائشة الكحالي</div></div>`;
+}
+function showWs(w) {
+  const out = $("#wsOut");
+  out.innerHTML = `<div class="prep-out"><div class="row" style="justify-content:space-between;align-items:center"><div><small class="muted">${esc(WS_KINDS[w.kind] || "")}${w.scope ? " · " + esc(w.scope) : ""}</small><input class="prep-title" data-wt value="${esc(w.title)}"></div>
+    <div class="row"><button class="pill-btn orange" data-pr>🖨 اطبعي الورقة / PDF</button><button class="pill-btn ghost" data-key>🖨 مفتاح الإجابة</button><button class="pill-btn teal" data-toq>✨ حوّليها إلى اختبار إلكتروني</button></div></div>
+    <p class="muted" style="margin:6px 0 10px">للحفظ بصيغة PDF: اضغطي «اطبعي» واختاري «حفظ بتنسيق PDF». لتعديل الأسئلة حوّليها إلى اختبار إلكتروني، فتفتح في المحرّر.</p><div class="ws-preview">${wsSheet(w, false)}</div></div>`;
+  out.querySelector("[data-wt]").oninput = e => { w.title = e.target.value; };
+  out.querySelector("[data-pr]").onclick = () => printHTML(wsSheet(w, false));
+  out.querySelector("[data-key]").onclick = () => printHTML(wsSheet(w, true));
+  out.querySelector("[data-toq]").onclick = () => { qEdit = { title: w.title, cls: "", open: true, passage: w.passage, qs: JSON.parse(JSON.stringify(w.qs)), aiNote: "هذه أسئلة الورقة التي كتبها الذكاء الاصطناعي. راجعيها واختاري الصف ثم احفظي." }; openTab("quiz"); window.scrollTo({ top: $("#tPanel").offsetTop, behavior: "smooth" }); };
+  out.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+/* ---------- teacher: grades export (opens in Excel) ---------- */
+function downloadCSV(name, rows) {
+  const csv = "﻿" + rows.map(r => r.map(v => { const t = v == null ? "" : String(v); return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; }).join(",")).join("\r\n");
+  const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" })); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 800);
+}
+async function exportGrades(clsId) {
+  const R = await allRoster(), C = R.find(c => c.id === clsId); if (!C) return;
+  const get = async (c, f) => { try { return await store.list(c, f); } catch (e) { return []; } };
+  const [users, results, quizzes, qres, evalsL, scores] = await Promise.all([get("users", ["role", "student"]), get("results"), get("quizzes"), get("qres"), get("evals"), get("scores")]);
+  const byKey = new Map(users.map(u => [u.key, u])), ev = new Map(evalsL.map(e => [e.id, e])), sc = new Map(scores.map(x => [x.id, x.total || 0]));
+  const qz = quizzes.filter(q => !q.cls || q.cls === clsId).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+  const head = ["#", "الطالبة", "الصف", "دخلت الموقع", "مجموع النقاط", ...qz.map(q => `${q.title} (من ${q.qs ? qTotal(q) : ""})`), ...UNITS.map(u => `تدريبي: ${u.theme} (من 12)`), ...EV.map(([, n]) => n), "أيام الغياب"];
+  const rows = C.st.map((s, i) => { const k = "r:" + s.id, u = byKey.get(k), e = ev.get(k) || {};
+    const qcells = qz.map(q => { const r = u && qres.find(x => x.qid === q.id && x.uid === u.id); return r ? `${r.score}${r.pending ? " (بانتظار)" : ""}` : ""; });
+    const tcells = UNITS.map(un => { if (!u) return ""; const x = results.filter(y => y.uid === u.id && y.kind === "test" && y.unit === un.id); return x.length ? Math.max(...x.map(y => y.score)) : ""; });
+    return [i + 1, s.n, C.name, u ? "نعم" : "لا", u ? (sc.get(u.id) || 0) + (u.points || 0) : "", ...qcells, ...tcells, ...EV.map(([c]) => e.c && e.c[c] ? LV[e.c[c]] : ""), e.absent != null ? e.absent : ""]; });
+  downloadCSV(`درجات-${C.name.replace("/", "-")}-${new Date().toISOString().slice(0, 10)}.csv`, [head, ...rows]);
+}
+
+/* ---------- teacher: monthly report for one student, written by AI ---------- */
+async function studentData(key) {
+  const g = async (c, f) => { try { return await store.list(c, f); } catch (e) { return []; } };
+  const u = (await g("users", ["key", key]))[0] || null; let ev = null; try { ev = await store.get("evals", key); } catch (e) {}
+  if (!u) return { u, ev, pts: [], res: [], qr: [], notes: [], total: 0 };
+  const [pts, res, qr, notes] = await Promise.all([g("points", ["uid", u.id]), g("results", ["uid", u.id]), g("qres", ["uid", u.id]), g("notes", ["sid", u.id])]);
+  let sc = 0; try { const x = await store.get("scores", u.id); sc = (x && x.total) || 0; } catch (e) {}
+  return { u, ev, pts, res, qr, notes, total: sc + (u.points || 0) };
+}
+async function monthlyReport(box, s, clsName) {
+  box.hidden = false; box.innerHTML = `<div class="msg ok ai-wait"><span class="spin"></span> أجمع بيانات ${esc(s.n.split(" ")[0])}…</div>`;
+  const key = "r:" + s.id, d = await studentData(key), since = Date.now() - 30 * 864e5, last = a => a.filter(x => (x.createdAt || 0) >= since);
+  const tests = d.res.filter(r => r.kind === "test"), avgT = tests.length ? Math.round(tests.reduce((a, r) => a + r.score / r.total, 0) / tests.length * 100) : null;
+  const avgQ = d.qr.length ? Math.round(d.qr.reduce((a, r) => a + r.score / (r.total || 1), 0) / d.qr.length * 100) : null;
+  const stats = [["مجموع النقاط", ar(d.total)], ["نشاطات محلولة (آخر ٣٠ يومًا)", ar(last(d.pts).filter(p => p.kind === "act").length)], ["روايات مقروءة", ar(d.pts.filter(p => p.kind === "novel").length)],
+    ["اختبارات تدريبية", tests.length ? `${ar(tests.length)} · متوسط ${ar(avgT)}٪` : "—"], ["اختبارات المعلمة", d.qr.length ? `${ar(d.qr.length)} · متوسط ${ar(avgQ)}٪` : "—"], ["أيام الغياب", d.ev && d.ev.absent != null ? ar(d.ev.absent) : "—"]];
+  const evRows = EV.map(([c, n]) => [n, d.ev && d.ev.c && d.ev.c[c] ? LV[d.ev.c[c]] : "—"]);
+  const facts = { name: s.n, cls: clsName, loggedIn: !!d.u, totalPoints: d.total, activitiesLast30: last(d.pts).filter(p => p.kind === "act").length, novels: d.pts.filter(p => p.kind === "novel").map(p => p.label), practiceTests: tests.map(r => ({ unit: (UNITS.find(u => u.id === r.unit) || {}).theme, score: `${r.score}/${r.total}` })), teacherQuizzes: d.qr.map(r => ({ title: r.title, score: `${r.score}/${r.total}` })), evaluation: Object.fromEntries(evRows), absence: d.ev && d.ev.absent, teacherNotes: d.notes.filter(n => n.from !== "parent").map(n => n.text).slice(-5) };
+  const sheet = rep => `<div class="ws-sheet rep-sheet">${SCHOOL_HEAD}<h1>تقرير متابعة شهري</h1><div class="ws-meta"><span>الطالبة: <b>${esc(s.n)}</b></span><span>الصف: ${esc(clsName)}</span><span>التاريخ: ${fmtDate(Date.now())}</span></div>
+    <div class="rep-grid"><table class="rep-t">${stats.map(([a, b]) => `<tr><th>${a}</th><td>${b}</td></tr>`).join("")}</table><table class="rep-t">${evRows.map(([a, b]) => `<tr><th>${a}</th><td>${b}</td></tr>`).join("")}</table></div>
+    ${[["summary", "ملخص المستوى"], ["strengths", "نقاط القوة"], ["needs", "ما تحتاج إليه"], ["parent", "توصيات لوليّ الأمر"]].map(([k, n]) => `<h3 class="rep-h">${n}</h3><p class="rep-p">${esc(rep[k] || "")}</p>`).join("")}
+    <div class="ws-foot">معلمة المادة: أ. عائشة الكحالي · التوقيع: ..................</div></div>`;
+  let rep = { summary: "", strengths: "", needs: "", parent: "" };
+  const draw = () => {
+    box.innerHTML = `<div class="prep-out"><div class="row" style="justify-content:space-between"><b style="font-size:18px">📄 تقرير ${esc(s.n)}</b><button class="mini" data-x>إغلاق</button></div>
+      ${!d.u ? `<div class="msg bad" style="margin-top:8px">لم تدخل هذه الطالبة الموقع بعد، فالتقرير يعتمد على تقييمك فقط.</div>` : ""}
+      <div class="rep-stats">${stats.map(([a, b]) => `<div><b>${b}</b><span>${a}</span></div>`).join("")}</div>
+      ${[["summary", "ملخص المستوى"], ["strengths", "نقاط القوة"], ["needs", "ما تحتاج إليه"], ["parent", "توصيات لوليّ الأمر"]].map(([k, n]) => `<div class="prep-f"><div class="prep-fh"><b>${n}</b></div><textarea data-rk="${k}" rows="3">${esc(rep[k])}</textarea></div>`).join("")}
+      <div class="row" style="margin-top:12px"><button class="pill-btn ghost" data-ai>✨ اكتبي التقرير بالذكاء الاصطناعي</button><button class="pill-btn orange" data-pr>🖨 اطبعي / PDF</button><button class="pill-btn ghost" data-cp>📋 انسخي (واتساب)</button>${d.u ? `<button class="pill-btn teal" data-send>أرسليه لوليّ الأمر في الموقع</button>` : ""}</div><div data-rm></div></div>`;
+    const M = box.querySelector("[data-rm]");
+    box.querySelectorAll("[data-rk]").forEach(t => t.oninput = () => { rep[t.dataset.rk] = t.value; });
+    box.querySelector("[data-x]").onclick = () => { box.hidden = true; box.innerHTML = ""; };
+    box.querySelector("[data-pr]").onclick = () => printHTML(sheet(rep));
+    const plain = () => `تقرير متابعة: ${s.n} (${clsName})\n\n${[["summary", "ملخص المستوى"], ["strengths", "نقاط القوة"], ["needs", "ما تحتاج إليه"], ["parent", "توصيات لوليّ الأمر"]].map(([k, n]) => `${n}:\n${rep[k]}`).join("\n\n")}\n\nأ. عائشة الكحالي`;
+    box.querySelector("[data-cp]").onclick = async e => { const ok = await copyText(plain()); e.target.textContent = ok ? "✓ نُسخ" : "تعذّر النسخ"; };
+    const sb = box.querySelector("[data-send]"); if (sb) sb.onclick = async () => { try { await store.add("notes", { sid: d.u.id, from: "teacher", text: plain(), createdAt: now() }); toast("وصل التقرير إلى صفحة متابعة وليّ الأمر"); sb.disabled = true; } catch (e) { msg(M, "لم يُرسل التقرير."); } };
+    box.querySelector("[data-ai]").onclick = async e => { const b = e.target; b.disabled = true; const stop = aiWait(M, "يكتب الذكاء الاصطناعي التقرير");
+      try { const j = await aiJSON([{ text: "بيانات الطالبة:\n" + JSON.stringify(facts, null, 1) }], `أنت معلمة لغة عربية للصف العاشر في سلطنة عُمان. اكتبي تقرير متابعة شهريًّا قصيرًا عن الطالبة اعتمادًا على البيانات المرفقة فقط، بالعربية الفصحى وبأسلوب تربوي إيجابي صادق.
+summary: ملخص مستواها في سطرين أو ثلاثة. strengths: نقاط قوتها في سطرين أو ثلاثة. needs: ما تحتاج إلى تحسينه بلطف في سطرين أو ثلاثة. parent: توصيات عملية لوليّ الأمر يساعدها بها في البيت (٢ إلى ٣ توصيات).
+إن كانت البيانات قليلة فاذكري ذلك بلطف وشجّعيها على المشاركة في موقع البصيرة. لا تذكري أرقامًا غير موجودة في البيانات.`, { type: "object", properties: { summary: { type: "string" }, strengths: { type: "string" }, needs: { type: "string" }, parent: { type: "string" } }, required: ["summary", "strengths", "needs", "parent"] }, AI_FAST);
+        stop(); rep = { summary: clean(j.summary), strengths: clean(j.strengths), needs: clean(j.needs), parent: clean(j.parent) }; draw(); }
+      catch (err) { stop(); msg(M, err.message); b.disabled = false; } };
+  };
+  draw(); box.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+/* ---------- students: «اسألي البصيرة» (answers only from the unit), summary review, badges ---------- */
+const ASK_CAP = 25;
+function askLeft() { const k = "basira:ask:" + new Date().toISOString().slice(0, 10); let n = 0; try { n = +localStorage.getItem(k) || 0; } catch (e) {} return { left: Math.max(0, ASK_CAP - n), use: () => { try { localStorage.setItem(k, n + 1); } catch (e) {} n++; } }; }
+let askHist = [], askUnit = null;
+function askInit() {
+  const fab = $("#askFab"), P = $("#askPanel"); if (!fab || !U) return;
+  if (askUnit !== U.id) { askUnit = U.id; askHist = []; }
+  fab.onclick = () => { P.hidden = !P.hidden; fab.classList.toggle("on", !P.hidden); if (!P.hidden) askDraw(); };
+}
+function askDraw() {
+  const P = $("#askPanel"), ok = ME && (ME.role === "student" || ME.role === "teacher"), cap = askLeft();
+  P.innerHTML = `<div class="ask-h"><span>💬</span><div><b>اسألي البصيرة</b><small>عن دروس وحدة «${esc(U.theme)}»</small></div><button class="mini" data-x aria-label="إغلاق">✕</button></div>
+    <div class="ask-body">${!ok ? `<div class="ask-m bot">أهلًا! ادخلي بحسابك أولًا لتسأليني عن الدروس. <a href="#register">الدخول</a></div>`
+      : (askHist.length ? "" : `<div class="ask-m bot">أهلًا ${esc(ME.name.split(" ")[0])} 👋 أنا البصيرة. اسأليني عن أي شيء في دروس هذه الوحدة: معنى كلمة، فكرة نص، قاعدة نحوية، أو اطلبي مني مثالًا.</div><div class="ask-sug">${["ما الفكرة الرئيسة لدرس القراءة؟", "اشرحي لي القاعدة النحوية بمثال", "ما معنى أصعب كلمات الدرس؟"].map(t => `<button class="chip-s" data-sug>${t}</button>`).join("")}</div>`)
+        + askHist.map(m => `<div class="ask-m ${m.r === "u" ? "me" : "bot"}">${esc(m.t)}</div>`).join("")}</div>
+    ${ok ? `<form class="ask-f"><input maxlength="300" placeholder="${cap.left ? "اكتبي سؤالك…" : "انتهت أسئلة اليوم، عودي غدًا"}" ${cap.left ? "" : "disabled"}><button class="pill-btn orange" ${cap.left ? "" : "disabled"}>اسألي</button></form><small class="ask-cap">بقي لكِ اليوم ${ar(cap.left)} من ${ar(ASK_CAP)} سؤالًا · تجيب البصيرة من دروس الوحدة فقط، وقد تخطئ أحيانًا</small>` : ""}`;
+  P.querySelector("[data-x]").onclick = () => { P.hidden = true; $("#askFab").classList.remove("on"); };
+  const body = P.querySelector(".ask-body"); body.scrollTop = body.scrollHeight;
+  const f = P.querySelector(".ask-f"); if (!f) return;
+  const send = async q => { q = q.trim(); if (!q) return; const c = askLeft(); if (!c.left) return; c.use();
+    askHist.push({ r: "u", t: q }); askHist.push({ r: "b", t: "…" }); askDraw();
+    const ctx = U.lessons.map((l, i) => lessonText(U.id, i)).join("\n\n———\n\n").slice(0, 24000);
+    const conv = askHist.slice(0, -2).slice(-8).map(m => (m.r === "u" ? "الطالبة: " : "البصيرة: ") + m.t).join("\n");
+    let ans; try { ans = await aiText([{ text: "محتوى الوحدة:\n" + ctx }], `أنت «البصيرة»، مساعدة تعليمية لطيفة لطالبات الصف العاشر في مادة «لغتي الجميلة» بسلطنة عُمان.
+أجيبي بالعربية الفصحى المبسطة، في ٣ إلى ٨ أسطر، واعتمدي على محتوى الوحدة المرفق فقط. إن كان السؤال خارج دروس الوحدة أو خارج اللغة العربية فاعتذري بلطف ووجّهي الطالبة إلى معلمتها.
+لا تكتبي حلول الواجبات أو الاختبارات كاملة نيابةً عن الطالبة؛ اشرحي الفكرة ووجّهيها بسؤال أو مثال لتصل بنفسها. لا تستخدمي Markdown ولا نجومًا.
+${conv ? "المحادثة السابقة:\n" + conv + "\n" : ""}سؤال الطالبة الآن: ${q}`, AI_FAST); }
+    catch (e) { ans = "عذرًا، لم أستطع الإجابة الآن. " + (e.message || ""); }
+    askHist[askHist.length - 1].t = clean(ans); askDraw(); };
+  f.onsubmit = e => { e.preventDefault(); const i = f.querySelector("input"); const v = i.value; i.value = ""; send(v); };
+  P.querySelectorAll("[data-sug]").forEach(b => b.onclick = () => send(b.textContent));
+  f.querySelector("input").focus();
+}
+/* summary review before sending it to the teacher */
+async function reviewSummary() {
+  const M = $("#sumAI"); if (!ME || ME.role !== "student") { msg($("#sumMsg"), "ادخلي بحسابك أولًا."); return; }
+  const text = $("#sText").value.trim(), book = $("#sBook").value.trim(); if (text.length < 40) { msg($("#sumMsg"), "اكتبي تلخيصك أولًا (فقرة على الأقل)، ثم اطلبي المراجعة."); return; }
+  const c = askLeft(); if (!c.left) { msg($("#sumMsg"), "انتهت مراجعات اليوم، عودي غدًا."); return; } c.use();
+  const stop = aiWait(M, "تقرأ البصيرة تلخيصك");
+  try { const j = await aiJSON([{ text: `الكتاب: ${book || "غير مذكور"}\nالكاتب: ${$("#sAuthor").value.trim() || "غير مذكور"}\n\nتلخيص الطالبة:\n${text}` }], `أنت معلمة لغة عربية لطيفة تراجع تلخيص كتاب كتبته طالبة في الصف العاشر قبل أن ترسله لمعلمتها. لا تعيدي كتابة التلخيص، بل أعطيها ملاحظات تساعدها على تحسينه بنفسها، بالعربية الفصحى المبسطة وبلا Markdown:
+good: ما أحسنت فيه (سطر أو سطران). improve: ما يحسّن التلخيص من حيث الأفكار الرئيسة والترتيب والإيجاز (٢–٣ نقاط مرقمة). language: أهم ملاحظات اللغة والإملاء وعلامات الترقيم مع أمثلة من نصها إن وُجدت (٢–٤ نقاط مرقمة). stars: تقدير من 1 إلى 5.`,
+    { type: "object", properties: { good: { type: "string" }, improve: { type: "string" }, language: { type: "string" }, stars: { type: "integer" } }, required: ["good", "improve", "language", "stars"] }, AI_FAST);
+    stop(); const st = Math.max(1, Math.min(5, +j.stars || 3));
+    M.innerHTML = `<div class="sum-ai"><div class="row" style="justify-content:space-between"><b>✨ ملاحظات البصيرة على تلخيصك</b><span class="sum-stars">${"★".repeat(st)}${"☆".repeat(5 - st)}</span></div><h4>👍 أحسنتِ</h4><p>${esc(clean(j.good))}</p><h4>🧭 لتحسين التلخيص</h4><p>${esc(clean(j.improve))}</p><h4>✍️ اللغة والإملاء</h4><p>${esc(clean(j.language))}</p><small class="muted">عدّلي تلخيصك إن شئتِ، ثم أرسليه للمعلمة.</small></div>`; }
+  catch (e) { stop(); msg(M, e.message); }
+}
+/* badges and printable certificates */
+const BADGES = [
+  { id: "n1", ic: "📖", t: "القارئة الأولى", d: "قراءة أول رواية", v: s => s.novels, need: 1 },
+  { id: "n5", ic: "📚", t: "قارئة نهِمة", d: "قراءة ٥ روايات", v: s => s.novels, need: 5 },
+  { id: "n10", ic: "🏛️", t: "سفيرة القراءة", d: "قراءة ١٠ روايات", v: s => s.novels, need: 10 },
+  { id: "p100", ic: "⭐", t: "نجمة البصيرة", d: "جمع ١٠٠ نقطة", v: s => s.total, need: 100 },
+  { id: "p300", ic: "🌟", t: "المتألقة", d: "جمع ٣٠٠ نقطة", v: s => s.total, need: 300 },
+  { id: "p600", ic: "👑", t: "أميرة البصيرة", d: "جمع ٦٠٠ نقطة", v: s => s.total, need: 600 },
+  { id: "x3", ic: "🏅", t: "المتقنة", d: "إتقان ٣ اختبارات تدريبية", v: s => s.testx, need: 3 },
+  { id: "g9", ic: "🎮", t: "بطلة الألعاب", d: "إنهاء ألعاب الوحدات التسع", v: s => s.games, need: 9 }
+];
+function myStats() { const p = [...MYPTS.values()], c = k => p.filter(x => x.kind === k).length; return { novels: c("novel"), testx: c("testx"), games: c("game"), total: myTotal() }; }
+function badgesHTML() { const s = myStats();
+  return `<div class="sub-h" style="margin-top:16px">أوسمتي</div><div class="badges">${BADGES.map(b => { const v = b.v(s), ok = v >= b.need;
+    return `<div class="badge${ok ? " on" : ""}"><span class="b-ic">${b.ic}</span><b>${b.t}</b><small>${b.d}</small>${ok ? `<button class="mini o" data-cert="${b.id}">🖨 شهادتي</button>` : `<i class="b-bar"><em style="width:${Math.min(100, v / b.need * 100)}%"></em></i><small>${ar(Math.min(v, b.need))} من ${ar(b.need)}</small>`}</div>`; }).join("")}</div>`; }
+function certHTML(b) {
+  return `<style>@page{size:A4 landscape;margin:10mm}</style><div class="cert"><div class="cert-in"><img src="assets/logo.png" alt=""><small>سلطنة عُمان · وزارة التعليم · مدرسة نفيسة بنت الحسن · مبادرة البصيرة</small><h1>شهادة تقدير</h1>
+    <p>تتقدّم معلمة اللغة العربية بالشكر والتقدير للطالبة</p><h2>${esc(ME.name)}</h2><p>من الصف ${esc(CLS(ME.cls) || "العاشر")}، لحصولها على وسام</p><div class="cert-b">${b.ic} ${b.t}</div><p>(${b.d}) في مبادرة البصيرة للقراءة، متمنيةً لها دوام التميّز.</p>
+    <div class="cert-f"><span>التاريخ: ${fmtDate(Date.now())}</span><span>معلمة المادة: أ. عائشة الكحالي</span></div></div></div>`;
+}
+function bindBadges(root) { root.querySelectorAll("[data-cert]").forEach(x => x.onclick = () => printHTML(certHTML(BADGES.find(b => b.id === x.dataset.cert)), true)); }
+/* class cup: total points of each class, and the average per student on the class list */
+function cupHTML(us, sc) { const tot = new Map(sc.map(s => [s.id, s.total || 0]));
+  const rows = RST.classes.map(c => { const m = us.filter(u => u.cls === c.id), sum = m.reduce((a, u) => a + (tot.get(u.id) || 0) + (u.points || 0), 0); return { c, sum, avg: c.n ? sum / c.n : 0, act: m.length }; }).sort((a, b) => b.avg - a.avg);
+  if (!rows.length || !rows.some(r => r.sum)) return ""; const mx = Math.max(...rows.map(r => r.avg), 1);
+  return `<div class="card cup"><div class="row" style="justify-content:space-between;align-items:center"><b>🏆 كأس الصفوف</b><small class="muted">متوسط النقاط لكل طالبة في الصف</small></div>${rows.map((r, i) => `<div class="cup-r"><span class="cup-n">${["🥇", "🥈", "🥉"][i] || ar(i + 1)}</span><b>${esc(r.c.name)}</b><i><em style="width:${r.avg / mx * 100}%"></em></i><span>${ar(Math.round(r.avg))} <small>نقطة · ${ar(r.act)} مشاركة</small></span></div>`).join("")}</div>`; }
 
 /* ---------- teacher: announcements & photos ---------- */
 let annEdit = null;
@@ -575,8 +831,8 @@ function takeQuiz(q, done) {
       const head = `<p><b>${ar(i + 1)}.</b> ${esc(x.q)} <span class="q-pts">${deg(qPts(x))}</span></p>`;
       if (t === "mc" || t === "tf") return `<div class="qq-t">${head}<div class="opts${t === "tf" ? " tf" : ""}">${x.opts.map((o, j) => { let c = ""; if (done) { if (j === x.a) c = "right"; else if (pick[i] === j) c = "soft"; } else if (pick[i] === j) c = "picked";
           return `<button class="opt ${c}" data-i="${i}" data-j="${j}" ${done ? "disabled" : ""}>${esc(o)}</button>`; }).join("")}</div>${done ? `<div class="q-fb">${pick[i] === x.a ? "✓ إجابتك صحيحة" : "الإجابة الصحيحة: " + esc(x.opts[x.a])}</div>` : ""}</div>`;
-      if (t === "short") return `<div class="qq-t">${head}${done ? `<div class="g-ans ${m ? "ok" : "no"}">${esc(pick[i] || "—")}</div><div class="q-fb">${m ? `✓ إجابتك صحيحة (${fmtN(m)} من ${fmtN(qPts(x))})` : `الإجابة الصحيحة: ${esc((x.ans || [])[0] || "")}`}</div>` : `<input class="q-short" data-w="${i}" maxlength="200" placeholder="اكتبي إجابتك هنا" value="${esc(pick[i] || "")}">`}</div>`;
-      return `<div class="qq-t">${head}${done ? `<div class="g-ans">${esc(pick[i] || "—")}</div><div class="q-fb">${m == null ? "⏳ بانتظار تصحيح المعلمة" : `درجتك: ${fmtN(m)} من ${fmtN(qPts(x))}`}</div>` : `<textarea class="q-essay" data-w="${i}" maxlength="3000" placeholder="اكتبي إجابتك هنا">${esc(pick[i] || "")}</textarea>`}</div>`; }).join("")}
+      if (t === "short") return `<div class="qq-t">${head}${done ? `<div class="g-ans ${m ? "ok" : "no"}">${esc(pick[i] || "—")}</div><div class="q-fb">${m ? `✓ إجابتك صحيحة (${fmtN(m)} من ${fmtN(qPts(x))})` : `الإجابة الصحيحة: ${esc((x.ans || [])[0] || "")}`}</div>${(done.fb || [])[i] ? `<div class="q-note">💬 ${esc(done.fb[i])}</div>` : ""}` : `<input class="q-short" data-w="${i}" maxlength="200" placeholder="اكتبي إجابتك هنا" value="${esc(pick[i] || "")}">`}</div>`;
+      return `<div class="qq-t">${head}${done ? `<div class="g-ans">${esc(pick[i] || "—")}</div><div class="q-fb">${m == null ? "⏳ بانتظار تصحيح المعلمة" : `درجتك: ${fmtN(m)} من ${fmtN(qPts(x))}`}</div>${(done.fb || [])[i] ? `<div class="q-note">💬 ${esc(done.fb[i])}</div>` : ""}` : `<textarea class="q-essay" data-w="${i}" maxlength="3000" placeholder="اكتبي إجابتك هنا">${esc(pick[i] || "")}</textarea>`}</div>`; }).join("")}
       ${done ? `<div class="verdict ${done.pending ? "soft" : "ok"}"><b>درجتك${done.pending ? " حتى الآن" : ""}: ${fmtN(done.score)} من ${fmtN(done.total)}</b><div>${done.pending ? "تُضاف درجة أسئلة الكتابة بعد أن تصحّحها المعلمة." : "الإجابات الصحيحة باللون الأخضر."}</div></div>` : `<div class="row" style="margin-top:12px"><button class="pill-btn orange big" data-send>سلّمي الإجابات</button><span class="muted" data-left></span></div><div data-msg></div>`}</div>`;
     box.querySelectorAll("[data-j]").forEach(b => b.onclick = () => { pick[+b.dataset.i] = +b.dataset.j; draw(); });
     const left = () => { const n = pick.filter(v => !answered(v)).length, L = box.querySelector("[data-left]"); if (L) L.textContent = n ? `بقي ${ar(n)} من الأسئلة` : "أجبتِ عن كل الأسئلة"; };
@@ -616,7 +872,7 @@ async function tAccounts() {
     ${C ? `<div class="tbl"><table class="res-table"><thead><tr><th>#</th><th>الطالبة</th><th>الرقم السري</th><th>الحالة</th></tr></thead><tbody>${C.st.map((s, i) => `<tr><td>${ar(i + 1)}</td><td><b>${esc(s.n)}</b></td><td dir="ltr" style="font-family:monospace;font-size:17px;letter-spacing:2px">${ACC[s.id] || "—"}</td><td>${inSet.has("r:" + s.id) ? `<span class="status approved">دخلت</span>` : `<span class="muted">لم تدخل بعد</span>`}</td></tr>`).join("")}</tbody></table></div>` : ""}`;
   $$("#tAcc [data-c]").forEach(b => b.onclick = () => { accCls = b.dataset.c; tAccounts(); });
   const site = location.href.split("#")[0];
-  const doPrint = html => { let pa = $("#printArea"); if (!pa) { pa = document.createElement("div"); pa.id = "printArea"; document.body.appendChild(pa); } pa.innerHTML = html; document.body.classList.add("printing"); setTimeout(() => { window.print(); setTimeout(() => document.body.classList.remove("printing"), 400); }, 80); };
+  const doPrint = html => printHTML(html); const _old = html => { let pa = $("#printArea"); if (!pa) { pa = document.createElement("div"); pa.id = "printArea"; document.body.appendChild(pa); } pa.innerHTML = html; document.body.classList.add("printing"); setTimeout(() => { window.print(); setTimeout(() => document.body.classList.remove("printing"), 400); }, 80); };
   el.querySelector("[data-print]").onclick = () => doPrint(`<div class="pcards">${C.st.map(s => `<div class="pcard"><b class="pc-h">مبادرة البصيرة · ${esc(C.name)}</b><div class="pc-n">${esc(s.n)}</div><div class="pc-l">رقمك السري</div><div class="pc-p">${ACC[s.id]}</div><small>ادخلي من «دخول الطالبات»: اختاري صفك ثم اسمك ثم اكتبي الرقم.</small></div>`).join("")}</div>`);
   el.querySelector("[data-list]").onclick = () => doPrint(`<h2 style="margin:0 0 8px">حسابات طالبات ${esc(C.name)} · مبادرة البصيرة</h2><table class="plist"><thead><tr><th>#</th><th>الطالبة</th><th>الرقم السري</th></tr></thead><tbody>${C.st.map((s, i) => `<tr><td>${i + 1}</td><td>${esc(s.n)}</td><td dir="ltr">${ACC[s.id]}</td></tr>`).join("")}</tbody></table>`);
 }
@@ -747,6 +1003,7 @@ function openUnit(id, sub) {
   hero.innerHTML = `<img class="u-art" src="assets/units/${U.id}.jpg" alt=""><div style="position:relative;z-index:1"><small>المحور ${["", "الأول", "الثاني", "الثالث"][U.axisN]}: ${esc(U.axis)} · الوحدة ${ORD[U.unitN]} · الصفحات ${ar(U.pages)}</small><h2>${esc(U.theme)}</h2></div><a class="pill-btn light back" href="#units">كل الوحدات</a>`;
   $$("#uTabs button").forEach(b => { b.setAttribute("aria-selected", b.dataset.t === sub); b.onclick = () => { location.hash = U.id + "-" + b.dataset.t; }; });
   ({ lessons: renderLessons, acts: renderActs, test: renderTest, game: renderGame }[sub])();
+  askInit();
 }
 
 /* ---------- lessons ---------- */
@@ -1014,9 +1271,10 @@ async function loadAccount() {
   const tests = RESULTS.filter(r => r.kind === "test").sort(byTime), games = RESULTS.filter(r => r.kind === "game").length;
   I.innerHTML = `<div style="display:flex;gap:14px;align-items:center"><span class="avatar">${esc(ini(ME.name))}</span><div><b style="font-size:20px;color:var(--ink)">${esc(ME.name)}</b><br><span class="muted">${ROLE_AR[ME.role] || ""}${ME.cls ? " · الصف " + esc(CLS(ME.cls)) : ""}</span></div></div>
   ${ME.role === "student" ? `<div class="mestats"><div><b data-mypts>${ar(myTotal())}</b><span>نقطة</span></div><div><b>${ar([...MYPTS.values()].filter(p => p.kind === "novel").length)}</b><span>رواية</span></div><div><b>${ar(tests.length)}</b><span>اختبار</span></div><div><b>${ar(games)}</b><span>لعبة</span></div></div>
-  <div class="row" style="margin-top:10px"><a class="pill-btn soft" href="#leaders">🏆 لوحة المتصدرات</a><a class="pill-btn soft" href="#read">📖 اقرئي رواية</a><a class="pill-btn soft" href="#tasks">💬 من المعلمة</a><a class="pill-btn soft" href="#survey">📝 الاستبيان</a></div>
+  ${badgesHTML()}<div class="row" style="margin-top:10px"><a class="pill-btn soft" href="#leaders">🏆 لوحة المتصدرات</a><a class="pill-btn soft" href="#read">📖 اقرئي رواية</a><a class="pill-btn soft" href="#tasks">💬 من المعلمة</a><a class="pill-btn soft" href="#survey">📝 الاستبيان</a></div>
   ${MYPTS.size ? `<div class="sub-h" style="margin-top:14px">آخر نقاطك</div><div class="pts-log">${[...MYPTS.values()].sort(byTime).slice(0, 8).map(p => `<div><span>${PTS_IC[p.kind] || "⭐"}</span><span class="grow">${esc(PTS_AR[p.kind] || "")}${p.label ? `: ${esc(p.label)}` : ""}</span><b>${plus(p.pts)}</b></div>`).join("")}</div>` : ""}
   <div style="margin-top:10px">${tests.length ? `<table class="res-table"><thead><tr><th>الوحدة</th><th>الدرجة</th><th>التاريخ</th></tr></thead><tbody>${tests.slice(0, 12).map(r => { const u = UNITS.find(x => x.id === r.unit); return `<tr><td>${u ? esc(u.theme) : ""}</td><td><b>${ar(r.score)}/${ar(r.total)}</b></td><td>${fmtDate(r.createdAt)}</td></tr>`; }).join("")}</tbody></table>` : `<span class="muted">لم تحلّي اختبارًا تدريبيًّا بعد.</span>`}</div>` : ""}`;
+  bindBadges(I);
 }
 
 /* ================= POINTS =================
@@ -1186,6 +1444,7 @@ async function loadLeaders() {
   let sc = [], us = [];
   try { us = await store.list("users", ["role", "student"]); } catch (e) {}
   try { sc = await store.list("scores"); } catch (e) {}
+  const cup = cupHTML(us, sc);
   if (lbCls) us = us.filter(u => u.cls === lbCls);
   const m = new Map(us.map(u => [u.id, { id: u.id, name: u.name, cls: u.cls || "", total: u.points || 0 }]));
   sc.forEach(s => { const r = m.get(s.id); if (r) r.total += s.total || 0; });
@@ -1196,7 +1455,7 @@ async function loadLeaders() {
   const top = rows.slice(0, 3), medal = ["🥇", "🥈", "🥉"], order = [1, 0, 2];
   const pod = `<div class="podium">${order.filter(k => top[k]).map(k => { const r = top[k]; return `<div class="pod p${k + 1}${r.id === UID ? " me" : ""}"><span class="pav">${esc(ini(r.name))}</span><b>${esc(short2(r.name))}</b>${r.cls && !lbCls ? `<small class="muted">${esc(CLS(r.cls))}</small>` : ""}<span class="ppts">${ar(r.total)} نقطة</span><div class="pbar"><span>${medal[r.rank - 1] || ar(r.rank)}</span></div></div>`; }).join("")}</div>`;
   const rest = rows.slice(3, 30), meRow = rows.find(r => r.id === UID), meOut = meRow && rows.indexOf(meRow) >= 30;
-  el.innerHTML = CH + pod + (rest.length || meOut ? `<div class="card lb-list">${rest.map(r => lbRow(r)).join("")}${meOut ? `<div class="lb-gap">⋯</div>` + lbRow(meRow) : ""}</div>` : "") +
+  el.innerHTML = CH + cup + pod + (rest.length || meOut ? `<div class="card lb-list">${rest.map(r => lbRow(r)).join("")}${meOut ? `<div class="lb-gap">⋯</div>` + lbRow(meRow) : ""}</div>` : "") +
     (isStu() && !meRow ? `<p class="note" style="margin-top:14px">لم تظهري في اللوحة بعد: أول رواية تقرئينها تضعك فيها! <a href="#read">اقرئي الآن</a></p>` : "");
   bindCh();
 }
@@ -1253,6 +1512,7 @@ async function loadSummary() {
   const el = $("#mySums"); let s = []; if (okS) { try { s = (await store.list("summaries", ["uid", UID])).sort(byTime); } catch (e) {} }
   el.innerHTML = s.length ? s.map(x => `<div class="li"><div class="grow"><b>${esc(x.book)}</b><br><span class="muted" style="font-size:14px">${esc(x.author)} · ${fmtDate(x.createdAt)}</span></div><span class="status ${x.status === "published" ? "approved" : "pending"}">${x.status === "published" ? "نُشر في المشاركات" : "وصل للمعلمة"}</span></div>`).join("") : `<p class="muted" style="margin:6px 0 0">لم ترسلي تلخيصًا بعد.</p>`;
 }
+$("#sumReview").onclick = reviewSummary;
 $("#sumForm").addEventListener("submit", async e => {
   e.preventDefault(); if (!ME || ME.role !== "student") { msg($("#sumMsg"), "سجّلي الدخول بحسابك أولًا من صفحة «دخول / تسجيل»."); return; }
   const v = { uid: UID, name: ME.name, book: $("#sBook").value.trim(), author: $("#sAuthor").value.trim(), text: $("#sText").value.trim(), status: "new", createdAt: now() };
@@ -1368,7 +1628,7 @@ $("#tOut").onclick = doLogout;
 let curTab = "req";
 $$("#tTabs button").forEach(b => b.onclick = () => openTab(b.dataset.t));
 function openTab(t) { curTab = t; $$("#tTabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.t === t)); $$("[data-p]").forEach(p => p.hidden = p.dataset.p !== t);
-  ({ stu: tStudents, acc: tAccounts, srv: tSurvey, prep: tPrep, ev: tEvals, quiz: tQuizzes, ann: tAnn, res: tResults, req: tRequests, sum: tSummaries, post: tPosts, book: tBooks, site: tSite }[t])(); badges(); }
+  ({ stu: tStudents, acc: tAccounts, srv: tSurvey, prep: tPrep, ws: tWorksheets, ev: tEvals, quiz: tQuizzes, ann: tAnn, res: tResults, req: tRequests, sum: tSummaries, post: tPosts, book: tBooks, site: tSite }[t])(); badges(); }
 async function badges() { try { const r = (await store.list("links", ["status", "pending"])).length; $("#reqN").hidden = !r; $("#reqN").textContent = ar(r); } catch (e) {} try { const s = (await store.list("summaries")).filter(x => x.status === "new").length; $("#sumN").hidden = !s; $("#sumN").textContent = ar(s); } catch (e) {} }
 let tCls = "";
 async function tStudents() {
@@ -1391,11 +1651,14 @@ async function tStudents() {
   });
 }
 async function tResults() {
-  const el = $("#tRes"); let r = [], st = []; try { r = await store.list("results"); st = await store.list("users", ["role", "student"]); } catch (e) {}
+  const el = $("#tRes"), R0 = await allRoster();
+  const bar = `<div class="row" style="gap:8px;margin-bottom:10px;align-items:center"><b>تصدير الدرجات (Excel):</b>${R0.map(c => `<button class="mini o" data-exc="${c.id}">⬇ ${esc(c.name)}</button>`).join("")}<span class="muted" style="font-size:13px">يشمل: النقاط، اختبارات المعلمة، الاختبارات التدريبية، التقييم، الغياب</span></div>`;
+  const bindEx = () => $$("#tRes [data-exc]").forEach(b => b.onclick = async () => { b.disabled = true; await exportGrades(b.dataset.exc); b.disabled = false; }); let r = [], st = []; try { r = await store.list("results"); st = await store.list("users", ["role", "student"]); } catch (e) {}
   r = r.filter(x => x.kind === "test");
-  if (!st.length) { el.innerHTML = `<div class="empty"><b>لا توجد نتائج بعد</b>تظهر هنا درجات الطالبات في الاختبارات التدريبية لكل وحدة.</div>`; return; }
+  if (!st.length) { el.innerHTML = bar + `<div class="empty"><b>لا توجد نتائج بعد</b>تظهر هنا درجات الطالبات في الاختبارات التدريبية لكل وحدة.</div>`; bindEx(); return; }
   const best = (sid, u) => { const x = r.filter(y => y.uid === sid && y.unit === u); return x.length ? Math.max(...x.map(y => y.score)) : null; };
-  el.innerHTML = `<table class="res-table"><thead><tr><th>الطالبة</th>${UNITS.map(u => `<th title="${esc(u.theme)}">و${ar(u.axisN)}/${ar(u.unitN)}</th>`).join("")}</tr></thead><tbody>${st.sort((a, b) => a.name.localeCompare(b.name, "ar")).map(s => `<tr><td><b>${esc(s.name)}</b></td>${UNITS.map(u => { const b = best(s.id, u.id); return `<td>${b == null ? '<span class="muted">—</span>' : `<b style="color:${b >= 10 ? "var(--ok)" : b >= 7 ? "var(--orange-d)" : "var(--rose)"}">${ar(b)}</b>`}</td>`; }).join("")}</tr>`).join("")}</tbody></table><p class="muted" style="font-size:13px">أعلى درجة من ١٢ في الاختبار التدريبي لكل وحدة (المحور/الوحدة).</p>`;
+  el.innerHTML = bar + `<table class="res-table"><thead><tr><th>الطالبة</th>${UNITS.map(u => `<th title="${esc(u.theme)}">و${ar(u.axisN)}/${ar(u.unitN)}</th>`).join("")}</tr></thead><tbody>${st.sort((a, b) => a.name.localeCompare(b.name, "ar")).map(s => `<tr><td><b>${esc(s.name)}</b></td>${UNITS.map(u => { const b = best(s.id, u.id); return `<td>${b == null ? '<span class="muted">—</span>' : `<b style="color:${b >= 10 ? "var(--ok)" : b >= 7 ? "var(--orange-d)" : "var(--rose)"}">${ar(b)}</b>`}</td>`; }).join("")}</tr>`).join("")}</tbody></table><p class="muted" style="font-size:13px">أعلى درجة من ١٢ في الاختبار التدريبي لكل وحدة (المحور/الوحدة).</p>`;
+  bindEx();
 }
 async function tRequests() {
   const el = $("#tReq"); let r = []; try { r = (await store.list("links")).sort((a, b) => (a.status === "pending" ? -1 : 0) - (b.status === "pending" ? -1 : 0) || byTime(a, b)); } catch (e) {}
@@ -1430,6 +1693,20 @@ $("#bookForm").addEventListener("submit", async e => { e.preventDefault(); try {
 async function tSite() { const s = await siteData(); $("#sDesc").value = s.desc; $("#sGoals").value = s.goals; }
 $("#siteForm").addEventListener("submit", async e => { e.preventDefault(); try { await store.set("site", "main", { desc: $("#sDesc").value.trim(), goals: $("#sGoals").value.trim() }); msg($("#siteMsg"), "حُفظ التوصيف والأهداف.", true); } catch (err) { msg($("#siteMsg"), "لم يُحفظ."); } });
 
+/* installable app: service worker + an «install» button when the browser offers it */
+let installEv = null;
+function pwaInit() {
+  const btn = $("#installBtn"); if (!btn) return;
+  const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+  if (standalone) { btn.hidden = true; return; }
+  if ("serviceWorker" in navigator && location.protocol === "https:" && window.top === window) navigator.serviceWorker.register("sw.js").catch(() => {});
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEv = e; btn.hidden = false; });
+  if (ios) btn.hidden = false;
+  btn.onclick = async () => { if (installEv) { installEv.prompt(); const r = await installEv.userChoice; if (r.outcome === "accepted") btn.hidden = true; installEv = null; }
+    else toast(ios ? "في Safari: اضغطي زر المشاركة ⬆️ ثم «إضافة إلى الشاشة الرئيسية»" : "من قائمة المتصفح ⋮ اختاري «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية»"); };
+}
 window.__basiraAI = { aiQuizFromFiles, prepShow: p => showPrep(p, false), draft: d => { qEdit = d; tQuizzes(); } }; /* used by the site checks */
+pwaInit();
 boot();
 })();
