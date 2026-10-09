@@ -118,7 +118,8 @@ service cloud.firestore {
 
     // اختبارات المعلمة وإعلاناتها: يقرؤها من سجّل الدخول، وتكتبها المعلمة
     match /basira_quizzes/{id} { allow read: if signedIn(); allow write: if isTeacher(); }
-    match /basira_ann/{id}     { allow read: if signedIn(); allow write: if isTeacher(); }
+    // الإعلانات: ما كان «للجميع» يراه كل زائر في الصفحة الرئيسية، وإعلان الصف يراه من سجّل الدخول
+    match /basira_ann/{id}     { allow read: if resource.data.cls == '' || signedIn(); allow write: if isTeacher(); }
 
     // إجابات الطالبات في اختبارات المعلمة: محاولة واحدة لكل اختبار (المعرّف = الاختبار_الطالبة)
     match /basira_qres/{id} {
