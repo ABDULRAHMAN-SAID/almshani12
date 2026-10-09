@@ -6,9 +6,10 @@ service cloud.firestore {
     function me() { return request.auth.uid; }
     function isTeacher() { return signedIn() && exists(/databases/$(database)/documents/basira_admins/$(me())); }
     function myRole() { return get(/databases/$(database)/documents/basira_users/$(me())).data.role; }
-    function approvedParentOf(sid) {
-      return signedIn() && exists(/databases/$(database)/documents/basira_links/$(me() + '_' + sid))
-        && get(/databases/$(database)/documents/basira_links/$(me() + '_' + sid)).data.status == 'approved';
+    function linkOf(uid) { return /databases/$(database)/documents/basira_links/$(me() + '_' + get(/databases/$(database)/documents/basira_users/$(uid)).data.key); }
+    function approvedParentOf(uid) {
+      return signedIn() && exists(/databases/$(database)/documents/basira_users/$(uid))
+        && exists(linkOf(uid)) && get(linkOf(uid)).data.status == 'approved';
     }
 
     // رمز تفعيل لوحة المعلمة: يُطلب مرة واحدة عند إنشاء حسابها
@@ -33,14 +34,14 @@ service cloud.firestore {
       allow delete: if isTeacher();
     }
 
-    // طلبات أولياء الأمور: المعرّف = uidولي الأمر_uidالطالبة
+    // طلبات أولياء الأمور: المعرّف = uidولي الأمر_مفتاح الطالبة في قائمة الصف
     match /basira_links/{id} {
       allow read: if isTeacher() || (signedIn() && resource.data.parentUid == me());
       allow create: if signedIn() && myRole() == 'parent'
-        && id == me() + '_' + request.resource.data.studentUid
+        && request.resource.data.skey is string && request.resource.data.skey.size() <= 40
+        && id == me() + '_' + request.resource.data.skey
         && request.resource.data.parentUid == me()
-        && request.resource.data.status == 'pending'
-        && get(/databases/$(database)/documents/basira_users/$(request.resource.data.studentUid)).data.role == 'student';
+        && request.resource.data.status == 'pending';
       allow update: if isTeacher() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'decidedAt']);
       allow delete: if isTeacher() || (signedIn() && resource.data.parentUid == me());
     }

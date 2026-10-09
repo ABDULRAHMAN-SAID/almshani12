@@ -24,7 +24,7 @@
       <a href="#about">المبادرة</a>
     </nav>
     <div class="who">
-      <a class="pill-btn light" href="#register"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg><span id="meTxt">دخول / تسجيل</span></a>
+      <a class="pill-btn light" href="#register"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg><span id="meTxt">دخول</span></a>
       <button class="menu-t" id="menuT" aria-label="القائمة" aria-expanded="false"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     </div>
   </div>
@@ -45,7 +45,7 @@
       </div>
       <div class="cta-row">
         <a class="pill-btn orange big" href="#units">ابدئي الوحدة الأولى</a>
-        <a class="pill-btn ghost big" href="#register">سجّلي اسمك</a>
+        <a class="pill-btn ghost big" href="#register">دخول الطالبات</a>
       </div>
       <div class="stats" aria-label="محتوى الموقع">
         <div><b>٩</b><span>وحدات</span></div><div><b>٣٨</b><span>درسًا</span></div><div><b>٩</b><span>ألعاب</span></div><div><b id="stN">١٥</b><span>رواية قصيرة</span></div>
@@ -65,7 +65,7 @@
 
   <div class="sec-h"><h2>أقسام المبادرة</h2></div>
   <div class="bento">
-    <a class="tile t-reg" href="#register"><h3>تسجيل الطالبات</h3><p>سجّلي باسمك الثلاثي ورقم سري، فتُحفظ نتائجك ونقاطك لتتابعها المعلمة.</p><span class="go">سجّلي الآن ←</span>
+    <a class="tile t-reg" href="#register"><h3>دخول الطالبات</h3><p>أسماء طالبات الصفوف مُدخلة: اختاري صفك واسمك ورقمك السري، فتُحفظ نتائجك ونقاطك وتتابعك المعلمة.</p><span class="go">ادخلي الآن ←</span>
       <svg class="art" viewBox="0 0 120 120" fill="none"><circle cx="60" cy="48" r="18" fill="#fff" opacity=".9"/><path d="M26 98c6-18 19-27 34-27s28 9 34 27" fill="#fff" opacity=".9"/><circle cx="92" cy="30" r="12" fill="#EC7F16"/><path d="M87 30l4 4 7-8" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
     <a class="tile t-about" href="#about"><h3>توصيف المبادرة وأهدافها</h3><p>ما المبادرة؟ ولماذا؟ ومن الفئة المستهدفة؟</p><span class="go">اقرئي التوصيف ←</span>
       <svg class="art" viewBox="0 0 120 120" fill="none"><path d="M60 14c22 0 38 16 38 36 0 14-8 22-14 30-4 5-5 9-5 14H41c0-5-1-9-5-14-6-8-14-16-14-30 0-20 16-36 38-36z" fill="#0A6E79"/><rect x="42" y="98" width="36" height="9" rx="4.5" fill="#EC7F16"/><path d="M48 46l8 8 16-18" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
@@ -143,7 +143,7 @@
 
 <!-- ================= REGISTER ================= -->
 <section class="view" id="v-register" hidden>
-  <div class="page-h"><span class="ico" style="background:var(--teal);color:#fff"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg></span><div><h2>الدخول والتسجيل</h2><p>بالاسم الثلاثي والرقم السري فقط</p></div><a class="pill-btn ghost back" href="#home">الرئيسية</a></div>
+  <div class="page-h"><span class="ico" style="background:var(--teal);color:#fff"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg></span><div><h2>دخول الطالبات</h2><p>اختاري صفك ثم اسمك، ثم رقمك السري</p></div><a class="pill-btn ghost back" href="#home">الرئيسية</a></div>
   <div class="grid2">
     <div class="card" id="regAuth"></div>
     <div class="card" id="meInfo"></div>
@@ -163,7 +163,7 @@
   <form class="sheet" id="sumForm" autocomplete="off">
     <span class="sheet-t">تلخيص كتاب</span>
     <div class="row" style="justify-content:center;gap:24px;font-weight:800;margin-bottom:16px">
-      <span>اسمك الجميل: <span id="sumName" class="muted">سجّلي اسمك أولًا</span></span>
+      <span>اسمك الجميل: <span id="sumName" class="muted">ادخلي بحسابك أولًا</span></span>
       <span>صفك: <span id="sumCls" class="muted">…/…</span></span>
     </div>
     <div class="grid2" style="margin-bottom:18px">

@@ -52,20 +52,47 @@ function checkName(n) {
 function checkPin(p) { p = String(p || ""); if (p.length < 4) return "الرقم السري ٤ أرقام أو أحرف على الأقل."; if (/\s/.test(p)) return "الرقم السري بلا مسافات."; return ""; }
 async function sha(t) { const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, "0")).join(""); }
 const fbEmail = async k => "u" + (await sha("basira|" + k)).slice(0, 32) + "@basira-school.app";
-/* class rosters: only hashes of (name, father, grandfather) and (name, father, family) are shipped, never the names */
-const RST = window.BASIRA_ROSTER || { classes: [], h: {} };
+/* class rosters: the names ship encrypted; the class code from the teacher opens them (remembered on this device) */
+const RST = window.BASIRA_ROSTER || { classes: [] };
 const CLS = id => (RST.classes.find(c => c.id === id) || {}).name || "";
-function nameTokens(s) { const t = nameKey(s).split(" ").filter(x => x && !["بن", "بنت", "ابن"].includes(x)), o = [];
-  for (let i = 0; i < t.length; i++) { if (t[i] === "عبد" && t[i + 1]) { o.push("عبد" + t[i + 1]); i++; } else o.push(t[i]); } return o; }
-async function rosterMatch(name) { const t = nameTokens(name); if (t.length < 3) return null;
-  for (const c of [t.slice(0, 3), [t[0], t[1], t[t.length - 1]]]) { const h = (await sha("basira-roster|" + c.join(" "))).slice(0, 20); if (RST.h[h]) return { cls: RST.h[h][0], id: RST.h[h][1] }; }
-  return null; }
+let ROSTER = null;
+const b64u = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+async function unlockRoster(code) {
+  code = String(code || "").trim().replace(/[٠-٩]/g, d => AR.indexOf(d));
+  const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(code), "PBKDF2", false, ["deriveKey"]);
+  const key = await crypto.subtle.deriveKey({ name: "PBKDF2", salt: b64u(RST.salt), iterations: 150000, hash: "SHA-256" }, base, { name: "AES-GCM", length: 256 }, false, ["decrypt"]);
+  const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64u(RST.iv) }, key, b64u(RST.ct));
+  ROSTER = JSON.parse(new TextDecoder().decode(pt)); ROSTER.cls.forEach(c => c.st.sort((a, b) => a.n.localeCompare(b.n, "ar")));
+  try { localStorage.setItem("basira:rc", code); } catch (e) {}
+  return ROSTER;
+}
+async function rosterReady() {
+  if (ROSTER) return true; if (!RST.ct) return false;
+  let c = null; try { c = localStorage.getItem("basira:rc"); } catch (e) {}
+  if (!c) return false;
+  try { await unlockRoster(c); return true; } catch (e) { try { localStorage.removeItem("basira:rc"); } catch (x) {} return false; }
+}
+function rosterStudent(id) { for (const c of (ROSTER ? ROSTER.cls : [])) { const s = c.st.find(x => x.id === id); if (s) return { ...s, cls: c.id }; } return null; }
+function pickerHTML(lbl) { return `<div class="field"><label>الصف</label><select name="cls"><option value="">اختر الصف…</option>${ROSTER.cls.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select></div>
+  <div class="field"><label>${lbl || "اسم الطالبة"}</label><select name="sid" disabled><option value="">اختر الصف أولًا</option></select></div>`; }
+function bindPicker(root) { const cs = root.querySelector("[name=cls]"), ss = root.querySelector("[name=sid]");
+  cs.onchange = () => { const c = ROSTER.cls.find(x => x.id === cs.value);
+    ss.innerHTML = c ? `<option value="">اختر الاسم…</option>` + c.st.map(s => `<option value="${s.id}">${esc(s.n)}</option>`).join("") : `<option value="">اختر الصف أولًا</option>`; ss.disabled = !c; }; }
+async function withRoster(el, render) {
+  if (await rosterReady()) return render();
+  if (!RST.ct) { el.innerHTML = `<div class="msg bad">لم تُضف قوائم الصفوف بعد.</div>`; return; }
+  el.innerHTML = `<div class="field"><label>رمز الصفوف</label><div class="pinrow"><input name="rc" inputmode="numeric" maxlength="10" dir="ltr" placeholder="••••" autocomplete="off"><button type="button" class="pill-btn teal" data-unlock>افتح القوائم</button></div>
+    <p class="muted hint" style="margin:6px 0 0">رمز تعطيه المعلمة لحماية أسماء الطالبات، ويُطلب مرة واحدة على هذا الجهاز.</p><div data-gmsg></div></div>`;
+  const inp = el.querySelector("[name=rc]"), go = async () => { const b = el.querySelector("[data-unlock]"); b.disabled = true;
+    try { await unlockRoster(inp.value); render(); } catch (e) { b.disabled = false; msg(el.querySelector("[data-gmsg]"), "الرمز غير صحيح. اطلبه من المعلمة."); } };
+  el.querySelector("[data-unlock]").onclick = go; inp.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); go(); } };
+}
 function clsChips(cur, counts) { if (!RST.classes.length) return ""; return `<div class="nv-filters cls-f" role="toolbar" aria-label="الصف"><button class="chip-f" data-cls="" aria-pressed="${!cur}">كل الصفوف</button>${RST.classes.map(c => `<button class="chip-f" data-cls="${c.id}" aria-pressed="${cur === c.id}">${esc(c.name)}${counts ? ` <small>${counts(c)}</small>` : ""}</button>`).join("")}</div>`; }
-async function acctKey(name) { const m = await rosterMatch(name); return { m, key: m ? "r:" + m.id : nameKey(name) }; }
+async function acctKey(name) { return { m: null, key: nameKey(name) }; }
 const fbPass = pin => "Bz!" + pin + "#2026";
 const LOCAL_T_CODE = "1234";
 let ME = null;
-const ERR = { roster: "لم نجد هذا الاسم في قوائم الصفوف. اكتبي اسمك واسم أبيك واسم جدك كما في قائمة الصف (مثل: مريم سالم محمد)، أو اسمك واسم أبيك والقبيلة. إن لم ينجح فراجعي المعلمة.", exists: "هذا الاسم مسجّل من قبل. إن كان حسابك فاختر «تسجيل الدخول»، وإن كان لشخص آخر فأضف اسم الجد الثاني أو اللقب.", bad: "الاسم أو الرقم السري غير صحيح.", many: "محاولات كثيرة. انتظر دقائق ثم حاول مرة أخرى.", net: "تعذّر الاتصال بالإنترنت. تأكد من الشبكة ثم حاول مرة أخرى.", code: "رمز تفعيل لوحة المعلمة غير صحيح.", gone: "هذا الحساب حُذف من الموقع. تواصل مع المعلمة.", role: "" };
+const ERR = { roster: "تدخل الطالبة من صفحة «دخول الطالبات» باختيار صفها واسمها.", exists: "هذا الاسم مسجّل من قبل. إن كان حسابك فاختر «تسجيل الدخول»، وإن كان لشخص آخر فأضف اسم الجد الثاني أو اللقب.", bad: "الاسم أو الرقم السري غير صحيح.", many: "محاولات كثيرة. انتظر دقائق ثم حاول مرة أخرى.", net: "تعذّر الاتصال بالإنترنت. تأكد من الشبكة ثم حاول مرة أخرى.", code: "رمز تفعيل لوحة المعلمة غير صحيح.", gone: "هذا الحساب حُذف من الموقع. تواصل مع المعلمة.", role: "" };
 function fbErr(e) { const c = (e && e.code) || ""; if (c.includes("email-already-in-use")) return ERR.exists; if (/wrong-password|user-not-found|invalid-credential|invalid-login|invalid-email/.test(c)) return ERR.bad; if (c.includes("too-many")) return ERR.many; if (c.includes("network")) return ERR.net; if (c.includes("permission")) return ERR.code; return "حدث خطأ غير متوقع، حاول مرة أخرى."; }
 async function loadProfile(uid) {
   const p = await store.get("users", uid); if (!p) return null;
@@ -73,10 +100,10 @@ async function loadProfile(uid) {
   return { uid, ...p, admin };
 }
 const acct = {
-  async register(name, pin, role, code) {
-    name = normName(name); const { m, key } = await acctKey(name);
-    if (role === "student" && RST.classes.length && !m) throw new Error(ERR.roster);
-    const prof = { name, key, role, points: 0, createdAt: now() }; if (role === "student" && m) prof.cls = m.cls;
+  async register(name, pin, role, code, opt) {
+    name = normName(name); const key = opt && opt.key ? opt.key : nameKey(name);
+    if (role === "student" && !(opt && opt.key)) throw new Error(ERR.roster);
+    const prof = { name, key, role, points: 0, createdAt: now() }; if (opt && opt.cls) prof.cls = opt.cls;
     if (db) {
       let cred; try { cred = await auth.createUserWithEmailAndPassword(await fbEmail(key), fbPass(pin)); } catch (e) { throw new Error(fbErr(e)); }
       const uid = cred.user.uid;
@@ -92,8 +119,8 @@ const acct = {
     try { localStorage.setItem("basira:sess", uid); } catch (e) {}
     UID = uid; ME = await loadProfile(uid); return ME;
   },
-  async login(name, pin) {
-    name = normName(name); const { key } = await acctKey(name);
+  async login(name, pin, opt) {
+    name = normName(name); const key = opt && opt.key ? opt.key : nameKey(name);
     if (db) {
       let cred; try { cred = await auth.signInWithEmailAndPassword(await fbEmail(key), fbPass(pin)); } catch (e) { throw new Error(fbErr(e)); }
       UID = cred.user.uid; ME = await loadProfile(UID); if (!ME) { await auth.signOut(); UID = null; throw new Error(ERR.gone); } return ME;
@@ -321,6 +348,34 @@ function renderGame() {
 
 /* ================= AUTH FORMS ================= */
 /* authForm(el, {roles, fixed, teacher, title, onDone}) — login / new account with triple name + PIN */
+function studentAuth(el, onDone) {
+  let mode = "login";
+  const draw = () => {
+    el.innerHTML = `<h3 class="auth-t">دخول الطالبات</h3><div class="seg seg-main" role="tablist"><button type="button" data-m="login" aria-pressed="${mode === "login"}">دخول</button><button type="button" data-m="new" aria-pressed="${mode === "new"}">أول دخول</button></div><div data-body></div>`;
+    el.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { mode = b.dataset.m; draw(); });
+    const body = el.querySelector("[data-body]");
+    withRoster(body, () => {
+      body.innerHTML = `<form class="form" novalidate>${pickerHTML("اسمك")}
+        <div class="field"><label>${mode === "new" ? "اختاري رقمًا سريًّا (٤ أرقام أو أكثر)" : "الرقم السري"}</label><div class="pinrow"><input name="p" type="password" inputmode="numeric" maxlength="12" dir="ltr" autocomplete="${mode === "new" ? "new-password" : "current-password"}"><button type="button" class="eye" aria-label="إظهار الرقم السري">👁</button></div></div>
+        ${mode === "new" ? `<div class="field"><label>أعيدي كتابة الرقم السري</label><input name="p2" type="password" inputmode="numeric" maxlength="12" dir="ltr" autocomplete="new-password"></div>` : ""}
+        <button class="pill-btn orange big" type="submit" data-go>${mode === "new" ? "احفظي رقمي وادخلي" : "دخول"}</button><div data-msg></div>
+        <p class="muted hint">${mode === "new" ? "أول مرة فقط: اختاري صفك واسمك ورقمًا سريًّا تحفظينه، وبعدها تدخلين من «دخول»." : "يبقى الدخول محفوظًا على هذا الجهاز حتى تضغطي «خروج»."}</p></form>`;
+      const f = body.querySelector("form"), M = body.querySelector("[data-msg]"); bindPicker(f);
+      f.querySelector(".eye").onclick = () => { f.p.type = f.p.type === "password" ? "text" : "password"; };
+      f.onsubmit = async e => { e.preventDefault();
+        const s = rosterStudent(f.sid.value); if (!s) { msg(M, "اختاري صفك ثم اسمك من القائمة."); return; }
+        const pin = f.p.value.trim(), ep = checkPin(pin); if (ep) { msg(M, ep); f.p.focus(); return; }
+        if (mode === "new" && pin !== f.p2.value.trim()) { msg(M, "الرقمان السريان غير متطابقين."); f.p2.focus(); return; }
+        const btn = f.querySelector("[data-go]"), t0 = btn.textContent; btn.disabled = true; btn.textContent = "لحظة…";
+        try { const opt = { key: "r:" + s.id, cls: s.cls };
+          const me = mode === "new" ? await acct.register(s.n, pin, "student", "", opt) : await acct.login(s.n, pin, opt);
+          toast((mode === "new" ? "أهلًا " : "أهلًا بعودتك ") + me.name.split(" ")[0] + " · " + CLS(me.cls)); await refreshMe(); onDone && onDone(me); }
+        catch (err) { const m = err.message || ERR.bad; msg(M, mode === "new" && m === ERR.exists ? "دخلتِ بهذا الاسم من قبل. اضغطي «دخول» واكتبي رقمك السري، وإن نسيته فراجعي المعلمة." : m === ERR.bad ? "الرقم السري غير صحيح. إن كانت هذه أول مرة فاختاري «أول دخول»." : m); }
+        finally { if (btn.isConnected) { btn.disabled = false; btn.textContent = t0; } } };
+    });
+  };
+  draw();
+}
 function authForm(el, o) {
   let mode = o.mode || "login", role = o.fixed || (o.roles && o.roles[0]) || "student";
   const roleBtns = o.fixed ? "" : `<div class="field" data-rolef hidden><label>نوع الحساب</label><div class="seg">${(o.roles || ["student", "parent"]).map(r => `<button type="button" data-r="${r}" aria-pressed="${r === role}">${ROLE_AR[r]}</button>`).join("")}</div></div>`;
@@ -366,7 +421,7 @@ async function doLogout() { await acct.logout(); toast("خرجت من حسابك
 /* ================= ME (account page) ================= */
 async function refreshMe() {
   if (ME && UID) { try { const p = await loadProfile(UID); if (p) ME = p; } catch (e) {} }
-  $("#meTxt").textContent = ME ? ME.name.split(" ")[0] : "دخول / تسجيل";
+  $("#meTxt").textContent = ME ? ME.name.split(" ")[0] : "دخول";
   await Promise.all([myResults(), loadMyPoints()]); renderAxes();
   $("#fPts").textContent = isStu() ? ar(myTotal()) + " نقطة" : "سجّلي لتجمعي النقاط";
 }
@@ -374,8 +429,9 @@ async function loadAccount() {
   await refreshMe();
   const A = $("#regAuth"), I = $("#meInfo");
   if (!ME) {
-    authForm(A, { roles: ["student", "parent"], onDone: me => { location.hash = me.role === "parent" ? "parents" : me.role === "teacher" ? "teacher" : "register"; loadAccount(); } });
-    I.innerHTML = `<h3 style="font-size:20px;font-weight:900">لماذا أسجّل؟</h3><ul class="why"><li>تُحفظ نتائج اختباراتك وألعابك ونقاطك.</li><li>تتابع المعلمة تقدّمك في كل وحدة.</li><li>ترسلين تلخيصاتك فتصل للمعلمة باسمك.</li><li>يستطيع وليّ أمرك متابعتك بعد موافقة المعلمة.</li></ul>`;
+    studentAuth(A, () => { location.hash = "register"; loadAccount(); });
+    I.innerHTML = `<h3 style="font-size:20px;font-weight:900">كيف أدخل؟</h3><ul class="why"><li>اختاري صفك ثم اسمك من القائمة، فأسماء طالبات الصف مُدخلة مسبقًا.</li><li>في أول دخول اختاري رقمًا سريًّا تحفظينه، ثم ادخلي به كل مرة.</li><li>تُحفظ نتائجك ونقاطك وتلخيصاتك، وتتابعك المعلمة ووليّ أمرك.</li></ul>
+      <div class="row" style="margin-top:14px"><a class="pill-btn ghost" href="#parents">دخول أولياء الأمور</a><a class="pill-btn ghost" href="#teacher">لوحة المعلمة</a></div>`;
     return;
   }
   if (ME.role === "parent") { A.innerHTML = `<div class="msg ok">أنت مسجّل الدخول باسم «${esc(ME.name)}» (ولي أمر).</div><div class="row" style="margin-top:14px"><a class="pill-btn teal" href="#parents">صفحة المتابعة</a><button class="pill-btn ghost" data-out>خروج</button></div>`; }
@@ -628,43 +684,47 @@ async function loadParents() {
   $("#parHow").hidden = true; A.style.gridColumn = "1 / -1";
   A.innerHTML = `<div class="row" style="justify-content:space-between"><div><b style="font-size:19px">${esc(ME.name)}</b><br><span class="muted">ولي أمر</span></div><button class="mini" data-out>خروج</button></div>`;
   A.querySelector("[data-out]").onclick = doLogout;
-  let links = [], studs = [];
-  try { links = (await store.list("links", ["parentUid", UID])).sort(byTime); } catch (e) {}
-  try { studs = (await store.list("users", ["role", "student"])).sort((x, y) => x.name.localeCompare(y.name, "ar")); } catch (e) {}
-  const linked = new Set(links.map(l => l.studentUid));
+  let links = []; try { links = (await store.list("links", ["parentUid", UID])).sort(byTime); } catch (e) {}
   area.innerHTML = `<div class="grid2" style="margin-top:18px">
-    <div class="card"><h3 class="auth-t">اختر ابنتك</h3><p class="muted" style="margin:0 0 10px">أسماء الطالبات المسجّلات في الموقع. اختر ابنتك وأرسل الطلب، ثم تنتظر موافقة المعلمة.</p>
-      ${clsChips("")}<input class="search" id="stuQ" placeholder="ابحث بالاسم…" autocomplete="off">
-      <div class="list stu-pick" id="stuList"></div></div>
-    <div class="card"><h3 class="auth-t">طلباتي</h3><div class="list" id="myLinks">${links.length ? links.map(l => `<div class="li"><div class="grow"><b>${esc(l.studentName)}</b><br><span class="muted" style="font-size:13.5px">${fmtDate(l.createdAt)}</span></div><span class="status ${l.status}">${ST_AR[l.status]}</span></div>`).join("") : `<p class="muted">لم ترسل طلبًا بعد.</p>`}</div></div>
+    <div class="card"><h3 class="auth-t">اختر ابنتك</h3><p class="muted" style="margin:0 0 10px">اختر الصف ثم اسم ابنتك وأرسل الطلب. بعد موافقة المعلمة تظهر لك متابعتها أسفل الصفحة.</p><div id="pickBox"></div></div>
+    <div class="card"><h3 class="auth-t">طلباتي</h3><div class="list" id="myLinks">${links.length ? links.map(l => `<div class="li"><div class="grow"><b>${esc(l.studentName)}</b><br><span class="muted" style="font-size:13.5px">${l.cls ? esc(CLS(l.cls)) + " · " : ""}${fmtDate(l.createdAt)}</span></div><span class="status ${l.status}">${ST_AR[l.status]}</span></div>`).join("") : `<p class="muted">لم ترسل طلبًا بعد.</p>`}</div></div>
   </div><div id="follow"></div>`;
-  let pc = "";
-  const draw = q => { const k = nameKey(q || ""); const f = studs.filter(x => (!pc || x.cls === pc) && (!k || nameKey(x.name).includes(k)));
-    $("#stuList").innerHTML = f.length ? f.slice(0, 60).map(x => `<div class="li"><div class="grow"><b>${esc(x.name)}</b>${x.cls ? `<br><span class="muted" style="font-size:13px">${esc(CLS(x.cls))}</span>` : ""}</div>${linked.has(x.id) ? `<span class="muted" style="font-size:13px">أُرسل الطلب</span>` : `<button class="mini o" data-sid="${x.id}">هذه ابنتي</button>`}</div>`).join("") : `<p class="muted">${studs.length ? "لا يوجد اسم مطابق." : "لم تسجّل أي طالبة بعد."}</p>`;
-    $$("#stuList [data-sid]").forEach(b => b.onclick = async () => { const st = studs.find(x => x.id === b.dataset.sid); if (!st) return; b.disabled = true;
-      try { await store.set("links", UID + "_" + st.id, { parentUid: UID, parentName: ME.name, studentUid: st.id, studentName: st.name, studentCls: st.cls || "", status: "pending", createdAt: now() }); toast("أُرسل الطلب إلى المعلمة"); loadParents(); }
-      catch (e) { b.disabled = false; toast("لم يُرسل الطلب، حاول مرة أخرى"); } }); };
-  draw(""); $("#stuQ").oninput = e => draw(e.target.value);
-  $$("#parentArea [data-cls]").forEach(b => b.onclick = () => { pc = b.dataset.cls; $$("#parentArea [data-cls]").forEach(x => x.setAttribute("aria-pressed", x === b)); draw($("#stuQ").value); });
+  const pb = $("#pickBox");
+  withRoster(pb, () => {
+    pb.innerHTML = `<form class="form" novalidate>${pickerHTML("اسم ابنتك")}<button class="pill-btn orange" type="submit">هذه ابنتي، أرسل الطلب</button><div data-msg></div></form>`;
+    const f = pb.querySelector("form"), M = f.querySelector("[data-msg]"); bindPicker(f);
+    f.onsubmit = async e => { e.preventDefault(); const st = rosterStudent(f.sid.value); if (!st) { msg(M, "اختر الصف ثم اسم ابنتك."); return; }
+      const skey = "r:" + st.id; if (links.some(l => l.skey === skey)) { msg(M, "أرسلت طلبًا لهذا الاسم من قبل، وتجده في «طلباتي»."); return; }
+      const btn = f.querySelector("button[type=submit]"); btn.disabled = true;
+      try { await store.set("links", UID + "_" + skey, { parentUid: UID, parentName: ME.name, skey, studentName: st.n, cls: st.cls, status: "pending", createdAt: now() }); toast("أُرسل الطلب إلى المعلمة"); loadParents(); }
+      catch (err) { btn.disabled = false; msg(M, "لم يُرسل الطلب، حاول مرة أخرى."); } };
+  });
   const ok = links.filter(l => l.status === "approved");
   for (const l of ok) await showFollow(l);
 }
+const PK_AR = { novel: "قرأت رواية", novelq: "أجابت أسئلة الرواية كلها", book: "قرأت كتابًا", game: "أنهت لعبة الوحدة", test: "حلّت الاختبار التدريبي", testx: "أتقنت الاختبار (٨٥٪ فأكثر)", act: "حلّت نشاطًا" };
 async function showFollow(l) {
   const box = document.createElement("div"); box.className = "card"; box.style.marginTop = "18px"; $("#follow").appendChild(box);
-  let st = null, notes = [], res = [];
-  try { st = await store.get("users", l.studentUid); } catch (e) {}
-  let stS = 0, nRead = 0; try { const sc = await store.get("scores", l.studentUid); stS = (sc && sc.total) || 0; } catch (e) {}
-  try { nRead = (await store.list("points", ["uid", l.studentUid])).filter(p => p.kind === "novel" || p.kind === "book").length; } catch (e) {}
-  try { res = (await store.list("results", ["uid", l.studentUid])).sort(byTime); } catch (e) {}
-  try { notes = (await store.list("notes", ["sid", l.studentUid])).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)); } catch (e) {}
-  const tests = res.filter(r => r.kind === "test"), games = res.filter(r => r.kind === "game");
-  box.innerHTML = `<div class="row" style="justify-content:space-between"><h3 style="font-size:22px;font-weight:900">متابعة ${esc(l.studentName)}</h3><span class="stars" style="font-size:18px">نقاط البصيرة: ${ar(((st && st.points) || 0) + stS)} ★</span></div>
-  <div class="mestats"><div><b>${ar(nRead)}</b><span>رواية وكتاب</span></div><div><b>${ar(tests.length)}</b><span>اختبار تدريبي</span></div><div><b>${ar(games.length)}</b><span>لعبة</span></div><div><b>${tests.length ? ar(Math.round(tests.reduce((s, r) => s + r.score / r.total, 0) / tests.length * 100)) + "٪" : "—"}</b><span>متوسط الاختبارات</span></div></div>
-  <div class="sub-h" style="margin-top:14px">نتائج الاختبارات التدريبية</div>${tests.length ? `<div class="tbl"><table class="res-table"><thead><tr><th>الوحدة</th><th>الدرجة</th><th>التاريخ</th></tr></thead><tbody>${tests.map(r => { const u = UNITS.find(x => x.id === r.unit); return `<tr><td>${u ? esc(u.theme) : ""}</td><td><b>${ar(r.score)}/${ar(r.total)}</b></td><td>${fmtDate(r.createdAt)}</td></tr>`; }).join("")}</tbody></table></div>` : `<p class="muted">لم تحلّ اختبارًا بعد.</p>`}
-  <div class="sub-h" style="margin-top:14px">ملاحظات المعلمة</div><div class="notes">${notes.length ? notes.map(n => `<div class="bubble ${n.from === "parent" ? "p" : "t"}"><small>${n.from === "parent" ? "أنت" : "أ. عائشة الكحالي"} · ${fmtDate(n.createdAt)}</small>${esc(n.text)}</div>`).join("") : `<p class="muted">لا توجد ملاحظات بعد.</p>`}</div>
-  <form class="form" style="margin-top:14px"><div class="field"><label>ملاحظة للمعلمة</label><textarea maxlength="600" style="min-height:80px" required></textarea></div><button class="pill-btn teal" type="submit">أرسل الملاحظة</button></form>`;
+  const head = `<div class="row" style="justify-content:space-between;align-items:center"><div><h3 style="font-size:22px;font-weight:900;margin:0">متابعة ${esc(l.studentName)}</h3><span class="muted">${l.cls ? "الصف " + esc(CLS(l.cls)) : ""}</span></div>`;
+  let st = null; try { st = (await store.list("users", ["key", l.skey || ""]))[0] || null; } catch (e) {}
+  if (!st) { box.innerHTML = head + `</div><p class="muted" style="margin:12px 0 0">لم تدخل ابنتك الموقع بحسابها بعد. حين تدخل من «دخول الطالبات» وتحلّ الأنشطة والاختبارات تظهر نتائجها وملاحظات المعلمة هنا.</p>`; return; }
+  const sid = st.id; let notes = [], res = [], pts = [], sc = 0;
+  try { const x = await store.get("scores", sid); sc = (x && x.total) || 0; } catch (e) {}
+  try { pts = (await store.list("points", ["uid", sid])).sort(byTime); } catch (e) {}
+  try { res = (await store.list("results", ["uid", sid])).sort(byTime); } catch (e) {}
+  try { notes = (await store.list("notes", ["sid", sid])).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)); } catch (e) {}
+  const tests = res.filter(r => r.kind === "test"), games = res.filter(r => r.kind === "game"), total = sc + (st.points || 0);
+  const avg = tests.length ? Math.round(tests.reduce((s, r) => s + r.score / r.total, 0) / tests.length * 100) : null;
+  const uName = id => { const u = UNITS.find(x => x.id === id); return u ? u.theme : ""; };
+  box.innerHTML = head + `<span class="stars" style="font-size:20px">${ar(total)} نقطة ★</span></div>
+  <div class="mestats"><div><b>${ar(total)}</b><span>نقطة</span></div><div><b>${ar(pts.filter(p => p.kind === "act").length)}</b><span>نشاطًا محلولًا</span></div><div><b>${ar(tests.length)}</b><span>اختبارًا</span></div><div><b>${avg != null ? ar(avg) + "٪" : "—"}</b><span>متوسط الدرجات</span></div></div>
+  <div class="sub-h" style="margin-top:16px">ملاحظات المعلمة</div><div class="notes">${notes.length ? notes.map(n => `<div class="bubble ${n.from === "parent" ? "p" : "t"}"><small>${n.from === "parent" ? "أنت" : "المعلمة"} · ${fmtDate(n.createdAt)}</small>${esc(n.text)}</div>`).join("") : `<p class="muted">لا توجد ملاحظات بعد.</p>`}</div>
+  <div class="sub-h" style="margin-top:16px">الاختبارات التدريبية: الدرجات والتصحيح</div>${tests.length ? `<div class="tbl"><table class="res-table"><thead><tr><th>الوحدة</th><th>الدرجة</th><th>النسبة</th><th>التاريخ</th></tr></thead><tbody>${tests.map(r => { const pc = Math.round(r.score / r.total * 100); return `<tr><td>${esc(uName(r.unit))}</td><td><b>${ar(r.score)} من ${ar(r.total)}</b></td><td><span class="status ${pc >= 85 ? "approved" : pc >= 60 ? "pending" : "rejected"}">${ar(pc)}٪</span></td><td>${fmtDate(r.createdAt)}</td></tr>`; }).join("")}</tbody></table></div>` : `<p class="muted">لم تحلّ اختبارًا تدريبيًّا بعد.</p>`}
+  ${games.length ? `<div class="sub-h" style="margin-top:16px">الألعاب</div><div class="tbl"><table class="res-table"><thead><tr><th>لعبة الوحدة</th><th>النتيجة</th><th>التاريخ</th></tr></thead><tbody>${games.slice(0, 12).map(r => `<tr><td>${esc(uName(r.unit))}</td><td><b>${ar(r.score)} من ${ar(r.total)}</b></td><td>${fmtDate(r.createdAt)}</td></tr>`).join("")}</tbody></table></div>` : ""}
+  <div class="sub-h" style="margin-top:16px">ما أنجزته وحصلت به على نقاط</div>${pts.length ? `<div class="pts-log">${pts.slice(0, 30).map(p => `<div><span>${PTS_IC[p.kind] || "⭐"}</span><span class="grow">${esc(PK_AR[p.kind] || "")}${p.label ? `: ${esc(p.label)}` : ""} <small class="muted">${fmtDate(p.createdAt)}</small></span><b>${plus(p.pts)}</b></div>`).join("")}</div>` : `<p class="muted">لم تجمع نقاطًا بعد.</p>`}
+  <form class="form" style="margin-top:16px"><div class="field"><label>ملاحظة للمعلمة</label><textarea maxlength="600" style="min-height:80px" required></textarea></div><button class="pill-btn teal" type="submit">أرسل الملاحظة</button></form>`;
   box.querySelector("form").onsubmit = async e => { e.preventDefault(); const t = box.querySelector("textarea").value.trim(); if (!t) return;
-    try { await store.add("notes", { sid: l.studentUid, from: "parent", uid: UID, pname: ME.name, text: t, createdAt: now() }); toast("وصلت ملاحظتك"); box.remove(); showFollow(l); } catch (err) { toast("لم تُرسل الملاحظة"); } };
+    try { await store.add("notes", { sid, from: "parent", uid: UID, pname: ME.name, text: t, createdAt: now() }); toast("وصلت ملاحظتك"); box.remove(); showFollow(l); } catch (err) { toast("لم تُرسل الملاحظة"); } };
 }
 
 /* ================= TEACHER ================= */
@@ -692,7 +752,7 @@ async function tStudents() {
   let sc = {}; try { (await store.list("scores")).forEach(x => sc[x.id] = x.total || 0); } catch (e) {}
   $("#stuNames").innerHTML = st.map(s => `<option value="${esc(s.name)}">`).join("");
   const cnt = c => ar(st.filter(x => x.cls === c.id).length) + "/" + ar(c.n);
-  const head = clsChips(tCls, cnt) + (RST.classes.length ? `<p class="muted" style="margin:0 0 6px">${tCls ? `${esc(CLS(tCls))}: سجّلت ${ar(st.filter(x => x.cls === tCls).length)} من ${ar((RST.classes.find(c => c.id === tCls) || {}).n || 0)} طالبة` : `سجّلت ${ar(st.length)} من ${ar(RST.classes.reduce((a, c) => a + c.n, 0))} طالبة في ${ar(RST.classes.length)} صفوف`}. تسجّل الطالبة باسمها كما في قائمة صفها، فيُضاف صفها تلقائيًّا.</p>` : "");
+  const head = clsChips(tCls, cnt) + (RST.classes.length ? `<p class="muted" style="margin:0 0 6px">${tCls ? `${esc(CLS(tCls))}: دخلت ${ar(st.filter(x => x.cls === tCls).length)} من ${ar((RST.classes.find(c => c.id === tCls) || {}).n || 0)} طالبة` : `دخلت ${ar(st.length)} من ${ar(RST.classes.reduce((a, c) => a + c.n, 0))} طالبة في ${ar(RST.classes.length)} صفوف`}. أسماء الطالبات مُدخلة بصفوفهن، وتدخل الطالبة باختيار صفها واسمها. رمز الصفوف للطالبات وأولياء الأمور: <b dir="ltr">${esc((() => { try { return localStorage.getItem("basira:rc") || "—"; } catch (e) { return "—"; } })())}</b></p>` : "");
   const bind = () => $$("#tStu [data-cls]").forEach(b => b.onclick = () => { tCls = b.dataset.cls; tStudents(); });
   if (tCls) st = st.filter(x => x.cls === tCls);
   if (!st.length) { el.innerHTML = head + `<div class="empty"><b>لم تسجّل أي طالبة ${tCls ? "من هذا الصف " : ""}بعد</b>شاركي رابط الموقع مع الطالبات ليسجّلن أسماءهن.</div>`; bind(); return; }
@@ -717,7 +777,7 @@ async function tRequests() {
   const el = $("#tReq"); let r = []; try { r = (await store.list("links")).sort((a, b) => (a.status === "pending" ? -1 : 0) - (b.status === "pending" ? -1 : 0) || byTime(a, b)); } catch (e) {}
   if (!r.length) { el.innerHTML = `<div class="empty"><b>لا توجد طلبات</b>حين يسجّل وليّ أمر ويختار ابنته يظهر طلبه هنا لتوافقي عليه أو ترفضيه.</div>`; return; }
   const L = { pending: "بانتظار الموافقة", approved: "موافَق", rejected: "مرفوض" };
-  el.innerHTML = r.map(x => `<div class="li" data-r="${x.id}"><div class="grow"><b>${esc(x.parentName)}</b> <span class="muted">(ولي أمر)</span><br><span style="font-size:14.5px">يطلب متابعة الطالبة: <b>${esc(x.studentName)}</b>${x.studentCls ? ` · ${esc(CLS(x.studentCls))}` : ""}</span><br><span class="muted" style="font-size:13px">${fmtDate(x.createdAt)}</span></div><span class="status ${x.status}">${L[x.status]}</span>${x.status !== "approved" ? '<button class="mini ok" data-a="approved">موافقة</button>' : ""}${x.status !== "rejected" ? '<button class="mini no" data-a="rejected">رفض</button>' : ""}</div>`).join("");
+  el.innerHTML = r.map(x => `<div class="li" data-r="${x.id}"><div class="grow"><b>${esc(x.parentName)}</b> <span class="muted">(ولي أمر)</span><br><span style="font-size:14.5px">يطلب متابعة الطالبة: <b>${esc(x.studentName)}</b>${(x.cls || x.studentCls) ? ` · ${esc(CLS(x.cls || x.studentCls))}` : ""}</span><br><span class="muted" style="font-size:13px">${fmtDate(x.createdAt)}</span></div><span class="status ${x.status}">${L[x.status]}</span>${x.status !== "approved" ? '<button class="mini ok" data-a="approved">موافقة</button>' : ""}${x.status !== "rejected" ? '<button class="mini no" data-a="rejected">رفض</button>' : ""}</div>`).join("");
   el.querySelectorAll("[data-a]").forEach(b => b.onclick = async () => { b.disabled = true; try { await store.update("links", b.closest("[data-r]").dataset.r, { status: b.dataset.a, decidedAt: now() }); toast(b.dataset.a === "approved" ? "تمت الموافقة، يستطيع وليّ الأمر المتابعة الآن" : "رُفض الطلب"); } catch (e) { toast("لم يُحفظ القرار"); } tRequests(); badges(); });
 }
 async function tSummaries() {
