@@ -1,0 +1,5 @@
+# Netlify: يُنشر منه موقع البصيرة فقط (ملفات جاهزة لا تحتاج تثبيتًا ولا بناءً)
+[build]
+  base = "docs/basira"
+  publish = "."
+  command = "echo 'Basira: static site, nothing to build'"
