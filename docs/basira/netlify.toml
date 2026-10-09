@@ -1,0 +1,4 @@
+# Netlify: موقع البصيرة ملفات جاهزة (يُقرأ هذا الملف حين يكون Base directory = docs/basira)
+[build]
+  publish = "."
+  command = "echo 'Basira: static site, nothing to build'"
