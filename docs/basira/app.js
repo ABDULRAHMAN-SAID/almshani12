@@ -24,14 +24,16 @@ const DEFAULT_SITE = {
 const cfg = window.BASIRA || {}; const hasFB = !!(cfg.firebase && cfg.firebase.apiKey && window.firebase);
 let db = null, auth = null, UID = null, IS_T = false;
 const LS = { k: c => "basira:" + c, all(c) { try { return JSON.parse(localStorage.getItem(this.k(c)) || "{}"); } catch (e) { return {}; } }, save(c, o) { try { localStorage.setItem(this.k(c), JSON.stringify(o)); } catch (e) {} } };
+/* Firestore never gives up on a write when the database is missing, so every call gets a time limit */
+const TO = (p, ms) => Promise.race([p, new Promise((_, r) => setTimeout(() => r({ code: "timeout" }), ms || 15000))]);
 const store = {
-  async list(c, f) { if (db) { let q = db.collection(P + c); if (f) q = q.where(f[0], "==", f[1]); const s = await q.get(); return s.docs.map(d => ({ id: d.id, ...d.data() })); }
+  async list(c, f) { if (db) { let q = db.collection(P + c); if (f) q = q.where(f[0], "==", f[1]); const s = await TO(q.get()); return s.docs.map(d => ({ id: d.id, ...d.data() })); }
     return Object.entries(LS.all(c)).map(([id, v]) => ({ id, ...v })).filter(r => !f || r[f[0]] === f[1]); },
-  async get(c, id) { if (db) { const d = await db.collection(P + c).doc(id).get(); return d.exists ? { id: d.id, ...d.data() } : null; } const o = LS.all(c); return o[id] ? { id, ...o[id] } : null; },
-  async set(c, id, v) { if (db) return db.collection(P + c).doc(id).set(v); const o = LS.all(c); o[id] = v; LS.save(c, o); },
-  async add(c, v) { if (db) { const r = await db.collection(P + c).add(v); return r.id; } const id = Math.random().toString(36).slice(2, 12); await this.set(c, id, v); return id; },
-  async update(c, id, v) { if (db) return db.collection(P + c).doc(id).update(v); const o = LS.all(c); o[id] = { ...o[id], ...v }; LS.save(c, o); },
-  async del(c, id) { if (db) return db.collection(P + c).doc(id).delete(); const o = LS.all(c); delete o[id]; LS.save(c, o); }
+  async get(c, id) { if (db) { const d = await TO(db.collection(P + c).doc(id).get()); return d.exists ? { id: d.id, ...d.data() } : null; } const o = LS.all(c); return o[id] ? { id, ...o[id] } : null; },
+  async set(c, id, v) { if (db) return TO(db.collection(P + c).doc(id).set(v)); const o = LS.all(c); o[id] = v; LS.save(c, o); },
+  async add(c, v) { if (db) { const r = await TO(db.collection(P + c).add(v)); return r.id; } const id = Math.random().toString(36).slice(2, 12); await this.set(c, id, v); return id; },
+  async update(c, id, v) { if (db) return TO(db.collection(P + c).doc(id).update(v)); const o = LS.all(c); o[id] = { ...o[id], ...v }; LS.save(c, o); },
+  async del(c, id) { if (db) return TO(db.collection(P + c).doc(id).delete()); const o = LS.all(c); delete o[id]; LS.save(c, o); }
 };
 const byTime = (a, b) => (b.createdAt || 0) - (a.createdAt || 0);
 
@@ -92,10 +94,12 @@ async function acctKey(name) { return { m: null, key: nameKey(name) }; }
 const fbPass = pin => "Bz!" + pin + "#2026";
 const LOCAL_T_CODE = "1234";
 let ME = null;
-const ERR = { roster: "تدخل الطالبة من صفحة «دخول الطالبات» باختيار صفها واسمها.", exists: "هذا الاسم مسجّل من قبل. إن كان حسابك فاختر «تسجيل الدخول»، وإن كان لشخص آخر فأضف اسم الجد الثاني أو اللقب.", bad: "الاسم أو الرقم السري غير صحيح.", many: "محاولات كثيرة. انتظر دقائق ثم حاول مرة أخرى.", net: "تعذّر الاتصال بالإنترنت. تأكد من الشبكة ثم حاول مرة أخرى.", code: "رمز تفعيل لوحة المعلمة غير صحيح.", gone: "هذا الحساب حُذف من الموقع. تواصل مع المعلمة.", role: "" };
-function fbErr(e) { const c = (e && e.code) || ""; if (c.includes("email-already-in-use")) return ERR.exists; if (/wrong-password|user-not-found|invalid-credential|invalid-login|invalid-email/.test(c)) return ERR.bad; if (c.includes("too-many")) return ERR.many; if (c.includes("network")) return ERR.net; if (c.includes("permission")) return ERR.code; return "حدث خطأ غير متوقع، حاول مرة أخرى."; }
+const ERR = { roster: "تدخل الطالبة من صفحة «دخول الطالبات» باختيار صفها واسمها.", exists: "هذا الاسم مسجّل من قبل. إن كان حسابك فاختر «تسجيل الدخول»، وإن كان لشخص آخر فأضف اسم الجد الثاني أو اللقب.", bad: "الاسم أو الرقم السري غير صحيح.", many: "محاولات كثيرة. انتظر دقائق ثم حاول مرة أخرى.", net: "تعذّر الاتصال بالإنترنت. تأكد من الشبكة ثم حاول مرة أخرى.", code: "رمز تفعيل لوحة المعلمة غير صحيح.", gone: "لم يكتمل إنشاء هذا الحساب. اختر «حساب جديد» واكتب الاسم والرقم السري نفسيهما لإكماله.", role: "" };
+const ERR_DB = "تعذّر الاتصال بقاعدة البيانات. على صاحب الموقع التأكد من إنشاء Firestore Database في مشروع Firebase.";
+const ERR_RULES = "رفضت قاعدة البيانات الحفظ. على صاحب الموقع نشر القواعد (Rules) في Firestore.";
+function fbErr(e) { const c = (e && e.code) || ""; if (c === "timeout" || c.includes("unavailable") || c.includes("failed-precondition")) return ERR_DB; if (c.includes("operation-not-allowed") || c.includes("configuration-not-found")) return "الدخول بالبريد وكلمة المرور غير مفعّل في Firebase (Authentication ← Sign-in method ← Email/Password)."; if (c.includes("email-already-in-use")) return ERR.exists; if (/wrong-password|user-not-found|invalid-credential|invalid-login|invalid-email/.test(c)) return ERR.bad; if (c.includes("too-many")) return ERR.many; if (c.includes("network")) return ERR.net; if (c.includes("permission")) return ERR_RULES; return "حدث خطأ غير متوقع، حاول مرة أخرى." + (c ? " (" + c + ")" : ""); }
 async function loadProfile(uid) {
-  const p = await store.get("users", uid); if (!p) return null;
+  let p; try { p = await store.get("users", uid); } catch (e) { throw new Error(fbErr(e)); } if (!p) return null;
   let admin = false; if (p.role === "teacher") { try { admin = !!(await store.get("admins", uid)); } catch (e) {} }
   return { uid, ...p, admin };
 }
@@ -105,10 +109,20 @@ const acct = {
     if (role === "student" && !(opt && opt.key)) throw new Error(ERR.roster);
     const prof = { name, key, role, points: 0, createdAt: now() }; if (opt && opt.cls) prof.cls = opt.cls;
     if (db) {
-      let cred; try { cred = await auth.createUserWithEmailAndPassword(await fbEmail(key), fbPass(pin)); } catch (e) { throw new Error(fbErr(e)); }
+      const email = await fbEmail(key); let cred, fresh = true;
+      try { cred = await TO(auth.createUserWithEmailAndPassword(email, fbPass(pin))); }
+      catch (e) {
+        if (!String(e.code || "").includes("email-already-in-use")) throw new Error(fbErr(e));
+        /* the sign-in exists but its profile may never have been saved (e.g. the database was not ready): finish it */
+        try { cred = await TO(auth.signInWithEmailAndPassword(email, fbPass(pin))); } catch (x) { throw new Error(ERR.exists); }
+        let had = null; try { had = await store.get("users", cred.user.uid); } catch (x) { throw new Error(fbErr(x)); }
+        if (had) { await auth.signOut(); throw new Error(ERR.exists); }
+        fresh = false;
+      }
       const uid = cred.user.uid;
-      try { const b = db.batch(); if (role === "teacher") b.set(db.collection(P + "admins").doc(uid), { key: String(code || ""), createdAt: now() }); b.set(db.collection(P + "users").doc(uid), prof); await b.commit(); }
-      catch (e) { try { await cred.user.delete(); } catch (x) {} throw new Error(role === "teacher" ? ERR.code : fbErr(e)); }
+      try { const b = db.batch(); if (role === "teacher") b.set(db.collection(P + "admins").doc(uid), { key: String(code || ""), createdAt: now() }); b.set(db.collection(P + "users").doc(uid), prof); await TO(b.commit()); }
+      catch (e) { const c = String(e.code || ""); if (fresh) { try { await cred.user.delete(); } catch (x) {} } else { try { await auth.signOut(); } catch (x) {} }
+        throw new Error(role === "teacher" && c.includes("permission") ? ERR.code + " (أو أن القواعد لم تُنشر في Firestore)" : fbErr(e)); }
       UID = uid; ME = await loadProfile(uid); return ME;
     }
     const users = LS.all("users"); if (Object.values(users).some(u => u.key === key)) throw new Error(ERR.exists);
@@ -122,8 +136,8 @@ const acct = {
   async login(name, pin, opt) {
     name = normName(name); const key = opt && opt.key ? opt.key : nameKey(name);
     if (db) {
-      let cred; try { cred = await auth.signInWithEmailAndPassword(await fbEmail(key), fbPass(pin)); } catch (e) { throw new Error(fbErr(e)); }
-      UID = cred.user.uid; ME = await loadProfile(UID); if (!ME) { await auth.signOut(); UID = null; throw new Error(ERR.gone); } return ME;
+      let cred; try { cred = await TO(auth.signInWithEmailAndPassword(await fbEmail(key), fbPass(pin))); } catch (e) { throw new Error(fbErr(e)); }
+      UID = cred.user.uid; try { ME = await loadProfile(UID); } catch (e) { await auth.signOut(); UID = null; throw e; } if (!ME) { await auth.signOut(); UID = null; throw new Error(ERR.gone); } return ME;
     }
     const ph = await sha(pin + "|" + key); const hit = Object.entries(LS.all("users")).find(([, u]) => u.key === key && u.ph === ph);
     if (!hit) throw new Error(ERR.bad);
@@ -522,7 +536,7 @@ async function pinHash(sid, pin) {
 const digits = v => String(v || "").replace(/[٠-٩]/g, d => AR.indexOf(d)).replace(/\s+/g, "");
 async function studentLogin(s, pin) {
   const opt = { key: "r:" + s.id, cls: s.cls };
-  try { return await acct.login(s.n, pin, opt); } catch (e) { if (e.message !== ERR.bad) throw e; }
+  try { return await acct.login(s.n, pin, opt); } catch (e) { if (e.message !== ERR.bad && e.message !== ERR.gone) throw e; }
   if (!s.h || (await pinHash(s.id, pin)) !== s.h) throw new Error("الرقم السري غير صحيح. تأكدي منه في الورقة التي أعطتك إياها المعلمة.");
   try { return await acct.register(s.n, pin, "student", "", opt); }
   catch (e) { if (e.message === ERR.exists) throw new Error("تعذّر الدخول بهذا الرقم. راجعي المعلمة."); throw e; }
