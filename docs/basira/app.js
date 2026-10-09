@@ -224,7 +224,8 @@ function quizEditor(el, R) {
 }
 
 /* ---------- AI: a PDF or photos of a paper test become an electronic quiz (Gemini via Firebase AI Logic) ---------- */
-const AI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash"];
+/* stable long-term model first; if Google retires one, its 404 names the replacement and we try that too */
+const AI_MODELS = ["gemini-3.5-flash", "gemini-3.8-flash", "gemini-3.1-flash-lite"];
 const fileB64 = f => new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(",")[1]); fr.onerror = rej; fr.readAsDataURL(f); });
 const AI_PROMPT = `أنت مساعد لمعلمة لغة عربية. المرفق ورقة اختبار (ملف PDF أو صور صفحاته). حوّل الورقة إلى اختبار إلكتروني من نوع الاختيار من متعدد.
 القواعد:
@@ -274,13 +275,14 @@ async function aiQuizFromFiles(files, fb) {
   if (size > 18e6) throw new Error("حجم الملفات كبير. قلّلي عدد الصور أو قسّمي الاختبار.");
   parts.push({ text: AI_PROMPT });
   const body = JSON.stringify({ contents: [{ role: "user", parts }], generationConfig: { responseMimeType: "application/json", responseSchema: AI_SCHEMA, temperature: 0.2 } });
-  let last = null;
-  for (const m of AI_MODELS) {
+  let last = null; const queue = AI_MODELS.slice(), tried = new Set();
+  while (queue.length) { const m = queue.shift(); if (tried.has(m)) continue; tried.add(m);
     let r; try { r = await fetch(`https://firebasevertexai.googleapis.com/v1beta/projects/${encodeURIComponent(fb.projectId)}/models/${m}:generateContent`, { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": fb.apiKey, "x-goog-api-client": "gl-js/2.16.0 fire/2.16.0" }, body }); }
     catch (e) { throw new Error(aiErr(null)); }
-    if (r.ok) { const j = await r.json(); const c = (j.candidates || [])[0] || {}; const txt = ((c.content || {}).parts || []).map(p => p.text || "").join(""); if (!txt) throw new Error("لم يرجع الذكاء الاصطناعي أسئلة. جرّبي صورًا أوضح."); return parseAiQuiz(txt); }
+    if (r.ok) { const j = await r.json(); const c = (j.candidates || [])[0] || {}; const txt = ((c.content || {}).parts || []).filter(p => !p.thought).map(p => p.text || "").join(""); if (!txt) throw new Error("لم يرجع الذكاء الاصطناعي أسئلة. جرّبي صورًا أوضح."); return parseAiQuiz(txt); }
     last = { status: r.status }; try { const e = await r.json(); last.msg = e.error && e.error.message; last.details = e.error && e.error.details; } catch (x) {}
     if (r.status !== 404) break;
+    const sug = String(last.msg || "").match(/models\/(gemini-[\w.-]+)/g); if (sug) sug.map(x => x.slice(7).replace(/\.+$/, "")).filter(x => !tried.has(x)).reverse().forEach(x => queue.unshift(x));
   }
   throw new Error(aiErr(last));
 }
