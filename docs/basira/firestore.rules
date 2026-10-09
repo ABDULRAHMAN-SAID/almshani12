@@ -80,7 +80,7 @@ service cloud.firestore {
         && request.resource.data.ref is string && request.resource.data.ref.size() <= 40
         && request.resource.data.label is string && request.resource.data.label.size() <= 80
         && pid == me() + '_' + request.resource.data.kind + '_' + request.resource.data.ref
-        && request.resource.data.pts == {'novel': 30, 'novelq': 10, 'book': 20, 'game': 10, 'test': 10, 'testx': 10, 'act': 2}.get(request.resource.data.kind, -1);
+        && request.resource.data.pts == {'novel': 30, 'novelq': 10, 'book': 20, 'game': 10, 'test': 10, 'testx': 10, 'act': 2, 'quiz': 15}.get(request.resource.data.kind, -1);
       allow update: if false;
       allow delete: if isTeacher();
     }
@@ -102,6 +102,29 @@ service cloud.firestore {
         && !exists(ptsDoc(request.resource.data.last))
         && getAfter(ptsDoc(request.resource.data.last)).data.uid == uid
         && request.resource.data.total == resource.data.total + getAfter(ptsDoc(request.resource.data.last)).data.pts;
+      allow delete: if isTeacher();
+    }
+
+    // تقييم المعلمة لكل طالبة (معرّفه مفتاح الطالبة في قائمة الصف): تراه الطالبة نفسها ووليّ أمرها الموافَق عليه
+    function selfKey(k) { return signedIn() && get(/databases/$(database)/documents/basira_users/$(me())).data.key == k; }
+    function parentOfKey(k) { return signedIn() && exists(/databases/$(database)/documents/basira_links/$(me() + '_' + k))
+        && get(/databases/$(database)/documents/basira_links/$(me() + '_' + k)).data.status == 'approved'; }
+    match /basira_evals/{k} {
+      allow read: if isTeacher() || selfKey(k) || parentOfKey(k);
+      allow write: if isTeacher();
+    }
+
+    // اختبارات المعلمة وإعلاناتها: يقرؤها من سجّل الدخول، وتكتبها المعلمة
+    match /basira_quizzes/{id} { allow read: if signedIn(); allow write: if isTeacher(); }
+    match /basira_ann/{id}     { allow read: if signedIn(); allow write: if isTeacher(); }
+
+    // إجابات الطالبات في اختبارات المعلمة: محاولة واحدة لكل اختبار (المعرّف = الاختبار_الطالبة)
+    match /basira_qres/{id} {
+      allow read: if isTeacher() || (signedIn() && resource.data.uid == me()) || approvedParentOf(resource.data.uid);
+      allow create: if signedIn() && myRole() == 'student' && request.resource.data.uid == me()
+        && id == request.resource.data.qid + '_' + me()
+        && exists(/databases/$(database)/documents/basira_quizzes/$(request.resource.data.qid));
+      allow update: if false;
       allow delete: if isTeacher();
     }
 

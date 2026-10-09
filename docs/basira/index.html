@@ -18,6 +18,7 @@
       <a href="#units">الوحدات</a>
       <a href="#games">الألعاب</a>
       <a href="#read">اقرئي</a>
+      <a href="#tasks">من المعلمة</a>
       <a href="#leaders">المتصدرات</a>
       <a href="#library">المكتبة</a>
       <a href="#posts">المشاركات</a>
@@ -126,6 +127,12 @@
   <div id="reader" hidden></div>
 </section>
 
+<!-- ================= FROM THE TEACHER ================= -->
+<section class="view" id="v-tasks" hidden>
+  <div class="page-h"><span class="ico" style="background:var(--teal);color:#fff"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16v11H8l-4 4z"/><path d="M8 9h8M8 12h5"/></svg></span><div><h2>من المعلمة</h2><p>اختبارات أ. عائشة وإعلاناتها لصفك، وتقييمها لك</p></div><a class="pill-btn ghost back" href="#home">الرئيسية</a></div>
+  <div id="tasks"></div>
+</section>
+
 <!-- ================= LEADERBOARD ================= -->
 <section class="view" id="v-leaders" hidden>
   <div class="page-h"><span class="ico" style="background:var(--orange);color:#fff"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 6H4v2a3 3 0 0 0 3 3M17 6h3v2a3 3 0 0 1-3 3"/></svg></span><div><h2>لوحة المتصدرات</h2><p>نقاط البصيرة: كل قراءة وكل لعبة وكل نشاط يرفعك درجة</p></div><a class="pill-btn ghost back" href="#read">اقرئي رواية</a></div>
@@ -192,7 +199,7 @@
   <div class="grid2">
     <div class="card" id="parAuth"></div>
     <div class="card" id="parHow"><h3 style="font-size:20px;font-weight:900">كيف تعمل المتابعة؟</h3>
-      <ol class="steps" style="margin-top:12px"><li><span>تسجّل باسمك الثلاثي ورقم سري، ثم تختار ابنتك من قائمة الطالبات المسجّلات.</span></li><li><span>تراجع المعلمة الطلب وتوافق عليه، فلا يتابع أي وليّ أمر إلا ابنته.</span></li><li><span>بعد الموافقة تظهر لك ملاحظات المعلمة ونقاط ابنتك ونتائج اختباراتها، وتستطيع أن ترسل ملاحظة للمعلمة.</span></li></ol>
+      <ol class="steps" style="margin-top:12px"><li><span>في «حساب جديد» تكتب اسمك الثلاثي ورقمًا سريًّا، وتحته تختار صف ابنتك ثم اسمها.</span></li><li><span>تراجع المعلمة الطلب وتوافق عليه، فلا يتابع أي وليّ أمر إلا ابنته.</span></li><li><span>بعد الموافقة تظهر لك متابعة ابنتك وحدها: تقييم المعلمة وملاحظاتها ودرجاتها ونقاطها وإعلانات صفها، وتستطيع أن ترسل ملاحظة للمعلمة.</span></li></ol>
     </div>
   </div>
   <div id="parentArea"></div>
@@ -206,7 +213,11 @@
     <div class="row" style="justify-content:space-between;margin-bottom:10px"><span class="muted" id="tWho"></span><button class="mini" id="tOut">تسجيل الخروج</button></div>
     <div class="t-layout"><nav class="tabs side" role="tablist" id="tTabs">
       <button role="tab" data-t="req" aria-selected="true">طلبات أولياء الأمور<span class="badge" id="reqN" hidden></span></button>
-      <button role="tab" data-t="stu">الطالبات</button>
+      <button role="tab" data-t="stu">الطالبات والنقاط</button>
+      <button role="tab" data-t="acc">حسابات الطالبات</button>
+      <button role="tab" data-t="ev">التقييم والمتابعة</button>
+      <button role="tab" data-t="quiz">اختبارات المعلمة</button>
+      <button role="tab" data-t="ann">الإعلانات والصور</button>
       <button role="tab" data-t="res">النتائج</button>
       <button role="tab" data-t="sum">التلخيصات<span class="badge" id="sumN" hidden></span></button>
       <button role="tab" data-t="post">مشاركة جديدة</button>
@@ -214,6 +225,10 @@
       <button role="tab" data-t="site">التوصيف والأهداف</button>
     </nav><div class="t-main">
     <div class="card" data-p="stu"><div id="tStu" class="list"></div></div>
+    <div class="card" data-p="acc" hidden><div id="tAcc"></div></div>
+    <div class="card" data-p="ev" hidden><div id="tEval"></div></div>
+    <div class="card" data-p="quiz" hidden><div id="tQuiz"></div></div>
+    <div class="card" data-p="ann" hidden><div id="tAnn"></div></div>
     <div class="card" data-p="res" hidden><div id="tRes" class="tbl"></div></div>
     <div class="card" data-p="req" hidden><div id="tReq" class="list"></div></div>
     <div class="card" data-p="sum" hidden><div id="tSum" class="list"></div></div>

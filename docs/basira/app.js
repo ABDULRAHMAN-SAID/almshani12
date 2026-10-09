@@ -133,6 +133,170 @@ const acct = {
   async logout() { if (db) { try { await auth.signOut(); } catch (e) {} } else { try { localStorage.removeItem("basira:sess"); } catch (e) {} } UID = null; ME = null; IS_T = false; }
 };
 
+/* ================= TEACHER TOOLS: evaluation, teacher quizzes, announcements ================= */
+const EV = [["read", "القراءة الجهرية"], ["hw", "الواجبات"], ["part", "المشاركة الصفية"], ["write", "الكتابة والإملاء"], ["sum", "تلخيص الكتب"], ["beh", "السلوك والانضباط"]];
+const LV = { 4: "ممتاز", 3: "جيد جدًّا", 2: "جيد", 1: "يحتاج متابعة" };
+const LVC = { 4: "approved", 3: "approved", 2: "pending", 1: "rejected" };
+const forCls = (x, cls) => !x.cls || x.cls === cls;
+const qresId = (qid, uid) => qid + "_" + uid;
+async function allRoster() { await rosterReady(); return ROSTER ? ROSTER.cls : []; }
+function evalCard(ev) {
+  if (!ev || !EV.some(([k]) => ev.c && ev.c[k]) && ev.absent == null) return `<p class="muted">لم تضع المعلمة تقييمًا بعد.</p>`;
+  return `<div class="ev-grid">${EV.map(([k, n]) => { const v = ev.c && ev.c[k]; return `<div><span>${n}</span>${v ? `<b class="status ${LVC[v]}">${LV[v]}</b>` : `<b class="muted">—</b>`}</div>`; }).join("")}
+    <div><span>أيام الغياب</span><b>${ev.absent != null ? ar(ev.absent) : "—"}</b></div></div>${ev.updatedAt ? `<p class="muted" style="font-size:13px;margin:6px 0 0">آخر تحديث: ${fmtDate(ev.updatedAt)}</p>` : ""}`;
+}
+
+/* ---------- teacher: evaluation & follow-up ---------- */
+let evCls = "";
+async function tEvals() {
+  const el = $("#tEval"); const R = await allRoster(); if (!evCls && R[0]) evCls = R[0].id;
+  let evs = {}; try { (await store.list("evals")).forEach(e => evs[e.id] = e); } catch (e) {}
+  const C = R.find(c => c.id === evCls);
+  el.innerHTML = `<p class="muted" style="margin:0 0 8px">قيّمي كل طالبة في البنود المهمة؛ يُحفظ كل تغيير فورًا، ويراه وليّ أمرها في صفحة المتابعة.</p>
+    <div class="nv-filters">${R.map(c => `<button class="chip-f" data-c="${c.id}" aria-pressed="${c.id === evCls}">${esc(c.name)}</button>`).join("")}</div>
+    ${C ? `<div class="tbl"><table class="res-table ev-table"><thead><tr><th>الطالبة</th>${EV.map(([, n]) => `<th>${n}</th>`).join("")}<th>الغياب</th></tr></thead><tbody>${C.st.map(s => { const k = "r:" + s.id, e = evs[k] || {}; return `<tr data-k="${k}"><td><b>${esc(s.n)}</b></td>${EV.map(([c]) => `<td><select data-ev="${c}" aria-label="${c}"><option value="">—</option>${[4, 3, 2, 1].map(v => `<option value="${v}" ${e.c && +e.c[c] === v ? "selected" : ""}>${LV[v]}</option>`).join("")}</select></td>`).join("")}<td><input data-ab type="number" min="0" max="200" value="${e.absent != null ? e.absent : ""}" style="width:64px"></td></tr>`; }).join("")}</tbody></table></div>` : `<div class="empty">لا توجد قوائم صفوف.</div>`}`;
+  $$("#tEval [data-c]").forEach(b => b.onclick = () => { evCls = b.dataset.c; tEvals(); });
+  $$("#tEval tr[data-k]").forEach(tr => { const k = tr.dataset.k, s = C.st.find(x => "r:" + x.id === k);
+    const save = async () => { const c = {}; tr.querySelectorAll("[data-ev]").forEach(x => { if (x.value) c[x.dataset.ev] = +x.value; });
+      const ab = tr.querySelector("[data-ab]").value; const doc = { name: s.n, cls: evCls, c, updatedAt: now() }; if (ab !== "") doc.absent = Math.max(0, +ab);
+      try { await store.set("evals", k, doc); tr.classList.add("saved"); setTimeout(() => tr.classList.remove("saved"), 900); } catch (e) { toast("لم يُحفظ التقييم"); } };
+    tr.querySelectorAll("select,input").forEach(x => x.onchange = save); });
+}
+
+/* ---------- teacher: quizzes ---------- */
+let qEdit = null;
+async function tQuizzes() {
+  const el = $("#tQuiz"); const R = await allRoster();
+  let qz = [], rs = []; try { qz = (await store.list("quizzes")).sort(byTime); } catch (e) {} try { rs = await store.list("qres"); } catch (e) {}
+  if (qEdit) return quizEditor(el, R);
+  el.innerHTML = `<div class="row" style="justify-content:space-between;align-items:center"><p class="muted" style="margin:0">اختبارات قصيرة تضعينها للصفوف، تحلّها الطالبة مرة واحدة فتُصحَّح فورًا، وتظهر درجتها لك ولوليّ أمرها.</p><button class="pill-btn orange" data-new>+ اختبار جديد</button></div>
+    <div class="list" style="margin-top:12px">${qz.length ? qz.map(q => { const r = rs.filter(x => x.qid === q.id); const avg = r.length ? Math.round(r.reduce((a, x) => a + x.score / x.total, 0) / r.length * 100) : null;
+      return `<div class="li" data-q="${q.id}" style="flex-wrap:wrap"><div class="grow"><b>${esc(q.title)}</b><br><span class="muted" style="font-size:13.5px">${q.cls ? esc(CLS(q.cls)) : "كل الصفوف"} · ${ar(q.qs.length)} أسئلة · ${fmtDate(q.createdAt)}</span></div>
+        <span class="status ${q.open ? "approved" : "rejected"}">${q.open ? "مفتوح" : "مغلق"}</span><span class="chip-s">حلّته ${ar(r.length)}${avg != null ? " · متوسط " + ar(avg) + "٪" : ""}</span>
+        <button class="mini" data-a="res">النتائج</button><button class="mini" data-a="edit">تعديل</button><button class="mini" data-a="tog">${q.open ? "إغلاق" : "فتح"}</button><button class="mini no" data-a="del">حذف</button><div data-box style="flex-basis:100%" hidden></div></div>`; }).join("") : `<div class="empty"><b>لا توجد اختبارات بعد</b>اضغطي «اختبار جديد» لكتابة أول اختبار.</div>`}</div>`;
+  el.querySelector("[data-new]").onclick = () => { qEdit = { title: "", cls: "", open: true, qs: [{ q: "", opts: ["", "", "", ""], a: 0 }] }; tQuizzes(); };
+  el.querySelectorAll("[data-a]").forEach(b => b.onclick = async () => { const row = b.closest("[data-q]"), q = qz.find(x => x.id === row.dataset.q), a = b.dataset.a;
+    if (a === "edit") { qEdit = JSON.parse(JSON.stringify(q)); tQuizzes(); }
+    if (a === "tog") { await store.update("quizzes", q.id, { open: !q.open }); tQuizzes(); }
+    if (a === "del") { if (!b.dataset.c) { b.dataset.c = 1; b.textContent = "تأكيد الحذف"; return; } await store.del("quizzes", q.id); tQuizzes(); }
+    if (a === "res") { const box = row.querySelector("[data-box]"); box.hidden = !box.hidden; if (box.hidden) return; const r = rs.filter(x => x.qid === q.id).sort((x, y) => y.score / y.total - x.score / x.total);
+      box.innerHTML = r.length ? `<div class="tbl"><table class="res-table"><thead><tr><th>الطالبة</th><th>الصف</th><th>الدرجة</th><th>التاريخ</th></tr></thead><tbody>${r.map(x => `<tr><td>${esc(x.name)}</td><td>${esc(CLS(x.cls))}</td><td><b>${ar(x.score)} من ${ar(x.total)}</b></td><td>${fmtDate(x.createdAt)}</td></tr>`).join("")}</tbody></table></div>` : `<p class="muted">لم تحلّه أي طالبة بعد.</p>`; }
+  });
+}
+function quizEditor(el, R) {
+  const Q = qEdit;
+  el.innerHTML = `<form class="form" id="qForm" novalidate><h3 class="auth-t">${Q.id ? "تعديل الاختبار" : "اختبار جديد"}</h3>
+    <div class="grid2"><div class="field"><label>عنوان الاختبار</label><input name="title" maxlength="80" value="${esc(Q.title)}" placeholder="مثال: اختبار قصير في الوحدة الثانية"></div>
+    <div class="field"><label>للصف</label><select name="cls"><option value="">كل الصفوف</option>${R.map(c => `<option value="${c.id}" ${Q.cls === c.id ? "selected" : ""}>${esc(c.name)}</option>`).join("")}</select></div></div>
+    <div id="qList">${Q.qs.map((x, i) => `<div class="card qed" data-i="${i}"><div class="row" style="justify-content:space-between"><b>السؤال ${ar(i + 1)}</b>${Q.qs.length > 1 ? `<button type="button" class="mini no" data-rm>حذف السؤال</button>` : ""}</div>
+      <div class="field"><input data-q value="${esc(x.q)}" maxlength="300" placeholder="نص السؤال"></div>
+      <div class="qopts">${x.opts.map((o, j) => `<label class="qopt"><input type="radio" name="a${i}" value="${j}" ${x.a === j ? "checked" : ""} aria-label="الإجابة الصحيحة"><input data-o="${j}" value="${esc(o)}" maxlength="120" placeholder="الخيار ${ar(j + 1)}${j > 1 ? " (اختياري)" : ""}"></label>`).join("")}</div>
+      <p class="muted" style="margin:4px 0 0;font-size:13px">اختاري الدائرة بجانب الإجابة الصحيحة.</p></div>`).join("")}</div>
+    <div class="row"><button type="button" class="pill-btn ghost" data-add>+ سؤال</button><span style="flex:1"></span><button type="button" class="pill-btn ghost" data-cancel>إلغاء</button><button class="pill-btn orange" type="submit">احفظي الاختبار</button></div><div data-msg></div></form>`;
+  const f = $("#qForm"), M = f.querySelector("[data-msg]");
+  const read = () => { Q.title = f.title.value.trim(); Q.cls = f.cls.value;
+    Q.qs = [...f.querySelectorAll(".qed")].map((d, i) => ({ q: d.querySelector("[data-q]").value.trim(), opts: [...d.querySelectorAll("[data-o]")].map(x => x.value.trim()), a: +((d.querySelector(`input[name=a${i}]:checked`) || {}).value || 0) })); };
+  f.querySelector("[data-add]").onclick = () => { read(); Q.qs.push({ q: "", opts: ["", "", "", ""], a: 0 }); quizEditor(el, R); };
+  f.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => { read(); Q.qs.splice(+b.closest(".qed").dataset.i, 1); quizEditor(el, R); });
+  f.querySelector("[data-cancel]").onclick = () => { qEdit = null; tQuizzes(); };
+  f.onsubmit = async e => { e.preventDefault(); read();
+    if (!Q.title) { msg(M, "اكتبي عنوان الاختبار."); return; }
+    for (let i = 0; i < Q.qs.length; i++) { const x = Q.qs[i]; if (!x.q || !x.opts[0] || !x.opts[1]) { msg(M, `السؤال ${ar(i + 1)}: اكتبي نصه وخيارين على الأقل.`); return; } if (!x.opts[x.a]) { msg(M, `السؤال ${ar(i + 1)}: الإجابة الصحيحة المختارة فارغة.`); return; } }
+    const qs = Q.qs.map(x => { const keep = x.opts.map((o, j) => [o, j]).filter(([o]) => o); return { q: x.q, opts: keep.map(([o]) => o), a: keep.findIndex(([, j]) => j === x.a) }; });
+    const doc = { title: Q.title, cls: Q.cls, qs, open: Q.open !== false, createdAt: Q.createdAt || now() };
+    try { if (Q.id) await store.set("quizzes", Q.id, doc); else await store.add("quizzes", doc); toast("حُفظ الاختبار"); qEdit = null; tQuizzes(); } catch (err) { msg(M, "لم يُحفظ الاختبار."); } };
+}
+
+/* ---------- teacher: announcements & photos ---------- */
+let annEdit = null;
+async function tAnn() {
+  const el = $("#tAnn"); const R = await allRoster(); let an = []; try { an = (await store.list("ann")).sort(byTime); } catch (e) {}
+  const E = annEdit || {};
+  el.innerHTML = `<form class="form" id="annForm"><h3 class="auth-t">${E.id ? "تعديل الإعلان" : "إعلان أو صورة جديدة"}</h3>
+    <div class="grid2"><div class="field"><label>العنوان</label><input name="t" required maxlength="80" value="${esc(E.title || "")}"></div>
+    <div class="field"><label>يظهر لـ</label><select name="cls"><option value="">كل الصفوف</option>${R.map(c => `<option value="${c.id}" ${E.cls === c.id ? "selected" : ""}>${esc(c.name)}</option>`).join("")}</select></div></div>
+    <div class="field"><label>النص</label><textarea name="x" maxlength="1500" style="min-height:90px">${esc(E.text || "")}</textarea></div>
+    <div class="field"><label>صورة (اختياري)</label><input name="img" type="file" accept="image/*">${E.img ? `<img src="${E.img}" alt="" style="max-height:120px;border-radius:12px;margin-top:6px"><label class="muted" style="font-size:14px"><input type="checkbox" name="rmimg"> احذفي الصورة</label>` : ""}</div>
+    <div class="row">${E.id ? `<button type="button" class="pill-btn ghost" data-cancel>إلغاء</button>` : ""}<button class="pill-btn orange" type="submit">${E.id ? "احفظي التعديل" : "انشري للطالبات وأولياء الأمور"}</button></div><div data-msg></div></form>
+    <h3 style="font-size:18px;font-weight:900;margin-top:20px">المنشور</h3><div class="list">${an.length ? an.map(a => `<div class="li" data-id="${a.id}">${a.img ? `<img src="${a.img}" alt="" style="width:64px;height:64px;object-fit:cover;border-radius:12px">` : ""}<div class="grow"><b>${esc(a.title)}</b><br><span class="muted" style="font-size:13.5px">${a.cls ? esc(CLS(a.cls)) : "كل الصفوف"} · ${fmtDate(a.createdAt)}</span></div><button class="mini" data-a="edit">تعديل</button><button class="mini no" data-a="del">حذف</button></div>`).join("") : `<p class="muted">لم تنشري شيئًا بعد.</p>`}</div>`;
+  const f = $("#annForm"), M = f.querySelector("[data-msg]");
+  if (f.querySelector("[data-cancel]")) f.querySelector("[data-cancel]").onclick = () => { annEdit = null; tAnn(); };
+  f.onsubmit = async e => { e.preventDefault(); const file = f.img.files[0]; let img = E.img || "";
+    try { if (file) img = await shrink(file); if (f.rmimg && f.rmimg.checked) img = "";
+      const doc = { title: f.t.value.trim(), text: f.x.value.trim(), cls: f.cls.value, img, createdAt: E.createdAt || now() };
+      if (!doc.title) { msg(M, "اكتبي عنوانًا."); return; }
+      if (E.id) await store.set("ann", E.id, doc); else await store.add("ann", doc); toast(E.id ? "حُفظ التعديل" : "نُشر الإعلان"); annEdit = null; tAnn(); } catch (err) { msg(M, "لم يُحفظ. إن كانت الصورة كبيرة جدًّا فاختاري صورة أصغر."); } };
+  el.querySelectorAll("[data-a]").forEach(b => b.onclick = async () => { const id = b.closest("[data-id]").dataset.id;
+    if (b.dataset.a === "edit") { annEdit = an.find(x => x.id === id); tAnn(); window.scrollTo({ top: $("#tPanel").offsetTop, behavior: "smooth" }); }
+    if (b.dataset.a === "del") { if (!b.dataset.c) { b.dataset.c = 1; b.textContent = "تأكيد الحذف"; return; } await store.del("ann", id); tAnn(); } });
+}
+
+/* ---------- student: «من المعلمة» ---------- */
+function annHTML(a) { return `<article class="ann">${a.img ? `<img src="${a.img}" alt="">` : ""}<div><span class="muted" style="font-size:13px">${a.cls ? esc(CLS(a.cls)) : "لكل الصفوف"} · ${fmtDate(a.createdAt)}</span><h3>${esc(a.title)}</h3>${a.text ? `<p>${esc(a.text)}</p>` : ""}</div></article>`; }
+async function loadTasks() {
+  await refreshMe(); const el = $("#tasks");
+  if (!ME || ME.role !== "student") { el.innerHTML = `<div class="empty"><b>هذه الصفحة للطالبات</b>ادخلي بحسابك لتري اختبارات المعلمة وإعلاناتها لصفك.${ME && ME.role === "parent" ? `<div style="margin-top:10px"><a class="pill-btn teal" href="#parents">متابعة ابنتي</a></div>` : `<div style="margin-top:10px"><a class="pill-btn orange" href="#register">دخول الطالبات</a></div>`}</div>`; return; }
+  let qz = [], mine = [], an = [], ev = null;
+  try { qz = (await store.list("quizzes")).filter(q => q.open !== false && forCls(q, ME.cls)).sort(byTime); } catch (e) {}
+  try { mine = await store.list("qres", ["uid", UID]); } catch (e) {}
+  try { an = (await store.list("ann")).filter(a => forCls(a, ME.cls)).sort(byTime); } catch (e) {}
+  try { ev = await store.get("evals", ME.key); } catch (e) {}
+  el.innerHTML = `<div class="grid2"><div class="card"><h3 class="auth-t">اختبارات المعلمة</h3><div class="list">${qz.length ? qz.map(q => { const r = mine.find(x => x.qid === q.id);
+      return `<div class="li"><div class="grow"><b>${esc(q.title)}</b><br><span class="muted" style="font-size:13.5px">${ar(q.qs.length)} أسئلة · ${fmtDate(q.createdAt)}</span></div>${r ? `<span class="status approved">${ar(r.score)} من ${ar(r.total)}</span><button class="mini" data-view="${q.id}">التصحيح</button>` : `<button class="mini o" data-take="${q.id}">ابدئي ✎</button>`}</div>`; }).join("") : `<p class="muted">لا توجد اختبارات مفتوحة لصفك الآن.</p>`}</div></div>
+    <div class="card"><h3 class="auth-t">تقييم المعلمة لي</h3>${evalCard(ev)}</div></div>
+    <div id="quizBox"></div>
+    <h3 class="auth-t" style="margin-top:22px">إعلانات المعلمة</h3><div class="anns">${an.length ? an.map(annHTML).join("") : `<div class="empty">لا توجد إعلانات بعد.</div>`}</div>`;
+  $$("#tasks [data-take]").forEach(b => b.onclick = () => takeQuiz(qz.find(q => q.id === b.dataset.take), null));
+  $$("#tasks [data-view]").forEach(b => b.onclick = () => takeQuiz(qz.find(q => q.id === b.dataset.view), mine.find(x => x.qid === b.dataset.view)));
+}
+function takeQuiz(q, done) {
+  const box = $("#quizBox"); const pick = done ? done.answers : q.qs.map(() => null);
+  const draw = () => {
+    box.innerHTML = `<div class="card" style="margin-top:16px"><h3 class="auth-t">${esc(q.title)}</h3>${q.qs.map((x, i) => `<div class="qq-t"><p><b>${ar(i + 1)}.</b> ${esc(x.q)}</p><div class="opts">${x.opts.map((o, j) => { let c = ""; if (done) { if (j === x.a) c = "right"; else if (pick[i] === j) c = "soft"; } else if (pick[i] === j) c = "picked";
+        return `<button class="opt ${c}" data-i="${i}" data-j="${j}" ${done ? "disabled" : ""}>${esc(o)}</button>`; }).join("")}</div>${done ? `<div class="muted" style="font-size:14px;margin-top:4px">${pick[i] === x.a ? "✓ إجابتك صحيحة" : "الإجابة الصحيحة: " + esc(x.opts[x.a])}</div>` : ""}</div>`).join("")}
+      ${done ? `<div class="verdict ok"><b>درجتك: ${ar(done.score)} من ${ar(done.total)}</b><div>الإجابات الصحيحة باللون الأخضر.</div></div>` : `<div class="row" style="margin-top:12px"><button class="pill-btn orange big" data-send>سلّمي الإجابات</button><span class="muted" data-left></span></div><div data-msg></div>`}</div>`;
+    box.querySelectorAll("[data-j]").forEach(b => b.onclick = () => { pick[+b.dataset.i] = +b.dataset.j; draw(); });
+    const s = box.querySelector("[data-send]"); if (s) { const left = pick.filter(x => x == null).length; box.querySelector("[data-left]").textContent = left ? `بقي ${ar(left)} من الأسئلة` : "أجبتِ عن كل الأسئلة";
+      s.onclick = async () => { if (pick.some(x => x == null)) { msg(box.querySelector("[data-msg]"), "أجيبي عن كل الأسئلة أولًا."); return; } s.disabled = true;
+        const score = q.qs.filter((x, i) => pick[i] === x.a).length, r = { qid: q.id, title: q.title, uid: UID, name: ME.name, cls: ME.cls || "", score, total: q.qs.length, answers: pick, createdAt: now() };
+        try { await store.set("qres", qresId(q.id, UID), r); done = r; draw(); award("quiz", q.id, q.title); loadTasks().then(() => takeQuiz(q, r)); } catch (e) { s.disabled = false; msg(box.querySelector("[data-msg]"), "لم تُسلَّم الإجابات. ربما سلّمتِ هذا الاختبار من قبل، أو تأكدي من الاتصال."); } }; }
+    box.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  draw();
+}
+
+
+/* ---------- teacher: students' login list (names + PINs, opened with the teacher code) ---------- */
+let ACC = null, accCls = "";
+async function openAcc(code) {
+  const T = RST.tp; code = digits(code);
+  const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(code), "PBKDF2", false, ["deriveKey"]);
+  const key = await crypto.subtle.deriveKey({ name: "PBKDF2", salt: b64u(T.salt), iterations: 150000, hash: "SHA-256" }, base, { name: "AES-GCM", length: 256 }, false, ["decrypt"]);
+  ACC = JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64u(T.iv) }, key, b64u(T.ct))));
+  try { localStorage.setItem("basira:tc", code); } catch (e) {}
+}
+async function tAccounts() {
+  const el = $("#tAcc"); const R = await allRoster();
+  if (!RST.tp) { el.innerHTML = `<div class="empty">لم تُضف أرقام الطالبات بعد.</div>`; return; }
+  if (!ACC) { let c = null; try { c = localStorage.getItem("basira:tc"); } catch (e) {} if (c) { try { await openAcc(c); } catch (e) { ACC = null; } } }
+  if (!ACC) {
+    el.innerHTML = `<form class="form" style="max-width:420px"><p class="muted" style="margin:0">قائمة دخول الطالبات محمية. اكتبي رمز تفعيل لوحة المعلمة لعرضها (يُطلب مرة واحدة على هذا الجهاز).</p><div class="field"><label>رمز لوحة المعلمة</label><input name="c" inputmode="numeric" maxlength="12" dir="ltr" autocomplete="off"></div><button class="pill-btn teal" type="submit">اعرضي القائمة</button><div data-msg></div></form>`;
+    const f = el.querySelector("form"); f.onsubmit = async e => { e.preventDefault(); try { await openAcc(f.c.value); tAccounts(); } catch (x) { msg(f.querySelector("[data-msg]"), "الرمز غير صحيح."); } }; return;
+  }
+  if (!accCls && R[0]) accCls = R[0].id;
+  let users = []; try { users = await store.list("users", ["role", "student"]); } catch (e) {}
+  const inSet = new Set(users.map(u => u.key)), C = R.find(c => c.id === accCls);
+  el.innerHTML = `<p class="muted" style="margin:0 0 8px">لا تُنشئ الطالبة حسابًا: تختار صفها واسمها وتكتب رقمها السري من هذه القائمة. اطبعي بطاقات الصف وأعطي كل طالبة بطاقتها.</p>
+    <div class="nv-filters">${R.map(c => `<button class="chip-f" data-c="${c.id}" aria-pressed="${c.id === accCls}">${esc(c.name)} <small>${ar(c.st.filter(s => inSet.has("r:" + s.id)).length)}/${ar(c.st.length)}</small></button>`).join("")}</div>
+    <div class="row" style="margin:8px 0"><button class="pill-btn orange" data-print>🖨 اطبعي بطاقات ${C ? esc(C.name) : ""}</button><button class="pill-btn ghost" data-list>🖨 اطبعي قائمة الصف</button></div>
+    ${C ? `<div class="tbl"><table class="res-table"><thead><tr><th>#</th><th>الطالبة</th><th>الرقم السري</th><th>الحالة</th></tr></thead><tbody>${C.st.map((s, i) => `<tr><td>${ar(i + 1)}</td><td><b>${esc(s.n)}</b></td><td dir="ltr" style="font-family:monospace;font-size:17px;letter-spacing:2px">${ACC[s.id] || "—"}</td><td>${inSet.has("r:" + s.id) ? `<span class="status approved">دخلت</span>` : `<span class="muted">لم تدخل بعد</span>`}</td></tr>`).join("")}</tbody></table></div>` : ""}`;
+  $$("#tAcc [data-c]").forEach(b => b.onclick = () => { accCls = b.dataset.c; tAccounts(); });
+  const site = location.href.split("#")[0];
+  const doPrint = html => { let pa = $("#printArea"); if (!pa) { pa = document.createElement("div"); pa.id = "printArea"; document.body.appendChild(pa); } pa.innerHTML = html; document.body.classList.add("printing"); setTimeout(() => { window.print(); setTimeout(() => document.body.classList.remove("printing"), 400); }, 80); };
+  el.querySelector("[data-print]").onclick = () => doPrint(`<div class="pcards">${C.st.map(s => `<div class="pcard"><b class="pc-h">مبادرة البصيرة · ${esc(C.name)}</b><div class="pc-n">${esc(s.n)}</div><div class="pc-l">رقمك السري</div><div class="pc-p">${ACC[s.id]}</div><small>ادخلي من «دخول الطالبات»: اختاري صفك ثم اسمك ثم اكتبي الرقم.</small></div>`).join("")}</div>`);
+  el.querySelector("[data-list]").onclick = () => doPrint(`<h2 style="margin:0 0 8px">حسابات طالبات ${esc(C.name)} · مبادرة البصيرة</h2><table class="plist"><thead><tr><th>#</th><th>الطالبة</th><th>الرقم السري</th></tr></thead><tbody>${C.st.map((s, i) => `<tr><td>${i + 1}</td><td>${esc(s.n)}</td><td dir="ltr">${ACC[s.id]}</td></tr>`).join("")}</tbody></table>`);
+}
+
 async function boot() {
   if (hasFB) {
     try {
@@ -151,7 +315,7 @@ async function boot() {
 }
 
 /* ================= ROUTER ================= */
-const VIEWS = ["home", "units", "unit", "games", "read", "leaders", "about", "register", "library", "summary", "posts", "parents", "teacher"];
+const VIEWS = ["home", "units", "unit", "games", "read", "leaders", "tasks", "about", "register", "library", "summary", "posts", "parents", "teacher"];
 let current = null, gameInst = null;
 function route() {
   let h = (location.hash || "#home").slice(1); let unitId = null, sub = "lessons";
@@ -163,7 +327,7 @@ function route() {
   $$(".nav a").forEach(a => { const t = a.getAttribute("href").slice(1); if (t === h || (h === "unit" && t === "units")) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
   $("#nav").classList.remove("open"); $("#menuT").setAttribute("aria-expanded", "false");
   if (current !== location.hash) window.scrollTo({ top: 0 }); current = location.hash;
-  ({ home: loadHome, about: loadAbout, register: loadAccount, library: loadBooks, summary: loadSummary, posts: loadPosts, parents: loadParents, teacher: loadTeacher, read: () => loadRead(nid, nch), leaders: loadLeaders, unit: () => openUnit(unitId, sub) }[h] || (() => {}))();
+  ({ home: loadHome, about: loadAbout, register: loadAccount, library: loadBooks, summary: loadSummary, posts: loadPosts, parents: loadParents, teacher: loadTeacher, read: () => loadRead(nid, nch), leaders: loadLeaders, tasks: loadTasks, unit: () => openUnit(unitId, sub) }[h] || (() => {}))();
 }
 window.addEventListener("hashchange", route);
 $("#menuT").onclick = () => { const n = $("#nav"); n.classList.toggle("open"); $("#menuT").setAttribute("aria-expanded", n.classList.contains("open")); };
@@ -348,33 +512,39 @@ function renderGame() {
 
 /* ================= AUTH FORMS ================= */
 /* authForm(el, {roles, fixed, teacher, title, onDone}) — login / new account with triple name + PIN */
+/* students never sign up: each name in the class list has a 6-digit PIN given by the teacher.
+   the first correct login quietly creates the account; after that it is a normal sign-in. */
+async function pinHash(sid, pin) {
+  const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(pin), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", salt: new TextEncoder().encode("basira-pin|" + sid), iterations: RST.pi || 120000, hash: "SHA-256" }, base, 96);
+  return btoa(String.fromCharCode(...new Uint8Array(bits)));
+}
+const digits = v => String(v || "").replace(/[٠-٩]/g, d => AR.indexOf(d)).replace(/\s+/g, "");
+async function studentLogin(s, pin) {
+  const opt = { key: "r:" + s.id, cls: s.cls };
+  try { return await acct.login(s.n, pin, opt); } catch (e) { if (e.message !== ERR.bad) throw e; }
+  if (!s.h || (await pinHash(s.id, pin)) !== s.h) throw new Error("الرقم السري غير صحيح. تأكدي منه في الورقة التي أعطتك إياها المعلمة.");
+  try { return await acct.register(s.n, pin, "student", "", opt); }
+  catch (e) { if (e.message === ERR.exists) throw new Error("تعذّر الدخول بهذا الرقم. راجعي المعلمة."); throw e; }
+}
 function studentAuth(el, onDone) {
-  let mode = "login";
-  const draw = () => {
-    el.innerHTML = `<h3 class="auth-t">دخول الطالبات</h3><div class="seg seg-main" role="tablist"><button type="button" data-m="login" aria-pressed="${mode === "login"}">دخول</button><button type="button" data-m="new" aria-pressed="${mode === "new"}">أول دخول</button></div><div data-body></div>`;
-    el.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { mode = b.dataset.m; draw(); });
-    const body = el.querySelector("[data-body]");
-    withRoster(body, () => {
-      body.innerHTML = `<form class="form" novalidate>${pickerHTML("اسمك")}
-        <div class="field"><label>${mode === "new" ? "اختاري رقمًا سريًّا (٤ أرقام أو أكثر)" : "الرقم السري"}</label><div class="pinrow"><input name="p" type="password" inputmode="numeric" maxlength="12" dir="ltr" autocomplete="${mode === "new" ? "new-password" : "current-password"}"><button type="button" class="eye" aria-label="إظهار الرقم السري">👁</button></div></div>
-        ${mode === "new" ? `<div class="field"><label>أعيدي كتابة الرقم السري</label><input name="p2" type="password" inputmode="numeric" maxlength="12" dir="ltr" autocomplete="new-password"></div>` : ""}
-        <button class="pill-btn orange big" type="submit" data-go>${mode === "new" ? "احفظي رقمي وادخلي" : "دخول"}</button><div data-msg></div>
-        <p class="muted hint">${mode === "new" ? "أول مرة فقط: اختاري صفك واسمك ورقمًا سريًّا تحفظينه، وبعدها تدخلين من «دخول»." : "يبقى الدخول محفوظًا على هذا الجهاز حتى تضغطي «خروج»."}</p></form>`;
-      const f = body.querySelector("form"), M = body.querySelector("[data-msg]"); bindPicker(f);
-      f.querySelector(".eye").onclick = () => { f.p.type = f.p.type === "password" ? "text" : "password"; };
-      f.onsubmit = async e => { e.preventDefault();
-        const s = rosterStudent(f.sid.value); if (!s) { msg(M, "اختاري صفك ثم اسمك من القائمة."); return; }
-        const pin = f.p.value.trim(), ep = checkPin(pin); if (ep) { msg(M, ep); f.p.focus(); return; }
-        if (mode === "new" && pin !== f.p2.value.trim()) { msg(M, "الرقمان السريان غير متطابقين."); f.p2.focus(); return; }
-        const btn = f.querySelector("[data-go]"), t0 = btn.textContent; btn.disabled = true; btn.textContent = "لحظة…";
-        try { const opt = { key: "r:" + s.id, cls: s.cls };
-          const me = mode === "new" ? await acct.register(s.n, pin, "student", "", opt) : await acct.login(s.n, pin, opt);
-          toast((mode === "new" ? "أهلًا " : "أهلًا بعودتك ") + me.name.split(" ")[0] + " · " + CLS(me.cls)); await refreshMe(); onDone && onDone(me); }
-        catch (err) { const m = err.message || ERR.bad; msg(M, mode === "new" && m === ERR.exists ? "دخلتِ بهذا الاسم من قبل. اضغطي «دخول» واكتبي رقمك السري، وإن نسيته فراجعي المعلمة." : m === ERR.bad ? "الرقم السري غير صحيح. إن كانت هذه أول مرة فاختاري «أول دخول»." : m); }
-        finally { if (btn.isConnected) { btn.disabled = false; btn.textContent = t0; } } };
-    });
-  };
-  draw();
+  el.innerHTML = `<h3 class="auth-t">دخول الطالبات</h3><div data-body></div>`;
+  const body = el.querySelector("[data-body]");
+  withRoster(body, () => {
+    body.innerHTML = `<form class="form" novalidate>${pickerHTML("اسمك")}
+      <div class="field"><label>الرقم السري</label><div class="pinrow"><input name="p" type="password" inputmode="numeric" maxlength="6" dir="ltr" autocomplete="current-password" placeholder="••••••"><button type="button" class="eye" aria-label="إظهار الرقم السري">👁</button></div></div>
+      <button class="pill-btn orange big" type="submit" data-go>دخول</button><div data-msg></div>
+      <p class="muted hint">الرقم السري من ستة أرقام تعطيك إياه المعلمة. لا تحتاجين إلى إنشاء حساب، ويبقى الدخول محفوظًا على هذا الجهاز حتى تضغطي «خروج».</p></form>`;
+    const f = body.querySelector("form"), M = body.querySelector("[data-msg]"); bindPicker(f);
+    f.querySelector(".eye").onclick = () => { f.p.type = f.p.type === "password" ? "text" : "password"; };
+    f.onsubmit = async e => { e.preventDefault();
+      const s = rosterStudent(f.sid.value); if (!s) { msg(M, "اختاري صفك ثم اسمك من القائمة."); return; }
+      const pin = digits(f.p.value); if (!/^\d{6}$/.test(pin)) { msg(M, "الرقم السري ستة أرقام."); f.p.focus(); return; }
+      const btn = f.querySelector("[data-go]"), t0 = btn.textContent; btn.disabled = true; btn.textContent = "لحظة…";
+      try { const me = await studentLogin(s, pin); toast("أهلًا " + me.name.split(" ")[0] + " · " + CLS(me.cls)); await refreshMe(); onDone && onDone(me); }
+      catch (err) { msg(M, err.message || ERR.bad); }
+      finally { if (btn.isConnected) { btn.disabled = false; btn.textContent = t0; } } };
+  });
 }
 function authForm(el, o) {
   let mode = o.mode || "login", role = o.fixed || (o.roles && o.roles[0]) || "student";
@@ -384,6 +554,7 @@ function authForm(el, o) {
     <div class="field"><label>الاسم الثلاثي</label><input name="n" required maxlength="60" autocomplete="username" placeholder="${o.fixed === "parent" ? "مثال: سالم محمد الهنائي" : o.fixed === "teacher" ? "اسمك الثلاثي" : "مثال: مريم سالم محمد"}"></div>
     <div class="field"><label>الرقم السري</label><div class="pinrow"><input name="p" type="password" inputmode="numeric" required minlength="4" maxlength="12" dir="ltr" autocomplete="current-password"><button type="button" class="eye" aria-label="إظهار الرقم السري">👁</button></div></div>
     <div class="field" data-newf hidden><label>أعد كتابة الرقم السري</label><input name="p2" type="password" inputmode="numeric" maxlength="12" dir="ltr" autocomplete="new-password"></div>
+    ${o.daughter && ROSTER ? `<div data-newf hidden class="kid-pick"><div class="sub-h" style="margin:4px 0 6px">ابنتك</div>${pickerHTML("اسم ابنتك")}</div>` : ""}
     ${o.teacher ? `<div class="field" data-newf hidden><label>رمز تفعيل لوحة المعلمة</label><input name="c" inputmode="numeric" maxlength="12" dir="ltr"></div>` : ""}
     <button class="pill-btn orange big" type="submit" data-go>دخول</button><div data-msg></div>
     <p class="muted hint" data-hint></p>
@@ -395,20 +566,24 @@ function authForm(el, o) {
     el.querySelectorAll("[data-r]").forEach(b => b.setAttribute("aria-pressed", b.dataset.r === role));
     f.p.setAttribute("autocomplete", mode === "new" ? "new-password" : "current-password");
     el.querySelector("[data-go]").textContent = mode === "new" ? (role === "parent" ? "أنشئ حساب ولي الأمر" : role === "teacher" ? "أنشئي حساب المعلمة" : "أنشئي حسابي") : "دخول";
-    el.querySelector("[data-hint]").textContent = mode === "new" && role === "student" && RST.classes.length ? "اكتبي اسمك كما في قائمة صفك: اسمك واسم أبيك واسم جدك، فيُعرف صفك تلقائيًّا. احفظي الرقم السري جيدًا." : mode === "new" ? "الاسم الثلاثي هو اسم الدخول، ولا يتكرر. احفظ الرقم السري جيدًا، فلا يمكن استرجاعه إلا عن طريق المعلمة." : "يبقى الدخول محفوظًا على هذا الجهاز حتى تضغط «خروج».";
+    el.querySelector("[data-hint]").textContent = mode === "new" && role === "student" && RST.classes.length ? "اكتبي اسمك كما في قائمة صفك: اسمك واسم أبيك واسم جدك، فيُعرف صفك تلقائيًّا. احفظي الرقم السري جيدًا." : mode === "new" && role === "parent" ? "اكتب اسمك الثلاثي ورقمًا سريًّا تختاره، ثم اختر صف ابنتك واسمها. تظهر لك متابعتها بعد موافقة المعلمة." : mode === "new" ? "الاسم الثلاثي هو اسم الدخول، ولا يتكرر. احفظ الرقم السري جيدًا، فلا يمكن استرجاعه إلا عن طريق المعلمة." : "يبقى الدخول محفوظًا على هذا الجهاز حتى تضغط «خروج».";
     msg(M, "");
   }
   el.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { mode = b.dataset.m; paint(); });
   el.querySelectorAll("[data-r]").forEach(b => b.onclick = () => { role = b.dataset.r; paint(); });
   el.querySelector(".eye").onclick = () => { f.p.type = f.p.type === "password" ? "text" : "password"; };
+  if (f.sid) bindPicker(f);
   f.onsubmit = async e => {
     e.preventDefault(); const name = f.n.value, pin = f.p.value.trim();
     const en = checkName(name); if (en) { msg(M, en); f.n.focus(); return; }
     const ep = checkPin(pin); if (ep) { msg(M, ep); f.p.focus(); return; }
     if (mode === "new" && pin !== f.p2.value.trim()) { msg(M, "الرقمان السريان غير متطابقين."); f.p2.focus(); return; }
+    const kid = mode === "new" && f.sid ? rosterStudent(f.sid.value) : null;
+    if (mode === "new" && f.sid && !kid) { msg(M, "اختر صف ابنتك ثم اسمها."); f.cls.focus(); return; }
     const btn = el.querySelector("[data-go]"); btn.disabled = true; const t0 = btn.textContent; btn.textContent = "لحظة…";
     try {
       const me = mode === "new" ? await acct.register(name, pin, role, f.c ? f.c.value.trim() : "") : await acct.login(name, pin);
+      if (kid) { const skey = "r:" + kid.id; try { await store.set("links", UID + "_" + skey, { parentUid: UID, parentName: me.name, skey, studentName: kid.n, cls: kid.cls, status: "pending", createdAt: now() }); } catch (x) {} }
       IS_T = !!me.admin; toast(mode === "new" ? "أهلًا " + me.name.split(" ")[0] + "! أُنشئ حسابك ✓" + (me.cls ? " · " + CLS(me.cls) : "") : "أهلًا بعودتك " + me.name.split(" ")[0]);
       await refreshMe(); o.onDone && o.onDone(me);
     } catch (err) { msg(M, err.message || ERR.bad); }
@@ -430,7 +605,7 @@ async function loadAccount() {
   const A = $("#regAuth"), I = $("#meInfo");
   if (!ME) {
     studentAuth(A, () => { location.hash = "register"; loadAccount(); });
-    I.innerHTML = `<h3 style="font-size:20px;font-weight:900">كيف أدخل؟</h3><ul class="why"><li>اختاري صفك ثم اسمك من القائمة، فأسماء طالبات الصف مُدخلة مسبقًا.</li><li>في أول دخول اختاري رقمًا سريًّا تحفظينه، ثم ادخلي به كل مرة.</li><li>تُحفظ نتائجك ونقاطك وتلخيصاتك، وتتابعك المعلمة ووليّ أمرك.</li></ul>
+    I.innerHTML = `<h3 style="font-size:20px;font-weight:900">كيف أدخل؟</h3><ul class="why"><li>اختاري صفك ثم اسمك من القائمة، فأسماء طالبات الصف مُدخلة مسبقًا.</li><li>اكتبي رقمك السري (ستة أرقام) الذي أعطتك إياه المعلمة، ولا حاجة إلى إنشاء حساب.</li><li>تُحفظ نتائجك ونقاطك وتلخيصاتك، وتتابعك المعلمة ووليّ أمرك.</li></ul>
       <div class="row" style="margin-top:14px"><a class="pill-btn ghost" href="#parents">دخول أولياء الأمور</a><a class="pill-btn ghost" href="#teacher">لوحة المعلمة</a></div>`;
     return;
   }
@@ -449,9 +624,9 @@ async function loadAccount() {
 /* ================= POINTS =================
    every reward is a document basira_points/{uid}_{kind}_{ref}: the id makes it count once only,
    and basira_scores/{uid} keeps the running total that the leaderboard reads (checked by the rules) */
-const PTS = { novel: 30, novelq: 10, book: 20, game: 10, test: 10, testx: 10, act: 2 };
-const PTS_AR = { novel: "قراءة رواية", novelq: "اختبار الرواية بلا أخطاء", book: "قراءة كتاب من المكتبة", game: "إنهاء لعبة وحدة", test: "حلّ اختبار تدريبي", testx: "إتقان الاختبار (٨٥٪ فأكثر)", act: "حلّ نشاط" };
-const PTS_IC = { novel: "📖", novelq: "🧠", book: "📚", game: "🎮", test: "📝", testx: "🏅", act: "✏️", teacher: "⭐" };
+const PTS = { novel: 30, novelq: 10, book: 20, game: 10, test: 10, testx: 10, act: 2, quiz: 15 };
+const PTS_AR = { novel: "قراءة رواية", novelq: "اختبار الرواية بلا أخطاء", book: "قراءة كتاب من المكتبة", game: "إنهاء لعبة وحدة", test: "حلّ اختبار تدريبي", testx: "إتقان الاختبار (٨٥٪ فأكثر)", act: "حلّ نشاط", quiz: "حلّ اختبار المعلمة" };
+const PTS_IC = { novel: "📖", novelq: "🧠", book: "📚", game: "🎮", test: "📝", testx: "🏅", act: "✏️", quiz: "🎯", teacher: "⭐" };
 let MYPTS = new Map(), SCORE = 0, ptsQ = Promise.resolve();
 const isStu = () => !!(ME && UID && ME.role === "student");
 const ptId = (kind, ref) => UID + "_" + kind + "_" + String(ref).slice(0, 40);
@@ -679,14 +854,14 @@ async function loadParents() {
   if (!ME || ME.role !== "parent") {
     area.innerHTML = ""; $("#parHow").hidden = false; A.style.gridColumn = "";
     if (ME) { A.innerHTML = `<div class="msg bad">هذه الصفحة لأولياء الأمور. أنت مسجّل الدخول بحساب ${ROLE_AR[ME.role]}.</div><button class="pill-btn ghost" style="margin-top:12px" data-out>خروج ثم دخول بحساب ولي الأمر</button>`; A.querySelector("[data-out]").onclick = doLogout; return; }
-    authForm(A, { fixed: "parent", title: "دخول ولي الأمر", onDone: () => loadParents() }); return;
+    await rosterReady(); authForm(A, { fixed: "parent", daughter: true, title: "دخول ولي الأمر", onDone: () => loadParents() }); return;
   }
   $("#parHow").hidden = true; A.style.gridColumn = "1 / -1";
   A.innerHTML = `<div class="row" style="justify-content:space-between"><div><b style="font-size:19px">${esc(ME.name)}</b><br><span class="muted">ولي أمر</span></div><button class="mini" data-out>خروج</button></div>`;
   A.querySelector("[data-out]").onclick = doLogout;
   let links = []; try { links = (await store.list("links", ["parentUid", UID])).sort(byTime); } catch (e) {}
   area.innerHTML = `<div class="grid2" style="margin-top:18px">
-    <div class="card"><h3 class="auth-t">اختر ابنتك</h3><p class="muted" style="margin:0 0 10px">اختر الصف ثم اسم ابنتك وأرسل الطلب. بعد موافقة المعلمة تظهر لك متابعتها أسفل الصفحة.</p><div id="pickBox"></div></div>
+    <div class="card"><h3 class="auth-t">${links.length ? "إضافة ابنة أخرى" : "اختر ابنتك"}</h3><p class="muted" style="margin:0 0 10px">${links.length ? "إن كانت لك ابنة أخرى في الصفوف فاختر صفها واسمها." : "اختر الصف ثم اسم ابنتك وأرسل الطلب."} بعد موافقة المعلمة تظهر لك متابعتها أسفل الصفحة.</p><div id="pickBox"></div></div>
     <div class="card"><h3 class="auth-t">طلباتي</h3><div class="list" id="myLinks">${links.length ? links.map(l => `<div class="li"><div class="grow"><b>${esc(l.studentName)}</b><br><span class="muted" style="font-size:13.5px">${l.cls ? esc(CLS(l.cls)) + " · " : ""}${fmtDate(l.createdAt)}</span></div><span class="status ${l.status}">${ST_AR[l.status]}</span></div>`).join("") : `<p class="muted">لم ترسل طلبًا بعد.</p>`}</div></div>
   </div><div id="follow"></div>`;
   const pb = $("#pickBox");
@@ -702,13 +877,18 @@ async function loadParents() {
   const ok = links.filter(l => l.status === "approved");
   for (const l of ok) await showFollow(l);
 }
-const PK_AR = { novel: "قرأت رواية", novelq: "أجابت أسئلة الرواية كلها", book: "قرأت كتابًا", game: "أنهت لعبة الوحدة", test: "حلّت الاختبار التدريبي", testx: "أتقنت الاختبار (٨٥٪ فأكثر)", act: "حلّت نشاطًا" };
+const PK_AR = { novel: "قرأت رواية", novelq: "أجابت أسئلة الرواية كلها", book: "قرأت كتابًا", game: "أنهت لعبة الوحدة", test: "حلّت الاختبار التدريبي", testx: "أتقنت الاختبار (٨٥٪ فأكثر)", act: "حلّت نشاطًا", quiz: "حلّت اختبار المعلمة" };
 async function showFollow(l) {
   const box = document.createElement("div"); box.className = "card"; box.style.marginTop = "18px"; $("#follow").appendChild(box);
   const head = `<div class="row" style="justify-content:space-between;align-items:center"><div><h3 style="font-size:22px;font-weight:900;margin:0">متابعة ${esc(l.studentName)}</h3><span class="muted">${l.cls ? "الصف " + esc(CLS(l.cls)) : ""}</span></div>`;
   let st = null; try { st = (await store.list("users", ["key", l.skey || ""]))[0] || null; } catch (e) {}
-  if (!st) { box.innerHTML = head + `</div><p class="muted" style="margin:12px 0 0">لم تدخل ابنتك الموقع بحسابها بعد. حين تدخل من «دخول الطالبات» وتحلّ الأنشطة والاختبارات تظهر نتائجها وملاحظات المعلمة هنا.</p>`; return; }
-  const sid = st.id; let notes = [], res = [], pts = [], sc = 0;
+  let ev = null, an = []; try { ev = await store.get("evals", l.skey); } catch (e) {}
+  try { an = (await store.list("ann")).filter(a => forCls(a, l.cls)).sort(byTime).slice(0, 3); } catch (e) {}
+  const evBlock = `<div class="sub-h" style="margin-top:16px">تقييم المعلمة</div>${evalCard(ev)}`;
+  const anBlock = an.length ? `<div class="sub-h" style="margin-top:16px">إعلانات المعلمة لصفها</div><div class="anns sm">${an.map(annHTML).join("")}</div>` : "";
+  if (!st) { box.innerHTML = head + `</div><p class="muted" style="margin:12px 0 0">لم تدخل ابنتك الموقع بعد. تدخل من «دخول الطالبات» بالرقم السري الذي أعطتها إياه المعلمة، ثم تظهر هنا نتائجها ونقاطها.</p>${evBlock}${anBlock}`; return; }
+  const sid = st.id; let notes = [], res = [], pts = [], sc = 0, qr = [];
+  try { qr = (await store.list("qres", ["uid", sid])).sort(byTime); } catch (e) {}
   try { const x = await store.get("scores", sid); sc = (x && x.total) || 0; } catch (e) {}
   try { pts = (await store.list("points", ["uid", sid])).sort(byTime); } catch (e) {}
   try { res = (await store.list("results", ["uid", sid])).sort(byTime); } catch (e) {}
@@ -719,9 +899,12 @@ async function showFollow(l) {
   box.innerHTML = head + `<span class="stars" style="font-size:20px">${ar(total)} نقطة ★</span></div>
   <div class="mestats"><div><b>${ar(total)}</b><span>نقطة</span></div><div><b>${ar(pts.filter(p => p.kind === "act").length)}</b><span>نشاطًا محلولًا</span></div><div><b>${ar(tests.length)}</b><span>اختبارًا</span></div><div><b>${avg != null ? ar(avg) + "٪" : "—"}</b><span>متوسط الدرجات</span></div></div>
   <div class="sub-h" style="margin-top:16px">ملاحظات المعلمة</div><div class="notes">${notes.length ? notes.map(n => `<div class="bubble ${n.from === "parent" ? "p" : "t"}"><small>${n.from === "parent" ? "أنت" : "المعلمة"} · ${fmtDate(n.createdAt)}</small>${esc(n.text)}</div>`).join("") : `<p class="muted">لا توجد ملاحظات بعد.</p>`}</div>
+  ${evBlock}
+  ${qr.length ? `<div class="sub-h" style="margin-top:16px">اختبارات المعلمة</div><div class="tbl"><table class="res-table"><thead><tr><th>الاختبار</th><th>الدرجة</th><th>النسبة</th><th>التاريخ</th></tr></thead><tbody>${qr.map(r => { const pc = Math.round(r.score / r.total * 100); return `<tr><td>${esc(r.title || "")}</td><td><b>${ar(r.score)} من ${ar(r.total)}</b></td><td><span class="status ${pc >= 85 ? "approved" : pc >= 60 ? "pending" : "rejected"}">${ar(pc)}٪</span></td><td>${fmtDate(r.createdAt)}</td></tr>`; }).join("")}</tbody></table></div>` : ""}
   <div class="sub-h" style="margin-top:16px">الاختبارات التدريبية: الدرجات والتصحيح</div>${tests.length ? `<div class="tbl"><table class="res-table"><thead><tr><th>الوحدة</th><th>الدرجة</th><th>النسبة</th><th>التاريخ</th></tr></thead><tbody>${tests.map(r => { const pc = Math.round(r.score / r.total * 100); return `<tr><td>${esc(uName(r.unit))}</td><td><b>${ar(r.score)} من ${ar(r.total)}</b></td><td><span class="status ${pc >= 85 ? "approved" : pc >= 60 ? "pending" : "rejected"}">${ar(pc)}٪</span></td><td>${fmtDate(r.createdAt)}</td></tr>`; }).join("")}</tbody></table></div>` : `<p class="muted">لم تحلّ اختبارًا تدريبيًّا بعد.</p>`}
   ${games.length ? `<div class="sub-h" style="margin-top:16px">الألعاب</div><div class="tbl"><table class="res-table"><thead><tr><th>لعبة الوحدة</th><th>النتيجة</th><th>التاريخ</th></tr></thead><tbody>${games.slice(0, 12).map(r => `<tr><td>${esc(uName(r.unit))}</td><td><b>${ar(r.score)} من ${ar(r.total)}</b></td><td>${fmtDate(r.createdAt)}</td></tr>`).join("")}</tbody></table></div>` : ""}
   <div class="sub-h" style="margin-top:16px">ما أنجزته وحصلت به على نقاط</div>${pts.length ? `<div class="pts-log">${pts.slice(0, 30).map(p => `<div><span>${PTS_IC[p.kind] || "⭐"}</span><span class="grow">${esc(PK_AR[p.kind] || "")}${p.label ? `: ${esc(p.label)}` : ""} <small class="muted">${fmtDate(p.createdAt)}</small></span><b>${plus(p.pts)}</b></div>`).join("")}</div>` : `<p class="muted">لم تجمع نقاطًا بعد.</p>`}
+  ${anBlock}
   <form class="form" style="margin-top:16px"><div class="field"><label>ملاحظة للمعلمة</label><textarea maxlength="600" style="min-height:80px" required></textarea></div><button class="pill-btn teal" type="submit">أرسل الملاحظة</button></form>`;
   box.querySelector("form").onsubmit = async e => { e.preventDefault(); const t = box.querySelector("textarea").value.trim(); if (!t) return;
     try { await store.add("notes", { sid, from: "parent", uid: UID, pname: ME.name, text: t, createdAt: now() }); toast("وصلت ملاحظتك"); box.remove(); showFollow(l); } catch (err) { toast("لم تُرسل الملاحظة"); } };
@@ -744,7 +927,7 @@ $("#tOut").onclick = doLogout;
 let curTab = "req";
 $$("#tTabs button").forEach(b => b.onclick = () => openTab(b.dataset.t));
 function openTab(t) { curTab = t; $$("#tTabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.t === t)); $$("[data-p]").forEach(p => p.hidden = p.dataset.p !== t);
-  ({ stu: tStudents, res: tResults, req: tRequests, sum: tSummaries, post: tPosts, book: tBooks, site: tSite }[t])(); badges(); }
+  ({ stu: tStudents, acc: tAccounts, ev: tEvals, quiz: tQuizzes, ann: tAnn, res: tResults, req: tRequests, sum: tSummaries, post: tPosts, book: tBooks, site: tSite }[t])(); badges(); }
 async function badges() { try { const r = (await store.list("links", ["status", "pending"])).length; $("#reqN").hidden = !r; $("#reqN").textContent = ar(r); } catch (e) {} try { const s = (await store.list("summaries")).filter(x => x.status === "new").length; $("#sumN").hidden = !s; $("#sumN").textContent = ar(s); } catch (e) {} }
 let tCls = "";
 async function tStudents() {
