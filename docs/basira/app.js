@@ -334,7 +334,8 @@ async function aiCall(parts, fb) { return parseAiQuiz(await aiRaw(parts, fb, AI_
 const schemaHint = sc => sc.type === "object" ? Object.fromEntries(Object.entries(sc.properties || {}).map(([k, v]) => [k, schemaHint(v)])) : sc.type === "array" ? [schemaHint(sc.items || { type: "string" })] : sc.type === "string" ? "" : sc.type === "boolean" ? true : 0;
 async function aiRaw(parts, fb, prompt, schema) {
   const mk = strict => JSON.stringify({ contents: [{ role: "user", parts: [...parts, { text: strict ? prompt : prompt + "\n\nأخرج النتيجة JSON فقط، بلا أي نص قبله أو بعده، بهذه البنية:\n" + JSON.stringify(schemaHint(schema)) }] }],
-    generationConfig: strict ? { responseMimeType: "application/json", responseSchema: schema } : { responseMimeType: "application/json" } });
+    /* low thinking keeps the answer inside Google's time limit; the plain retry drops schema and thinking settings in case a model rejects them */
+    generationConfig: strict ? { responseMimeType: "application/json", responseSchema: schema, thinkingConfig: { thinkingLevel: "LOW" } } : { responseMimeType: "application/json" } });
   let last = null; const queue = AI_MODELS.slice(), tried = new Set();
   while (queue.length) { const m = queue.shift(); if (tried.has(m)) continue; tried.add(m);
     for (const strict of [true, false]) {
@@ -347,13 +348,16 @@ async function aiRaw(parts, fb, prompt, schema) {
       if (r.status !== 400) break; /* 400 is often the schema itself: try once more without it */
     }
     if (last && last.status === 200) break;
-    if (!last || last.status !== 404) break;
-    const sug = String(last.msg || "").match(/models\/(gemini-[\w.-]+)/g); if (sug) sug.map(x => x.slice(7).replace(/\.+$/, "")).filter(x => !tried.has(x)).reverse().forEach(x => queue.unshift(x));
+    if (!last) break;
+    if (last.status === 404) { const sug = String(last.msg || "").match(/models\/(gemini-[\w.-]+)/g); if (sug) sug.map(x => x.slice(7).replace(/\.+$/, "")).filter(x => !tried.has(x)).reverse().forEach(x => queue.unshift(x)); continue; }
+    /* busy, slow or out of quota: move to the next (lighter, faster) model */
+    if ([429, 500, 503, 504].includes(last.status)) { if (!tried.has("gemini-3.1-flash-lite")) queue.unshift("gemini-3.1-flash-lite"); continue; }
+    break;
   }
   throw new Error(aiErr(last));
 }
 /* any number of PDFs and photos: they are read in batches (in page order) and the questions are joined */
-const AI_BATCH_BYTES = 14e6, AI_BATCH_FILES = 8;
+const AI_BATCH_BYTES = 7e6, AI_BATCH_FILES = 3;
 async function aiQuizFromFiles(files, fb, onStep) {
   fb = fb || cfg.firebase;
   if (!fb || !fb.apiKey || !fb.projectId) throw new Error("هذه الخاصية تعمل في الموقع المربوط بـ Firebase فقط.");
