@@ -564,3 +564,4 @@ h1,h2,h3,h4,h5,.brand b,.teacher b,.stats b{font-weight:700;letter-spacing:0}
 .pts-log div{display:flex;gap:8px;align-items:center;font-size:14.5px;background:var(--paper);border-radius:10px;padding:5px 10px}
 .pts-log b{color:var(--ok);font-family:var(--fd)}
 .mestats{grid-template-columns:repeat(4,minmax(0,1fr))}
+.cls-f small{opacity:.7;font-size:12px}

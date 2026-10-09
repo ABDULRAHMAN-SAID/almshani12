@@ -51,11 +51,21 @@ function checkName(n) {
 }
 function checkPin(p) { p = String(p || ""); if (p.length < 4) return "الرقم السري ٤ أرقام أو أحرف على الأقل."; if (/\s/.test(p)) return "الرقم السري بلا مسافات."; return ""; }
 async function sha(t) { const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, "0")).join(""); }
-const fbEmail = async n => "u" + (await sha("basira|" + nameKey(n))).slice(0, 32) + "@basira-school.app";
+const fbEmail = async k => "u" + (await sha("basira|" + k)).slice(0, 32) + "@basira-school.app";
+/* class rosters: only hashes of (name, father, grandfather) and (name, father, family) are shipped, never the names */
+const RST = window.BASIRA_ROSTER || { classes: [], h: {} };
+const CLS = id => (RST.classes.find(c => c.id === id) || {}).name || "";
+function nameTokens(s) { const t = nameKey(s).split(" ").filter(x => x && !["بن", "بنت", "ابن"].includes(x)), o = [];
+  for (let i = 0; i < t.length; i++) { if (t[i] === "عبد" && t[i + 1]) { o.push("عبد" + t[i + 1]); i++; } else o.push(t[i]); } return o; }
+async function rosterMatch(name) { const t = nameTokens(name); if (t.length < 3) return null;
+  for (const c of [t.slice(0, 3), [t[0], t[1], t[t.length - 1]]]) { const h = (await sha("basira-roster|" + c.join(" "))).slice(0, 20); if (RST.h[h]) return { cls: RST.h[h][0], id: RST.h[h][1] }; }
+  return null; }
+function clsChips(cur, counts) { if (!RST.classes.length) return ""; return `<div class="nv-filters cls-f" role="toolbar" aria-label="الصف"><button class="chip-f" data-cls="" aria-pressed="${!cur}">كل الصفوف</button>${RST.classes.map(c => `<button class="chip-f" data-cls="${c.id}" aria-pressed="${cur === c.id}">${esc(c.name)}${counts ? ` <small>${counts(c)}</small>` : ""}</button>`).join("")}</div>`; }
+async function acctKey(name) { const m = await rosterMatch(name); return { m, key: m ? "r:" + m.id : nameKey(name) }; }
 const fbPass = pin => "Bz!" + pin + "#2026";
 const LOCAL_T_CODE = "1234";
 let ME = null;
-const ERR = { exists: "هذا الاسم مسجّل من قبل. إن كان حسابك فاختر «تسجيل الدخول»، وإن كان لشخص آخر فأضف اسم الجد الثاني أو اللقب.", bad: "الاسم أو الرقم السري غير صحيح.", many: "محاولات كثيرة. انتظر دقائق ثم حاول مرة أخرى.", net: "تعذّر الاتصال بالإنترنت. تأكد من الشبكة ثم حاول مرة أخرى.", code: "رمز تفعيل لوحة المعلمة غير صحيح.", gone: "هذا الحساب حُذف من الموقع. تواصل مع المعلمة.", role: "" };
+const ERR = { roster: "لم نجد هذا الاسم في قوائم الصفوف. اكتبي اسمك واسم أبيك واسم جدك كما في قائمة الصف (مثل: مريم سالم محمد)، أو اسمك واسم أبيك والقبيلة. إن لم ينجح فراجعي المعلمة.", exists: "هذا الاسم مسجّل من قبل. إن كان حسابك فاختر «تسجيل الدخول»، وإن كان لشخص آخر فأضف اسم الجد الثاني أو اللقب.", bad: "الاسم أو الرقم السري غير صحيح.", many: "محاولات كثيرة. انتظر دقائق ثم حاول مرة أخرى.", net: "تعذّر الاتصال بالإنترنت. تأكد من الشبكة ثم حاول مرة أخرى.", code: "رمز تفعيل لوحة المعلمة غير صحيح.", gone: "هذا الحساب حُذف من الموقع. تواصل مع المعلمة.", role: "" };
 function fbErr(e) { const c = (e && e.code) || ""; if (c.includes("email-already-in-use")) return ERR.exists; if (/wrong-password|user-not-found|invalid-credential|invalid-login|invalid-email/.test(c)) return ERR.bad; if (c.includes("too-many")) return ERR.many; if (c.includes("network")) return ERR.net; if (c.includes("permission")) return ERR.code; return "حدث خطأ غير متوقع، حاول مرة أخرى."; }
 async function loadProfile(uid) {
   const p = await store.get("users", uid); if (!p) return null;
@@ -64,10 +74,11 @@ async function loadProfile(uid) {
 }
 const acct = {
   async register(name, pin, role, code) {
-    name = normName(name); const key = nameKey(name);
-    const prof = { name, key, role, points: 0, createdAt: now() };
+    name = normName(name); const { m, key } = await acctKey(name);
+    if (role === "student" && RST.classes.length && !m) throw new Error(ERR.roster);
+    const prof = { name, key, role, points: 0, createdAt: now() }; if (role === "student" && m) prof.cls = m.cls;
     if (db) {
-      let cred; try { cred = await auth.createUserWithEmailAndPassword(await fbEmail(name), fbPass(pin)); } catch (e) { throw new Error(fbErr(e)); }
+      let cred; try { cred = await auth.createUserWithEmailAndPassword(await fbEmail(key), fbPass(pin)); } catch (e) { throw new Error(fbErr(e)); }
       const uid = cred.user.uid;
       try { const b = db.batch(); if (role === "teacher") b.set(db.collection(P + "admins").doc(uid), { key: String(code || ""), createdAt: now() }); b.set(db.collection(P + "users").doc(uid), prof); await b.commit(); }
       catch (e) { try { await cred.user.delete(); } catch (x) {} throw new Error(role === "teacher" ? ERR.code : fbErr(e)); }
@@ -82,9 +93,9 @@ const acct = {
     UID = uid; ME = await loadProfile(uid); return ME;
   },
   async login(name, pin) {
-    name = normName(name); const key = nameKey(name);
+    name = normName(name); const { key } = await acctKey(name);
     if (db) {
-      let cred; try { cred = await auth.signInWithEmailAndPassword(await fbEmail(name), fbPass(pin)); } catch (e) { throw new Error(fbErr(e)); }
+      let cred; try { cred = await auth.signInWithEmailAndPassword(await fbEmail(key), fbPass(pin)); } catch (e) { throw new Error(fbErr(e)); }
       UID = cred.user.uid; ME = await loadProfile(UID); if (!ME) { await auth.signOut(); UID = null; throw new Error(ERR.gone); } return ME;
     }
     const ph = await sha(pin + "|" + key); const hit = Object.entries(LS.all("users")).find(([, u]) => u.key === key && u.ph === ph);
@@ -315,7 +326,7 @@ function authForm(el, o) {
   const roleBtns = o.fixed ? "" : `<div class="field" data-rolef hidden><label>نوع الحساب</label><div class="seg">${(o.roles || ["student", "parent"]).map(r => `<button type="button" data-r="${r}" aria-pressed="${r === role}">${ROLE_AR[r]}</button>`).join("")}</div></div>`;
   el.innerHTML = `${o.title ? `<h3 class="auth-t">${esc(o.title)}</h3>` : ""}<div class="seg seg-main" role="tablist"><button type="button" data-m="login" aria-pressed="${mode === "login"}">تسجيل الدخول</button><button type="button" data-m="new" aria-pressed="${mode === "new"}">حساب جديد</button></div>
   <form class="form" autocomplete="on" novalidate>${roleBtns}
-    <div class="field"><label>الاسم الثلاثي</label><input name="n" required maxlength="60" autocomplete="username" placeholder="${o.fixed === "parent" ? "مثال: سالم محمد الهنائي" : o.fixed === "teacher" ? "اسمك الثلاثي" : "مثال: مريم سالم الهنائية"}"></div>
+    <div class="field"><label>الاسم الثلاثي</label><input name="n" required maxlength="60" autocomplete="username" placeholder="${o.fixed === "parent" ? "مثال: سالم محمد الهنائي" : o.fixed === "teacher" ? "اسمك الثلاثي" : "مثال: مريم سالم محمد"}"></div>
     <div class="field"><label>الرقم السري</label><div class="pinrow"><input name="p" type="password" inputmode="numeric" required minlength="4" maxlength="12" dir="ltr" autocomplete="current-password"><button type="button" class="eye" aria-label="إظهار الرقم السري">👁</button></div></div>
     <div class="field" data-newf hidden><label>أعد كتابة الرقم السري</label><input name="p2" type="password" inputmode="numeric" maxlength="12" dir="ltr" autocomplete="new-password"></div>
     ${o.teacher ? `<div class="field" data-newf hidden><label>رمز تفعيل لوحة المعلمة</label><input name="c" inputmode="numeric" maxlength="12" dir="ltr"></div>` : ""}
@@ -329,7 +340,7 @@ function authForm(el, o) {
     el.querySelectorAll("[data-r]").forEach(b => b.setAttribute("aria-pressed", b.dataset.r === role));
     f.p.setAttribute("autocomplete", mode === "new" ? "new-password" : "current-password");
     el.querySelector("[data-go]").textContent = mode === "new" ? (role === "parent" ? "أنشئ حساب ولي الأمر" : role === "teacher" ? "أنشئي حساب المعلمة" : "أنشئي حسابي") : "دخول";
-    el.querySelector("[data-hint]").textContent = mode === "new" ? "الاسم الثلاثي هو اسم الدخول، ولا يتكرر. احفظ الرقم السري جيدًا، فلا يمكن استرجاعه إلا عن طريق المعلمة." : "يبقى الدخول محفوظًا على هذا الجهاز حتى تضغط «خروج».";
+    el.querySelector("[data-hint]").textContent = mode === "new" && role === "student" && RST.classes.length ? "اكتبي اسمك كما في قائمة صفك: اسمك واسم أبيك واسم جدك، فيُعرف صفك تلقائيًّا. احفظي الرقم السري جيدًا." : mode === "new" ? "الاسم الثلاثي هو اسم الدخول، ولا يتكرر. احفظ الرقم السري جيدًا، فلا يمكن استرجاعه إلا عن طريق المعلمة." : "يبقى الدخول محفوظًا على هذا الجهاز حتى تضغط «خروج».";
     msg(M, "");
   }
   el.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { mode = b.dataset.m; paint(); });
@@ -343,7 +354,7 @@ function authForm(el, o) {
     const btn = el.querySelector("[data-go]"); btn.disabled = true; const t0 = btn.textContent; btn.textContent = "لحظة…";
     try {
       const me = mode === "new" ? await acct.register(name, pin, role, f.c ? f.c.value.trim() : "") : await acct.login(name, pin);
-      IS_T = !!me.admin; toast(mode === "new" ? "أهلًا " + me.name.split(" ")[0] + "! أُنشئ حسابك ✓" : "أهلًا بعودتك " + me.name.split(" ")[0]);
+      IS_T = !!me.admin; toast(mode === "new" ? "أهلًا " + me.name.split(" ")[0] + "! أُنشئ حسابك ✓" + (me.cls ? " · " + CLS(me.cls) : "") : "أهلًا بعودتك " + me.name.split(" ")[0]);
       await refreshMe(); o.onDone && o.onDone(me);
     } catch (err) { msg(M, err.message || ERR.bad); }
     finally { btn.disabled = false; btn.textContent = t0; if (!el.isConnected) return; }
@@ -372,7 +383,7 @@ async function loadAccount() {
   else A.innerHTML = `<div class="msg ok">أنتِ مسجّلة الدخول باسم «${esc(ME.name)}». تُحفظ نتائجك وألعابك ونقاطك تلقائيًّا.</div><div class="row" style="margin-top:14px"><a class="pill-btn orange" href="#units">ادرسي الوحدات</a><a class="pill-btn ghost" href="#summary">اكتبي تلخيصًا</a><button class="pill-btn ghost" data-out>خروج</button></div>`;
   A.querySelector("[data-out]").onclick = doLogout;
   const tests = RESULTS.filter(r => r.kind === "test").sort(byTime), games = RESULTS.filter(r => r.kind === "game").length;
-  I.innerHTML = `<div style="display:flex;gap:14px;align-items:center"><span class="avatar">${esc(ini(ME.name))}</span><div><b style="font-size:20px;color:var(--ink)">${esc(ME.name)}</b><br><span class="muted">${ROLE_AR[ME.role] || ""}</span></div></div>
+  I.innerHTML = `<div style="display:flex;gap:14px;align-items:center"><span class="avatar">${esc(ini(ME.name))}</span><div><b style="font-size:20px;color:var(--ink)">${esc(ME.name)}</b><br><span class="muted">${ROLE_AR[ME.role] || ""}${ME.cls ? " · الصف " + esc(CLS(ME.cls)) : ""}</span></div></div>
   ${ME.role === "student" ? `<div class="mestats"><div><b data-mypts>${ar(myTotal())}</b><span>نقطة</span></div><div><b>${ar([...MYPTS.values()].filter(p => p.kind === "novel").length)}</b><span>رواية</span></div><div><b>${ar(tests.length)}</b><span>اختبار</span></div><div><b>${ar(games)}</b><span>لعبة</span></div></div>
   <div class="row" style="margin-top:10px"><a class="pill-btn soft" href="#leaders">🏆 لوحة المتصدرات</a><a class="pill-btn soft" href="#read">📖 اقرئي رواية</a></div>
   ${MYPTS.size ? `<div class="sub-h" style="margin-top:14px">آخر نقاطك</div><div class="pts-log">${[...MYPTS.values()].sort(byTime).slice(0, 8).map(p => `<div><span>${PTS_IC[p.kind] || "⭐"}</span><span class="grow">${esc(PTS_AR[p.kind] || "")}${p.label ? `: ${esc(p.label)}` : ""}</span><b>${plus(p.pts)}</b></div>`).join("")}</div>` : ""}
@@ -536,6 +547,7 @@ function confetti() {
 
 /* ================= LEADERBOARD ================= */
 const short2 = s => String(s || "").split(" ").slice(0, 2).join(" ");
+let lbCls = "";
 async function loadLeaders() {
   await refreshMe();
   $("#ptsGuide").innerHTML = `<h3 style="font-size:20px;font-weight:900">كيف أجمع النقاط؟</h3><ul class="pts-guide">${Object.keys(PTS).map(k => `<li><span>${PTS_IC[k]}</span><b>${esc(PTS_AR[k])}</b><em>${plus(PTS[k])}</em></li>`).join("")}<li><span>${PTS_IC.teacher}</span><b>نقاط تمنحها المعلمة للمتميزات</b><em>★</em></li></ul><p class="muted" style="font-size:14px;margin:10px 0 0">تُحسب كل رواية وكل كتاب وكل لعبة واختبار ونشاط مرة واحدة فقط.</p>${isStu() ? `<div class="my-total"><span>رصيدك</span><b data-mypts>${ar(myTotal())}</b><span>نقطة</span></div>` : ""}`;
@@ -545,18 +557,21 @@ async function loadLeaders() {
   let sc = [], us = [];
   try { us = await store.list("users", ["role", "student"]); } catch (e) {}
   try { sc = await store.list("scores"); } catch (e) {}
-  const m = new Map(us.map(u => [u.id, { id: u.id, name: u.name, total: u.points || 0 }]));
+  if (lbCls) us = us.filter(u => u.cls === lbCls);
+  const m = new Map(us.map(u => [u.id, { id: u.id, name: u.name, cls: u.cls || "", total: u.points || 0 }]));
   sc.forEach(s => { const r = m.get(s.id); if (r) r.total += s.total || 0; });
   const rows = [...m.values()].filter(r => r.total > 0).sort((a, b) => b.total - a.total || a.name.localeCompare(b.name, "ar"));
   let rank = 0, prev = null; rows.forEach((r, k) => { if (r.total !== prev) { rank = k + 1; prev = r.total; } r.rank = rank; });
-  if (!rows.length) { el.innerHTML = `<div class="empty"><b>لم تجمع أي طالبة نقاطًا بعد</b>كوني الأولى! اقرئي رواية أو العبي لعبة وحدة.<div class="row" style="justify-content:center;margin-top:12px"><a class="pill-btn orange" href="#read">اقرئي رواية</a><a class="pill-btn ghost" href="#games">العبي</a></div></div>`; return; }
+  const CH = clsChips(lbCls), bindCh = () => $$("#leaders [data-cls]").forEach(b => b.onclick = () => { lbCls = b.dataset.cls; loadLeaders(); });
+  if (!rows.length) { el.innerHTML = CH + `<div class="empty"><b>لم تجمع أي طالبة ${lbCls ? "من هذا الصف " : ""}نقاطًا بعد</b>كوني الأولى! اقرئي رواية أو العبي لعبة وحدة.<div class="row" style="justify-content:center;margin-top:12px"><a class="pill-btn orange" href="#read">اقرئي رواية</a><a class="pill-btn ghost" href="#games">العبي</a></div></div>`; bindCh(); return; }
   const top = rows.slice(0, 3), medal = ["🥇", "🥈", "🥉"], order = [1, 0, 2];
-  const pod = `<div class="podium">${order.filter(k => top[k]).map(k => { const r = top[k]; return `<div class="pod p${k + 1}${r.id === UID ? " me" : ""}"><span class="pav">${esc(ini(r.name))}</span><b>${esc(short2(r.name))}</b><span class="ppts">${ar(r.total)} نقطة</span><div class="pbar"><span>${medal[r.rank - 1] || ar(r.rank)}</span></div></div>`; }).join("")}</div>`;
+  const pod = `<div class="podium">${order.filter(k => top[k]).map(k => { const r = top[k]; return `<div class="pod p${k + 1}${r.id === UID ? " me" : ""}"><span class="pav">${esc(ini(r.name))}</span><b>${esc(short2(r.name))}</b>${r.cls && !lbCls ? `<small class="muted">${esc(CLS(r.cls))}</small>` : ""}<span class="ppts">${ar(r.total)} نقطة</span><div class="pbar"><span>${medal[r.rank - 1] || ar(r.rank)}</span></div></div>`; }).join("")}</div>`;
   const rest = rows.slice(3, 30), meRow = rows.find(r => r.id === UID), meOut = meRow && rows.indexOf(meRow) >= 30;
-  el.innerHTML = pod + (rest.length || meOut ? `<div class="card lb-list">${rest.map(r => lbRow(r)).join("")}${meOut ? `<div class="lb-gap">⋯</div>` + lbRow(meRow) : ""}</div>` : "") +
+  el.innerHTML = CH + pod + (rest.length || meOut ? `<div class="card lb-list">${rest.map(r => lbRow(r)).join("")}${meOut ? `<div class="lb-gap">⋯</div>` + lbRow(meRow) : ""}</div>` : "") +
     (isStu() && !meRow ? `<p class="note" style="margin-top:14px">لم تظهري في اللوحة بعد: أول رواية تقرئينها تضعك فيها! <a href="#read">اقرئي الآن</a></p>` : "");
+  bindCh();
 }
-const lbRow = r => `<div class="lb-row${r.id === UID ? " me" : ""}"><span class="lb-r">${ar(r.rank)}</span><span class="lb-av">${esc(ini(r.name))}</span><b class="grow">${esc(short2(r.name))}${r.id === UID ? ` <small>(أنتِ)</small>` : ""}</b><span class="lb-p">${ar(r.total)}</span></div>`;
+const lbRow = r => `<div class="lb-row${r.id === UID ? " me" : ""}"><span class="lb-r">${ar(r.rank)}</span><span class="lb-av">${esc(ini(r.name))}</span><b class="grow">${esc(short2(r.name))}${r.id === UID ? ` <small>(أنتِ)</small>` : ""}${r.cls && !lbCls ? ` <small class="muted">${esc(CLS(r.cls))}</small>` : ""}</b><span class="lb-p">${ar(r.total)}</span></div>`;
 
 /* ================= HOME / ABOUT ================= */
 async function siteData() { try { const s = await store.get("site", "main"); return { ...DEFAULT_SITE, ...(s || {}) }; } catch (e) { return DEFAULT_SITE; } }
@@ -619,16 +634,18 @@ async function loadParents() {
   const linked = new Set(links.map(l => l.studentUid));
   area.innerHTML = `<div class="grid2" style="margin-top:18px">
     <div class="card"><h3 class="auth-t">اختر ابنتك</h3><p class="muted" style="margin:0 0 10px">أسماء الطالبات المسجّلات في الموقع. اختر ابنتك وأرسل الطلب، ثم تنتظر موافقة المعلمة.</p>
-      <input class="search" id="stuQ" placeholder="ابحث بالاسم…" autocomplete="off">
+      ${clsChips("")}<input class="search" id="stuQ" placeholder="ابحث بالاسم…" autocomplete="off">
       <div class="list stu-pick" id="stuList"></div></div>
     <div class="card"><h3 class="auth-t">طلباتي</h3><div class="list" id="myLinks">${links.length ? links.map(l => `<div class="li"><div class="grow"><b>${esc(l.studentName)}</b><br><span class="muted" style="font-size:13.5px">${fmtDate(l.createdAt)}</span></div><span class="status ${l.status}">${ST_AR[l.status]}</span></div>`).join("") : `<p class="muted">لم ترسل طلبًا بعد.</p>`}</div></div>
   </div><div id="follow"></div>`;
-  const draw = q => { const k = nameKey(q || ""); const f = studs.filter(x => !k || nameKey(x.name).includes(k));
-    $("#stuList").innerHTML = f.length ? f.slice(0, 60).map(x => `<div class="li"><div class="grow"><b>${esc(x.name)}</b></div>${linked.has(x.id) ? `<span class="muted" style="font-size:13px">أُرسل الطلب</span>` : `<button class="mini o" data-sid="${x.id}">هذه ابنتي</button>`}</div>`).join("") : `<p class="muted">${studs.length ? "لا يوجد اسم مطابق." : "لم تسجّل أي طالبة بعد."}</p>`;
+  let pc = "";
+  const draw = q => { const k = nameKey(q || ""); const f = studs.filter(x => (!pc || x.cls === pc) && (!k || nameKey(x.name).includes(k)));
+    $("#stuList").innerHTML = f.length ? f.slice(0, 60).map(x => `<div class="li"><div class="grow"><b>${esc(x.name)}</b>${x.cls ? `<br><span class="muted" style="font-size:13px">${esc(CLS(x.cls))}</span>` : ""}</div>${linked.has(x.id) ? `<span class="muted" style="font-size:13px">أُرسل الطلب</span>` : `<button class="mini o" data-sid="${x.id}">هذه ابنتي</button>`}</div>`).join("") : `<p class="muted">${studs.length ? "لا يوجد اسم مطابق." : "لم تسجّل أي طالبة بعد."}</p>`;
     $$("#stuList [data-sid]").forEach(b => b.onclick = async () => { const st = studs.find(x => x.id === b.dataset.sid); if (!st) return; b.disabled = true;
-      try { await store.set("links", UID + "_" + st.id, { parentUid: UID, parentName: ME.name, studentUid: st.id, studentName: st.name, status: "pending", createdAt: now() }); toast("أُرسل الطلب إلى المعلمة"); loadParents(); }
+      try { await store.set("links", UID + "_" + st.id, { parentUid: UID, parentName: ME.name, studentUid: st.id, studentName: st.name, studentCls: st.cls || "", status: "pending", createdAt: now() }); toast("أُرسل الطلب إلى المعلمة"); loadParents(); }
       catch (e) { b.disabled = false; toast("لم يُرسل الطلب، حاول مرة أخرى"); } }); };
   draw(""); $("#stuQ").oninput = e => draw(e.target.value);
+  $$("#parentArea [data-cls]").forEach(b => b.onclick = () => { pc = b.dataset.cls; $$("#parentArea [data-cls]").forEach(x => x.setAttribute("aria-pressed", x === b)); draw($("#stuQ").value); });
   const ok = links.filter(l => l.status === "approved");
   for (const l of ok) await showFollow(l);
 }
@@ -669,12 +686,18 @@ $$("#tTabs button").forEach(b => b.onclick = () => openTab(b.dataset.t));
 function openTab(t) { curTab = t; $$("#tTabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.t === t)); $$("[data-p]").forEach(p => p.hidden = p.dataset.p !== t);
   ({ stu: tStudents, res: tResults, req: tRequests, sum: tSummaries, post: tPosts, book: tBooks, site: tSite }[t])(); badges(); }
 async function badges() { try { const r = (await store.list("links", ["status", "pending"])).length; $("#reqN").hidden = !r; $("#reqN").textContent = ar(r); } catch (e) {} try { const s = (await store.list("summaries")).filter(x => x.status === "new").length; $("#sumN").hidden = !s; $("#sumN").textContent = ar(s); } catch (e) {} }
+let tCls = "";
 async function tStudents() {
   const el = $("#tStu"); let st = [], notes = []; try { st = (await store.list("users", ["role", "student"])).sort((a, b) => a.name.localeCompare(b.name, "ar")); notes = await store.list("notes"); } catch (e) {}
   let sc = {}; try { (await store.list("scores")).forEach(x => sc[x.id] = x.total || 0); } catch (e) {}
   $("#stuNames").innerHTML = st.map(s => `<option value="${esc(s.name)}">`).join("");
-  if (!st.length) { el.innerHTML = `<div class="empty"><b>لم تسجّل أي طالبة بعد</b>شاركي رابط الموقع مع الطالبات ليسجّلن أسماءهن.</div>`; return; }
-  el.innerHTML = `<p class="muted" style="margin:0 0 6px">عدد المسجّلات: ${ar(st.length)}</p>` + st.map(s => { const n = notes.filter(x => x.sid === s.id); return `<div class="li" data-s="${s.id}"><div class="grow"><b>${esc(s.name)}</b><br><span class="muted" style="font-size:14px">سُجّلت ${fmtDate(s.createdAt)}</span></div><span class="stars" title="نقاط النشاط ${ar(sc[s.id] || 0)} + نقاط المعلمة ${ar(s.points || 0)}">${ar((sc[s.id] || 0) + (s.points || 0))} ★</span><button class="mini o" data-a="plus">+٥ نقاط</button><button class="mini" data-a="minus">−٥</button><button class="mini" data-a="note">ملاحظة${n.length ? " (" + ar(n.length) + ")" : ""}</button><button class="mini no" data-a="del">حذف</button><div data-box style="flex-basis:100%" hidden></div></div>`; }).join("");
+  const cnt = c => ar(st.filter(x => x.cls === c.id).length) + "/" + ar(c.n);
+  const head = clsChips(tCls, cnt) + (RST.classes.length ? `<p class="muted" style="margin:0 0 6px">${tCls ? `${esc(CLS(tCls))}: سجّلت ${ar(st.filter(x => x.cls === tCls).length)} من ${ar((RST.classes.find(c => c.id === tCls) || {}).n || 0)} طالبة` : `سجّلت ${ar(st.length)} من ${ar(RST.classes.reduce((a, c) => a + c.n, 0))} طالبة في ${ar(RST.classes.length)} صفوف`}. تسجّل الطالبة باسمها كما في قائمة صفها، فيُضاف صفها تلقائيًّا.</p>` : "");
+  const bind = () => $$("#tStu [data-cls]").forEach(b => b.onclick = () => { tCls = b.dataset.cls; tStudents(); });
+  if (tCls) st = st.filter(x => x.cls === tCls);
+  if (!st.length) { el.innerHTML = head + `<div class="empty"><b>لم تسجّل أي طالبة ${tCls ? "من هذا الصف " : ""}بعد</b>شاركي رابط الموقع مع الطالبات ليسجّلن أسماءهن.</div>`; bind(); return; }
+  el.innerHTML = head + st.map(s => { const n = notes.filter(x => x.sid === s.id); return `<div class="li" data-s="${s.id}"><div class="grow"><b>${esc(s.name)}</b><br><span class="muted" style="font-size:14px">${s.cls ? esc(CLS(s.cls)) + " · " : ""}سُجّلت ${fmtDate(s.createdAt)}</span></div><span class="stars" title="نقاط النشاط ${ar(sc[s.id] || 0)} + نقاط المعلمة ${ar(s.points || 0)}">${ar((sc[s.id] || 0) + (s.points || 0))} ★</span><button class="mini o" data-a="plus">+٥ نقاط</button><button class="mini" data-a="minus">−٥</button><button class="mini" data-a="note">ملاحظة${n.length ? " (" + ar(n.length) + ")" : ""}</button><button class="mini no" data-a="del">حذف</button><div data-box style="flex-basis:100%" hidden></div></div>`; }).join("");
+  bind();
   el.querySelectorAll("[data-a]").forEach(b => b.onclick = async () => { const row = b.closest("[data-s]"), id = row.dataset.s, s = st.find(x => x.id === id);
     if (b.dataset.a === "plus" || b.dataset.a === "minus") { await store.update("users", id, { points: Math.max(0, (s.points || 0) + (b.dataset.a === "plus" ? 5 : -5)) }); tStudents(); }
     if (b.dataset.a === "del") { if (b.dataset.c) { await store.del("users", id); tStudents(); } else { b.dataset.c = 1; b.textContent = "تأكيد الحذف"; } }
@@ -694,7 +717,7 @@ async function tRequests() {
   const el = $("#tReq"); let r = []; try { r = (await store.list("links")).sort((a, b) => (a.status === "pending" ? -1 : 0) - (b.status === "pending" ? -1 : 0) || byTime(a, b)); } catch (e) {}
   if (!r.length) { el.innerHTML = `<div class="empty"><b>لا توجد طلبات</b>حين يسجّل وليّ أمر ويختار ابنته يظهر طلبه هنا لتوافقي عليه أو ترفضيه.</div>`; return; }
   const L = { pending: "بانتظار الموافقة", approved: "موافَق", rejected: "مرفوض" };
-  el.innerHTML = r.map(x => `<div class="li" data-r="${x.id}"><div class="grow"><b>${esc(x.parentName)}</b> <span class="muted">(ولي أمر)</span><br><span style="font-size:14.5px">يطلب متابعة الطالبة: <b>${esc(x.studentName)}</b></span><br><span class="muted" style="font-size:13px">${fmtDate(x.createdAt)}</span></div><span class="status ${x.status}">${L[x.status]}</span>${x.status !== "approved" ? '<button class="mini ok" data-a="approved">موافقة</button>' : ""}${x.status !== "rejected" ? '<button class="mini no" data-a="rejected">رفض</button>' : ""}</div>`).join("");
+  el.innerHTML = r.map(x => `<div class="li" data-r="${x.id}"><div class="grow"><b>${esc(x.parentName)}</b> <span class="muted">(ولي أمر)</span><br><span style="font-size:14.5px">يطلب متابعة الطالبة: <b>${esc(x.studentName)}</b>${x.studentCls ? ` · ${esc(CLS(x.studentCls))}` : ""}</span><br><span class="muted" style="font-size:13px">${fmtDate(x.createdAt)}</span></div><span class="status ${x.status}">${L[x.status]}</span>${x.status !== "approved" ? '<button class="mini ok" data-a="approved">موافقة</button>' : ""}${x.status !== "rejected" ? '<button class="mini no" data-a="rejected">رفض</button>' : ""}</div>`).join("");
   el.querySelectorAll("[data-a]").forEach(b => b.onclick = async () => { b.disabled = true; try { await store.update("links", b.closest("[data-r]").dataset.r, { status: b.dataset.a, decidedAt: now() }); toast(b.dataset.a === "approved" ? "تمت الموافقة، يستطيع وليّ الأمر المتابعة الآن" : "رُفض الطلب"); } catch (e) { toast("لم يُحفظ القرار"); } tRequests(); badges(); });
 }
 async function tSummaries() {

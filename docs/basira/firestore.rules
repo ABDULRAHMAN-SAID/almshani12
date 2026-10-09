@@ -22,8 +22,9 @@ service cloud.firestore {
     match /basira_users/{uid} {
       allow read: if signedIn();
       allow create: if signedIn() && me() == uid
-        && request.resource.data.keys().hasOnly(['name', 'key', 'role', 'points', 'createdAt'])
+        && request.resource.data.keys().hasOnly(['name', 'key', 'role', 'points', 'createdAt', 'cls'])
         && request.resource.data.name is string && request.resource.data.name.size() <= 60
+        && (!('cls' in request.resource.data) || (request.resource.data.cls is string && request.resource.data.cls.size() <= 8))
         && request.resource.data.points == 0
         && (request.resource.data.role in ['student', 'parent']
             || (request.resource.data.role == 'teacher'
