@@ -709,7 +709,8 @@ summary: ملخص مستواها في سطرين أو ثلاثة. strengths: ن�
 /* ---------- «اسألي البصيرة»: one assistant on every page; knows the whole site, every lesson, and general knowledge ---------- */
 const ASK_CAPS = { teacher: 80, student: 30, parent: 20, guest: 10 };
 const askRole = () => ME ? ME.role : "guest";
-function askLeft() { const cap = ASK_CAPS[askRole()] || 10, k = "basira:ask:" + new Date().toISOString().slice(0, 10); let n = 0; try { n = +localStorage.getItem(k) || 0; } catch (e) {} return { cap, left: Math.max(0, cap - n), use: () => { try { localStorage.setItem(k, n + 1); } catch (e) {} n++; } }; }
+function askLeft() { return { cap: Infinity, left: Infinity, use: () => {} }; }
+function askLeftOld() { const cap = ASK_CAPS[askRole()] || 10, k = "basira:ask:" + new Date().toISOString().slice(0, 10); let n = 0; try { n = +localStorage.getItem(k) || 0; } catch (e) {} return { cap, left: Math.max(0, cap - n), use: () => { try { localStorage.setItem(k, n + 1); } catch (e) {} n++; } }; }
 const SITE_GUIDE = `موقع «البصيرة»: مبادرة قراءة وتعلّم لمادة «لغتي الجميلة» للصف العاشر (الفصل الأول)، صاحبتها أ. عائشة الكحالي، مدرسة نفيسة بنت الحسن، سلطنة عُمان. الصفوف: العاشر/١ والعاشر/٢ والعاشر/٣.
 الأقسام وروابطها (اكتب الرابط بالصيغة [[#الرابط|النص]]):
 - الرئيسية [[#home|الرئيسية]]: إعلانات المعلمة للجميع، ورحلة الوحدات، وأقسام المبادرة.
@@ -760,7 +761,7 @@ function askDraw(focus) {
     <div class="ask-body">${askHist.length ? "" : `<div class="ask-hello"><img src="assets/basira-bust.png" alt=""><div class="ask-m bot">أهلًا${first ? " " + esc(first) : ""} 👋 أنا <b>البصيرة</b>، صديقتك في هذا الموقع. اسأليني: أين أجد شيئًا، أو كيف أفعل شيئًا، أو عن أي درس أو رواية، أو حتى سؤالًا عامًّا!</div></div><div class="ask-sug">${askSugs().map(t => `<button class="chip-s" data-sug>${t}</button>`).join("")}</div>`}
       ${askHist.map(m => m.r === "u" ? `<div class="ask-m me">${esc(m.t)}</div>` : `<div class="ask-row"><img class="ask-mini" src="assets/basira-face.png" alt=""><div class="ask-m bot">${m.t === "…" ? `<span class="typing"><i></i><i></i><i></i></span>` : askFmt(m.t)}</div></div>`).join("")}</div>
     <form class="ask-f"><input maxlength="400" placeholder="${cap.left ? "اكتبي سؤالك…" : "انتهت أسئلة اليوم، عودي غدًا"}" ${cap.left ? "" : "disabled"}><button class="pill-btn orange" ${cap.left ? "" : "disabled"}>اسألي</button></form>
-    <small class="ask-cap">الأسئلة المتبقية اليوم: ${ar(cap.left)} من ${ar(cap.cap)} · قد تخطئ البصيرة أحيانًا</small>`;
+    <small class="ask-cap">قد تخطئ البصيرة أحيانًا، فتأكدي من المعلومة المهمة مع معلمتك</small>`;
   P.querySelector("[data-x]").onclick = () => { P.hidden = true; $("#askFab").classList.remove("on"); };
   const cl = P.querySelector("[data-clear]"); if (cl) cl.onclick = () => { askHist = []; askDraw(true); };
   const body = P.querySelector(".ask-body"); body.scrollTop = body.scrollHeight;
@@ -775,6 +776,7 @@ function askDraw(focus) {
 - أسئلة الدروس والروايات: اشرحي من المحتوى المرفق بلغة مبسطة وأمثلة، ووجّهي إلى الوحدة أو الرواية برابطها. لا تحلّي الواجبات والاختبارات كاملة نيابةً عن الطالبة؛ اشرحي الفكرة ووجّهيها.
 - الأسئلة العامة (معلومة، لغة، نصيحة دراسية…): أجيبي بإيجاز ودقة وبما يناسب طالبات المرحلة الثانوية، وإن لم تتأكدي فقولي ذلك.
 - السوالف والتحية («كيفك؟»، «عادي نسولف؟»، «صباح الخير»، «زهقانة»…): ردّي كصديقة لطيفة مرحة بجملة أو جملتين طبيعيتين دافئتين، مثل: «الحمد لله بخير، وأنتِ كيفك؟ 😊»، وجاري الحديث بلطف واسألي سؤالًا خفيفًا، ولا تحوّلي كل رد إلى درس. إن كتب السائل بلهجة عامية فردّي بلغة قريبة ودودة سهلة. ابقي في حدود الأدب والاحترام، وإن ظهر حزن أو ضيق فاستمعي بلطف وشجّعي على الحديث مع المعلمة أو الأهل.
+- إذا كان السائل طالبة وطالت السوالف (نحو ٤ رسائل متتالية أو أكثر بلا سؤال دراسي في المحادثة السابقة)، فاقترحي بمرح ولطف العودة للمذاكرة، مثل: «ههه ايش رايك نترك السوالف شوي ونذاكر؟ 😄 عندك درس تبين نراجعه أو رواية نقرأ عنها؟»، ثم أكملي معها إن أصرّت، وكرّري الاقتراح بأسلوب مختلف إن استمرت السوالف طويلًا.
 - لا تذكري أرقامًا سرية ولا بيانات طالبات أخريات. اكتبي بالعربية الفصحى المبسطة (أو لغة ودودة قريبة في السوالف)، بلا Markdown ولا نجوم، في ٢ إلى ٨ أسطر غالبًا، وأقصر من ذلك في التحية والسوالف.
 ${conv ? "المحادثة السابقة:\n" + conv + "\n" : ""}السؤال الآن: ${q}`, AI_FAST); }
     catch (e) { ans = "عذرًا، لم أستطع الإجابة الآن. " + (e.message || ""); }
