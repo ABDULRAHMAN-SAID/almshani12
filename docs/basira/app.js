@@ -298,14 +298,16 @@ const AI_PROMPT = `أنت مساعد لمعلمة لغة عربية. المرف�
 6) title عنوان قصير للاختبار مأخوذ من الورقة.
 7) لا تضف أسئلة ليست في الورقة، ولا تحذف أسئلة الكتابة.`;
 const AI_SCHEMA = { type: "object", properties: { title: { type: "string" }, passage: { type: "string" },
-  questions: { type: "array", items: { type: "object", properties: { type: { type: "string", enum: ["mc", "tf", "short", "essay"] }, q: { type: "string" }, options: { type: "array", items: { type: "string" } }, answer: { type: "integer" }, accepted: { type: "array", items: { type: "string" } }, model: { type: "string" }, points: { type: "number" }, sure: { type: "boolean" } }, required: ["type", "q"] } } }, required: ["questions"] };
+  questions: { type: "array", items: { type: "object", properties: { type: { type: "string" }, q: { type: "string" }, options: { type: "array", items: { type: "string" } }, answer: { type: "integer" }, accepted: { type: "array", items: { type: "string" } }, model: { type: "string" }, points: { type: "number" }, sure: { type: "boolean" } }, required: ["type", "q"] } } }, required: ["questions"] };
 function aiErr(e) {
   if (!e) return "تعذّر الاتصال بخدمة الذكاء الاصطناعي. تأكدي من الإنترنت ثم حاولي مرة أخرى.";
-  const m = String(e.msg || "") + JSON.stringify(e.details || "");
-  if (e.status === 403 || /SERVICE_DISABLED|has not been used|is disabled|API_KEY_SERVICE_BLOCKED|blocked/i.test(m)) return "خدمة الذكاء الاصطناعي غير مفعّلة في مشروع Firebase. على صاحب الموقع فتح Firebase ← AI Logic ← Get started ← Gemini Developer API، ثم الانتظار دقيقتين.";
-  if (e.status === 429) return "تجاوزتِ الحد المجاني المؤقت للذكاء الاصطناعي. انتظري دقيقة ثم حاولي مرة أخرى.";
-  if (e.status === 400 || e.status === 413) return "تعذّرت قراءة الملف. جرّبي ملفًا أصغر أو صورًا أوضح للصفحات.";
-  return "تعذّر إنشاء الاختبار (" + (e.status || "") + "). " + (e.msg || "").slice(0, 160);
+  const m = String(e.msg || "") + " " + JSON.stringify(e.details || ""), why = ` [${e.status || ""}${e.model ? " · " + e.model : ""}: ${String(e.msg || "").slice(0, 220)}]`;
+  if (/SERVICE_DISABLED|has not been used|is disabled|API_KEY_SERVICE_BLOCKED|are blocked/i.test(m)) return "خدمة الذكاء الاصطناعي غير مفعّلة أو مفتاح المشروع لا يسمح بها. افتح Firebase ← AI Logic ← Get started ← Gemini Developer API، ثم انتظر دقيقتين." + why;
+  if (/API key not valid|API_KEY_INVALID/i.test(m)) return "مفتاح Firebase غير مقبول لخدمة الذكاء الاصطناعي." + why;
+  if (/referer|referrer/i.test(m)) return "مفتاح Firebase مقيّد بعناوين مواقع محددة، وهذا الموقع ليس منها." + why;
+  if (e.status === 429) return "تجاوزتِ الحد المجاني المؤقت للذكاء الاصطناعي. انتظري دقيقة ثم حاولي مرة أخرى." + why;
+  if (e.status === 400 || e.status === 413) return "رفض الذكاء الاصطناعي الطلب." + why;
+  return "تعذّر طلب الذكاء الاصطناعي." + why;
 }
 function parseAiQuiz(txt) {
   let j; try { j = JSON.parse(String(txt).replace(/^\s*```(?:json)?/i, "").replace(/```\s*$/, "")); } catch (e) { throw new Error("لم يفهم الذكاء الاصطناعي الورقة. جرّبي صورًا أوضح أو ملفًا آخر."); }
@@ -328,15 +330,24 @@ function parseAiQuiz(txt) {
 }
 /* one request to Gemini; on a retired model (404) it moves on to the model Google names */
 async function aiCall(parts, fb) { return parseAiQuiz(await aiRaw(parts, fb, AI_PROMPT, AI_SCHEMA)); }
+/* a JSON example built from the schema, for the retry without a schema */
+const schemaHint = sc => sc.type === "object" ? Object.fromEntries(Object.entries(sc.properties || {}).map(([k, v]) => [k, schemaHint(v)])) : sc.type === "array" ? [schemaHint(sc.items || { type: "string" })] : sc.type === "string" ? "" : sc.type === "boolean" ? true : 0;
 async function aiRaw(parts, fb, prompt, schema) {
-  const body = JSON.stringify({ contents: [{ role: "user", parts: [...parts, { text: prompt }] }], generationConfig: { responseMimeType: "application/json", responseSchema: schema, temperature: 0.2 } });
+  const mk = strict => JSON.stringify({ contents: [{ role: "user", parts: [...parts, { text: strict ? prompt : prompt + "\n\nأخرج النتيجة JSON فقط، بلا أي نص قبله أو بعده، بهذه البنية:\n" + JSON.stringify(schemaHint(schema)) }] }],
+    generationConfig: strict ? { responseMimeType: "application/json", responseSchema: schema } : { responseMimeType: "application/json" } });
   let last = null; const queue = AI_MODELS.slice(), tried = new Set();
   while (queue.length) { const m = queue.shift(); if (tried.has(m)) continue; tried.add(m);
-    let r; try { r = await fetch(`https://firebasevertexai.googleapis.com/v1beta/projects/${encodeURIComponent(fb.projectId)}/models/${m}:generateContent`, { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": fb.apiKey, "x-goog-api-client": "gl-js/2.16.0 fire/2.16.0" }, body }); }
-    catch (e) { throw new Error(aiErr(null)); }
-    if (r.ok) { const j = await r.json(); const c = (j.candidates || [])[0] || {}; const txt = ((c.content || {}).parts || []).filter(p => !p.thought).map(p => p.text || "").join(""); if (!txt) throw new Error("لم يرجع الذكاء الاصطناعي نتيجة. جرّبي صورًا أوضح."); return txt; }
-    last = { status: r.status }; try { const e = await r.json(); last.msg = e.error && e.error.message; last.details = e.error && e.error.details; } catch (x) {}
-    if (r.status !== 404) break;
+    for (const strict of [true, false]) {
+      let r; try { r = await fetch(`https://firebasevertexai.googleapis.com/v1beta/projects/${encodeURIComponent(fb.projectId)}/models/${m}:generateContent`, { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": fb.apiKey, "x-goog-api-client": "gl-js/2.16.0 fire/2.16.0" }, body: mk(strict) }); }
+      catch (e) { throw new Error(aiErr(null)); }
+      if (r.ok) { const j = await r.json(); const c = (j.candidates || [])[0] || {}; const txt = ((c.content || {}).parts || []).filter(p => !p.thought).map(p => p.text || "").join("");
+        if (!txt) { last = { status: 200, msg: "empty response" + (c.finishReason ? " (" + c.finishReason + ")" : "") + ((j.promptFeedback || {}).blockReason ? " blocked: " + j.promptFeedback.blockReason : "") }; break; }
+        return txt; }
+      last = { status: r.status, model: m }; try { const e = await r.json(); last.msg = e.error && e.error.message; last.details = e.error && e.error.details; } catch (x) {}
+      if (r.status !== 400) break; /* 400 is often the schema itself: try once more without it */
+    }
+    if (last && last.status === 200) break;
+    if (!last || last.status !== 404) break;
     const sug = String(last.msg || "").match(/models\/(gemini-[\w.-]+)/g); if (sug) sug.map(x => x.slice(7).replace(/\.+$/, "")).filter(x => !tried.has(x)).reverse().forEach(x => queue.unshift(x));
   }
   throw new Error(aiErr(last));
