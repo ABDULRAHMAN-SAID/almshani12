@@ -687,3 +687,24 @@ h1,h2,h3,h4,h5,.brand b,.teacher b,.stats b{font-weight:700;letter-spacing:0}
 .ai-n{width:24px;height:24px;border-radius:50%;background:var(--paper);display:grid;place-items:center;font-size:13px;font-weight:800;flex:none}
 .ai-t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}
 .ai-file small{color:var(--ink-3)}
+
+/* question types */
+.qed-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.qed-h select{border:1.5px solid var(--line);border-radius:10px;padding:6px 8px;font:inherit;font-weight:700;background:#fff}
+.qed-p{display:flex;align-items:center;gap:6px;font-weight:700;color:var(--ink-2)}
+.qed-p input{width:70px;border:1.5px solid var(--line);border-radius:10px;padding:6px 8px;font:inherit}
+.qhint{margin:4px 0 0;font-size:13px}
+.qopts.tf{grid-template-columns:repeat(2,minmax(0,160px))}
+.tf-l{font-weight:800;border:1.5px solid var(--line);border-radius:10px;padding:7px 18px;background:#fff}
+.opts.tf{grid-template-columns:repeat(2,minmax(0,200px))}
+.q-pts{font-size:12.5px;color:var(--ink-3);background:var(--paper);border-radius:999px;padding:1px 9px;white-space:nowrap}
+.q-short{width:100%;max-width:440px;border:2px solid var(--line);border-radius:14px;padding:10px 14px;font:inherit;font-size:16px}
+.q-essay{width:100%;min-height:130px;border:2px solid var(--line);border-radius:14px;padding:10px 14px;font:inherit;font-size:16px;line-height:1.9;resize:vertical}
+.q-short:focus,.q-essay:focus{outline:none;border-color:var(--teal)}
+.q-fb{font-size:14px;margin-top:6px;color:var(--ink-2);font-weight:700}
+.g-ans{background:#fff;border:1.5px solid var(--line);border-radius:12px;padding:10px 14px;white-space:pre-line;line-height:1.9;margin:6px 0}
+.g-ans.ok{border-color:var(--ok);background:var(--ok-l)}.g-ans.no{border-color:#F0C89A;background:var(--soft-l)}
+.grade-box{display:flex;flex-direction:column;gap:12px;padding:6px 0}
+.g-q{border:1.5px solid var(--line);border-radius:14px;padding:12px;background:#FCFDFD}
+.g-q input[type=number]{width:80px;border:1.5px solid var(--line);border-radius:10px;padding:6px 8px;font:inherit}
+@media (max-width:600px){.opts.tf,.qopts.tf{grid-template-columns:1fr 1fr}}

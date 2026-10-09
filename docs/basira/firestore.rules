@@ -127,7 +127,8 @@ service cloud.firestore {
       allow create: if signedIn() && myRole() == 'student' && request.resource.data.uid == me()
         && id == request.resource.data.qid + '_' + me()
         && exists(/databases/$(database)/documents/basira_quizzes/$(request.resource.data.qid));
-      allow update: if false;
+      // المعلمة تصحّح أسئلة الكتابة فتعدّل الدرجات فقط
+      allow update: if isTeacher() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['marks', 'score', 'pending', 'gradedAt']);
       allow delete: if isTeacher();
     }
 
