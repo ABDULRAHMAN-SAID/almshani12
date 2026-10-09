@@ -751,17 +751,18 @@ let askHist = [];
 function askInit() {
   const fab = $("#askFab"), P = $("#askPanel"); if (!fab) return;
   fab.onclick = () => { P.hidden = !P.hidden; fab.classList.toggle("on", !P.hidden); if (!P.hidden) askDraw(true); };
+  /* moving to another page closes the chat so it never covers a form; the conversation is kept */
+  window.addEventListener("hashchange", () => { P.hidden = true; fab.classList.remove("on"); });
 }
 function askDraw(focus) {
   const P = $("#askPanel"), cap = askLeft(), first = ME ? ME.name.split(" ")[0] : "";
-  P.innerHTML = `<div class="ask-h"><span>💬</span><div><b>اسألي البصيرة</b><small>عن الموقع والدروس والروايات، وأي سؤال آخر</small></div>${askHist.length ? `<button class="mini" data-clear title="محادثة جديدة">↺</button>` : ""}<button class="mini" data-x aria-label="إغلاق">✕</button></div>
-    <div class="ask-body">${askHist.length ? "" : `<div class="ask-m bot">أهلًا${first ? " " + esc(first) : ""} 👋 أنا البصيرة، مساعدة الموقع. اسأليني: أين أجد شيئًا في الموقع، أو كيف أفعل شيئًا، أو عن أي درس أو رواية، أو حتى سؤالًا عامًّا.</div><div class="ask-sug">${askSugs().map(t => `<button class="chip-s" data-sug>${t}</button>`).join("")}</div>`}
-      ${askHist.map(m => `<div class="ask-m ${m.r === "u" ? "me" : "bot"}">${m.r === "u" ? esc(m.t) : m.t === "…" ? `<span class="spin"></span>` : askFmt(m.t)}</div>`).join("")}</div>
+  P.innerHTML = `<div class="ask-h"><span class="ask-av"><img src="assets/basira-face.png" alt=""><i></i></span><div><b>البصيرة</b><small>صديقتك في الموقع · تعرف الدروس والروايات وكل شيء هنا</small></div>${askHist.length ? `<button class="mini" data-clear title="محادثة جديدة">↺</button>` : ""}<button class="mini" data-x aria-label="إغلاق">✕</button></div>
+    <div class="ask-body">${askHist.length ? "" : `<div class="ask-hello"><img src="assets/basira-bust.png" alt=""><div class="ask-m bot">أهلًا${first ? " " + esc(first) : ""} 👋 أنا <b>البصيرة</b>، صديقتك في هذا الموقع. اسأليني: أين أجد شيئًا، أو كيف أفعل شيئًا، أو عن أي درس أو رواية، أو حتى سؤالًا عامًّا!</div></div><div class="ask-sug">${askSugs().map(t => `<button class="chip-s" data-sug>${t}</button>`).join("")}</div>`}
+      ${askHist.map(m => m.r === "u" ? `<div class="ask-m me">${esc(m.t)}</div>` : `<div class="ask-row"><img class="ask-mini" src="assets/basira-face.png" alt=""><div class="ask-m bot">${m.t === "…" ? `<span class="typing"><i></i><i></i><i></i></span>` : askFmt(m.t)}</div></div>`).join("")}</div>
     <form class="ask-f"><input maxlength="400" placeholder="${cap.left ? "اكتبي سؤالك…" : "انتهت أسئلة اليوم، عودي غدًا"}" ${cap.left ? "" : "disabled"}><button class="pill-btn orange" ${cap.left ? "" : "disabled"}>اسألي</button></form>
     <small class="ask-cap">الأسئلة المتبقية اليوم: ${ar(cap.left)} من ${ar(cap.cap)} · قد تخطئ البصيرة أحيانًا</small>`;
   P.querySelector("[data-x]").onclick = () => { P.hidden = true; $("#askFab").classList.remove("on"); };
   const cl = P.querySelector("[data-clear]"); if (cl) cl.onclick = () => { askHist = []; askDraw(true); };
-  P.querySelectorAll(".ask-link").forEach(a => a.onclick = () => { if (innerWidth < 700) { P.hidden = true; $("#askFab").classList.remove("on"); } });
   const body = P.querySelector(".ask-body"); body.scrollTop = body.scrollHeight;
   const f = P.querySelector(".ask-f");
   const send = async q => { q = q.trim(); if (!q) return; const c = askLeft(); if (!c.left) return; c.use();
@@ -948,40 +949,73 @@ const SURVEY = {
     { id: "text", q: "ملاحظاتك أو اقتراحاتك للمعلمة", t: "text" }
   ]
 };
+/* open to everyone, no login: the respondent says who they are; the teachers' part is the project's original «استطلاع رأي المعلمات» */
+SURVEY.teacher = [
+  { id: "clear", q: "ما مدى وضوح فكرة مبادرة «البصيرة» وأهدافها؟", t: "scale" },
+  { id: "fit", q: "ما مدى ملاءمة محتوى الموقع لمنهج «لغتي الجميلة» للصف العاشر؟", t: "scale" },
+  { id: "impact", q: "ما الأثر المتوقع للمبادرة في تنمية القراءة لدى الطالبات؟", t: "scale" },
+  { id: "design", q: "ما رأيك في سهولة استخدام الموقع وتصميمه؟", t: "scale" },
+  { id: "best", q: "ما أكثر ما أعجبك في المبادرة؟", t: "pick", o: ["الدروس الملخّصة", "الأنشطة والاختبارات", "ألعاب الوحدات", "الروايات والنقاط", "متابعة أولياء الأمور", "أدوات المعلمة بالذكاء الاصطناعي"] },
+  { id: "adopt", q: "هل تودّين تطبيق فكرة مشابهة في مادتك أو صفوفك؟", t: "pick", o: ["نعم", "ربما", "لا"] },
+  { id: "field", q: "تخصصك", t: "pick", o: ["اللغة العربية", "مادة أخرى", "إدارة أو إشراف"] },
+  { id: "text", q: "ملاحظاتك ومقترحاتك لتطوير المبادرة", t: "text" }
+];
+SURVEY.visitor = [
+  { id: "overall", q: "ما تقييمك العام لموقع البصيرة؟", t: "scale" },
+  { id: "useful", q: "ما مدى فائدته للطالبات في رأيك؟", t: "scale" },
+  { id: "text", q: "رأيك أو اقتراحك", t: "text" }
+];
+const SV_WHO = { student: "طالبة", parent: "وليّ أمر", teacher: "معلمة / زميلة", visitor: "زائر" };
+const svDoneKey = "basira:survey-done";
+let svWho = null;
 async function loadSurvey() {
   await refreshMe(); const el = $("#survey");
-  if (!ME || (ME.role !== "student" && ME.role !== "parent")) {
-    el.innerHTML = `<div class="empty"><b>${ME && ME.role === "teacher" ? "نتائج الاستبيان في لوحتك" : "الاستبيان للطالبات وأولياء الأمور"}</b>${ME && ME.role === "teacher" ? `<div style="margin-top:10px"><a class="pill-btn teal" href="#teacher">لوحة المعلمة ← الاستبيان</a></div>` : `ادخل بحسابك أولًا، فلكل حساب إجابة واحدة.<div style="margin-top:12px"><a class="pill-btn orange" href="#register">الدخول</a></div>`}</div>`; return; }
-  let old = null; try { old = await store.get("survey", UID); } catch (e) {}
-  if (old) { el.innerHTML = `<div class="card" style="text-align:center;padding:30px"><div style="font-size:44px">💚</div><h3 class="auth-t">شكرًا لك، وصلت إجابتك</h3><p class="muted">أُرسلت الإجابة في ${fmtDate(old.createdAt)}، ولكل حساب إجابة واحدة. رأيك يساعد المعلمة على تطوير المبادرة.</p></div>`; return; }
-  const Q = SURVEY[ME.role], ans = {};
-  el.innerHTML = `<form class="card form" id="svForm" novalidate><p class="muted" style="margin:0">دقيقتان فقط. لا تظهر إجابتك لأحد غير المعلمة، ولا يظهر اسمك في النتائج.</p>
+  let done = null; try { done = JSON.parse(localStorage.getItem(svDoneKey) || "null"); } catch (e) {}
+  if (!done && UID && ME && (ME.role === "student" || ME.role === "parent")) { try { const o = await store.get("survey", UID); if (o) done = { at: o.createdAt }; } catch (e) {} }
+  if (done && !svWho) { el.innerHTML = `<div class="card" style="text-align:center;padding:30px"><div style="font-size:44px">💚</div><h3 class="auth-t">شكرًا لك، وصلت إجابتك</h3><p class="muted">أُرسلت الإجابة من هذا الجهاز في ${fmtDate(done.at)}. رأيك يساعد على تطوير المبادرة.</p><button class="mini" data-again>إجابة شخص آخر من هذا الجهاز</button></div>`;
+    el.querySelector("[data-again]").onclick = () => { svWho = (ME && SV_WHO[ME.role] && ME.role !== "teacher") ? ME.role : "visitor"; loadSurvey(); }; return; }
+  if (!svWho) svWho = ME && (ME.role === "student" || ME.role === "parent") ? ME.role : null;
+  const lock = ME && (ME.role === "student" || ME.role === "parent");
+  if (!svWho) { el.innerHTML = `<div class="card sv-who"><h3 class="auth-t">قبل أن نبدأ: من أنت؟</h3><p class="muted" style="margin:0 0 12px">الاستبيان مفتوح للجميع دون تسجيل دخول، ويستغرق دقيقتين.</p><div class="sv-opts">${Object.entries(SV_WHO).map(([k, v]) => `<button type="button" class="sv-o big" data-who="${k}">${{ student: "👩‍🎓", parent: "👨‍👩‍👧", teacher: "👩‍🏫", visitor: "🙂" }[k]} ${v}</button>`).join("")}</div></div>`;
+    el.querySelectorAll("[data-who]").forEach(b => b.onclick = () => { svWho = b.dataset.who; loadSurvey(); }); return; }
+  const Q = SURVEY[svWho], ans = {};
+  el.innerHTML = `<form class="card form" id="svForm" novalidate><div class="row" style="justify-content:space-between;align-items:center"><span class="chip-s">${{ student: "👩‍🎓", parent: "👨‍👩‍👧", teacher: "👩‍🏫", visitor: "🙂" }[svWho]} ${SV_WHO[svWho]}</span>${lock ? "" : `<button type="button" class="mini" data-change>تغيير</button>`}</div>
+    <p class="muted" style="margin:6px 0 0">دقيقتان فقط. لا تظهر إجابتك لأحد غير المعلمة، ولا يُطلب اسمك.</p>
+    ${svWho !== "visitor" && svWho !== "teacher" ? `<div class="field" style="margin-top:8px"><label>${svWho === "parent" ? "صف ابنتك" : "صفك"} (اختياري)</label><select data-cls><option value="">—</option>${RST.classes.map(c => `<option value="${c.id}" ${ME && ME.cls === c.id ? "selected" : ""}>${esc(c.name)}</option>`).join("")}</select></div>` : ""}
     ${Q.map((x, i) => `<div class="sv-q" data-q="${x.id}"><b>${ar(i + 1)}. ${esc(x.q)}</b>${x.t === "text" ? `<textarea name="${x.id}" maxlength="600" style="min-height:90px" placeholder="اكتب هنا (اختياري)"></textarea>`
       : `<div class="sv-opts">${(x.t === "scale" ? SCALE : x.o).map((o, j) => `<button type="button" class="sv-o" data-v="${x.t === "scale" ? j + 1 : j}">${x.t === "scale" ? `<span class="sv-n">${ar(j + 1)}</span>` : ""}${esc(o)}</button>`).join("")}</div>`}</div>`).join("")}
     <button class="pill-btn orange big" type="submit">أرسل الاستبيان</button><div data-msg></div></form>`;
   const f = $("#svForm");
+  const ch = f.querySelector("[data-change]"); if (ch) ch.onclick = () => { svWho = null; loadSurvey(); };
   f.querySelectorAll(".sv-o").forEach(b => b.onclick = () => { const q = b.closest("[data-q]"); q.querySelectorAll(".sv-o").forEach(x => x.setAttribute("aria-pressed", x === b)); ans[q.dataset.q] = +b.dataset.v; q.classList.remove("miss"); });
   f.onsubmit = async e => { e.preventDefault(); const miss = Q.filter(x => x.t !== "text" && ans[x.id] == null);
     f.querySelectorAll(".sv-q").forEach(q => q.classList.toggle("miss", miss.some(x => x.id === q.dataset.q)));
     if (miss.length) { msg(f.querySelector("[data-msg]"), `بقي ${ar(miss.length)} من الأسئلة دون إجابة.`); f.querySelector(".sv-q.miss").scrollIntoView({ behavior: "smooth", block: "center" }); return; }
-    const t = f.querySelector("textarea"); const doc = { role: ME.role, cls: ME.cls || "", a: ans, text: t ? t.value.trim() : "", createdAt: now() };
+    const t = f.querySelector("textarea"), cs = f.querySelector("[data-cls]");
+    const doc = { role: svWho, cls: cs ? cs.value : "", a: ans, text: t ? t.value.trim() : "", createdAt: now() };
     const btn = f.querySelector("button[type=submit]"); btn.disabled = true;
-    try { await store.set("survey", UID, doc); toast("شكرًا لك! وصلت إجابتك"); loadSurvey(); } catch (err) { btn.disabled = false; msg(f.querySelector("[data-msg]"), err && err.code ? fbErr(err) : "لم يُرسل الاستبيان، حاول مرة أخرى."); } };
+    try { await store.add("surveyo", doc); try { localStorage.setItem(svDoneKey, JSON.stringify({ at: doc.createdAt })); } catch (x) {} svWho = null; toast("شكرًا لك! وصلت إجابتك"); loadSurvey(); }
+    catch (err) { btn.disabled = false; msg(f.querySelector("[data-msg]"), err && err.code ? fbErr(err) : "لم يُرسل الاستبيان، حاول مرة أخرى."); } };
 }
 let svRole = "student";
 async function tSurvey() {
-  const el = $("#tSrv"); let all = []; try { all = (await store.list("survey")).sort(byTime); } catch (e) {}
-  const nS = all.filter(x => x.role === "student").length, nP = all.filter(x => x.role === "parent").length;
+  const el = $("#tSrv"); let all = [];
+  try { all = all.concat(await store.list("surveyo")); } catch (e) {}
+  try { all = all.concat(await store.list("survey")); } catch (e) {}
+  all.sort(byTime);
+  const n = r => all.filter(x => x.role === r).length;
   const R = all.filter(x => x.role === svRole), Q = SURVEY[svRole];
-  el.innerHTML = `<p class="muted" style="margin:0 0 8px">استبيان البصيرة داخل الموقع: تجيب كل طالبة ووليّ أمر مرة واحدة من صفحة «الاستبيان». الإجابات بلا أسماء.</p>
-    <div class="nv-filters"><button class="chip-f" data-r="student" aria-pressed="${svRole === "student"}">الطالبات <small>${ar(nS)}</small></button><button class="chip-f" data-r="parent" aria-pressed="${svRole === "parent"}">أولياء الأمور <small>${ar(nP)}</small></button></div>
-    ${!R.length ? `<div class="empty"><b>لا توجد إجابات بعد</b>شاركي رابط الموقع، والاستبيان في الصفحة الرئيسية.</div>` : Q.map((x, i) => {
+  el.innerHTML = `<p class="muted" style="margin:0 0 8px">استبيان البصيرة مفتوح للجميع دون تسجيل دخول: الطالبات، وأولياء الأمور، والمعلمات الزميلات (استطلاع رأي المعلمات في المشروع)، والزوار. الإجابات بلا أسماء.</p>
+    <div class="nv-filters">${Object.entries(SV_WHO).map(([k, v]) => `<button class="chip-f" data-r="${k}" aria-pressed="${svRole === k}">${v} <small>${ar(n(k))}</small></button>`).join("")}<button class="mini" data-csv>⬇ تصدير الإجابات</button></div>
+    ${!R.length ? `<div class="empty"><b>لا توجد إجابات بعد</b>شاركي رابط الاستبيان: يفتح مباشرة دون دخول.<div class="row" style="justify-content:center;margin-top:8px"><button class="mini o" data-link>📋 انسخي رابط الاستبيان</button></div></div>` : Q.map((x, i) => {
       if (x.t === "text") { const tx = R.filter(r => r.text); return `<div class="sv-res"><b>${ar(i + 1)}. ${esc(x.q)}</b>${tx.length ? `<div class="notes">${tx.map(r => `<div class="bubble t"><small>${r.cls ? esc(CLS(r.cls)) + " · " : ""}${fmtDate(r.createdAt)}</small>${esc(r.text)}</div>`).join("")}</div>` : `<p class="muted">لا توجد اقتراحات مكتوبة.</p>`}</div>`; }
       const opts = x.t === "scale" ? SCALE : x.o, vals = R.map(r => r.a && r.a[x.id]).filter(v => v != null);
       const cnt = opts.map((o, j) => vals.filter(v => v === (x.t === "scale" ? j + 1 : j)).length), mx = Math.max(1, ...cnt);
       const avg = x.t === "scale" && vals.length ? (vals.reduce((a, b) => a + b, 0) / vals.length) : null;
       return `<div class="sv-res"><div class="row" style="justify-content:space-between"><b>${ar(i + 1)}. ${esc(x.q)}</b>${avg != null ? `<span class="status approved">المتوسط ${ar(avg.toFixed(1))} من ٥</span>` : ""}</div>${opts.map((o, j) => `<div class="sv-bar"><span>${esc(o)}</span><i><em style="width:${cnt[j] / mx * 100}%"></em></i><b>${ar(cnt[j])}</b></div>`).join("")}</div>`; }).join("")}`;
   $$("#tSrv [data-r]").forEach(b => b.onclick = () => { svRole = b.dataset.r; tSurvey(); });
+  const lk = $("#tSrv [data-link]"); if (lk) lk.onclick = async () => { const ok = await copyText(location.href.split("#")[0] + "#survey"); lk.textContent = ok ? "✓ نُسخ الرابط" : "تعذّر النسخ"; };
+  $("#tSrv [data-csv]").onclick = () => { const head = ["الفئة", "الصف", "التاريخ", ...Q.map(x => x.q)]; downloadCSV(`استبيان-${SV_WHO[svRole]}.csv`, [head, ...R.map(r => [SV_WHO[r.role], r.cls ? CLS(r.cls) : "", new Date(r.createdAt || 0).toLocaleDateString("ar-OM"), ...Q.map(x => x.t === "text" ? r.text || "" : x.t === "scale" ? (r.a || {})[x.id] || "" : (x.o[(r.a || {})[x.id]] || ""))])]); };
 }
 
 async function boot() {
@@ -1262,10 +1296,10 @@ function authForm(el, o) {
   el.querySelector(".eye").onclick = () => { f.p.type = f.p.type === "password" ? "text" : "password"; };
   if (f.sid) bindPicker(f);
   f.onsubmit = async e => {
-    e.preventDefault(); const name = f.n.value, pin = f.p.value.trim();
+    e.preventDefault(); const name = f.n.value, pin = digits(f.p.value);
     const en = checkName(name); if (en) { msg(M, en); f.n.focus(); return; }
     const ep = checkPin(pin); if (ep) { msg(M, ep); f.p.focus(); return; }
-    if (mode === "new" && pin !== f.p2.value.trim()) { msg(M, "الرقمان السريان غير متطابقين."); f.p2.focus(); return; }
+    if (mode === "new" && pin !== digits(f.p2.value)) { msg(M, "الرقمان السريان غير متطابقين."); f.p2.focus(); return; }
     const kid = mode === "new" && f.sid ? rosterStudent(f.sid.value) : null;
     if (mode === "new" && f.sid && !kid) { msg(M, "اختر صف ابنتك ثم اسمها."); f.cls.focus(); return; }
     const btn = el.querySelector("[data-go]"); btn.disabled = true; const t0 = btn.textContent; btn.textContent = "لحظة…";
@@ -1286,6 +1320,7 @@ async function refreshMe() {
   if (ME && UID) { try { const p = await loadProfile(UID); if (p) ME = p; } catch (e) {} }
   $("#meTxt").textContent = ME ? (ME.role === "teacher" ? "لوحة المعلمة" : ME.name.split(" ")[0]) : "دخول";
   const hb = $("#meTxt").closest("a"); if (hb) hb.setAttribute("href", ME && ME.role === "teacher" ? "#teacher" : ME && ME.role === "parent" ? "#parents" : "#register");
+  if (hb && !hb.dataset.b) { hb.dataset.b = 1; hb.addEventListener("click", () => { if (location.hash === hb.getAttribute("href")) { route(); window.scrollTo({ top: 0, behavior: "smooth" }); } }); }
   await Promise.all([myResults(), loadMyPoints()]); renderAxes();
   $("#fPts").textContent = isStu() ? ar(myTotal()) + " نقطة" : "سجّلي لتجمعي النقاط";
 }

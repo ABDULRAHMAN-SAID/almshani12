@@ -145,6 +145,17 @@ service cloud.firestore {
 
     // محتوى عام يقرؤه الجميع وتكتبه المعلمة
     // تحضير منصة نور: خاص بالمعلمة
+    // الاستبيان المفتوح: يجيب أي زائر دون دخول، وتقرؤه المعلمة فقط
+    match /basira_surveyo/{id} {
+      allow read, delete: if isTeacher();
+      allow create: if request.resource.data.keys().hasOnly(['role', 'cls', 'a', 'text', 'createdAt'])
+        && request.resource.data.role in ['student', 'parent', 'teacher', 'visitor']
+        && request.resource.data.cls is string && request.resource.data.cls.size() <= 8
+        && request.resource.data.a is map && request.resource.data.a.size() <= 12
+        && request.resource.data.text is string && request.resource.data.text.size() <= 600;
+      allow update: if false;
+    }
+
     match /basira_preps/{id} { allow read, write: if isTeacher(); }
 
     match /basira_posts/{id} { allow read: if true; allow write: if isTeacher(); }

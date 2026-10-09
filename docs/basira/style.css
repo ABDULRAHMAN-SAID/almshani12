@@ -818,3 +818,29 @@ h1,h2,h3,h4,h5,.brand b,.teacher b,.stats b{font-weight:700;letter-spacing:0}
 .ask-link:hover{background:var(--teal);color:#fff}
 .ask-m .spin{display:inline-block;vertical-align:middle}
 @media print{.ask-fab,.ask-panel{display:none!important}}
+
+/* البصيرة: the girl from the home page is the assistant */
+.ask-fab{display:flex;align-items:center;gap:10px;padding:6px 18px 6px 6px;padding-inline:6px 18px;background:#fff;color:var(--ink);border:2px solid #E3DAFB;box-shadow:0 16px 34px -12px rgba(60,40,140,.45)}
+.ask-fab.on{background:#fff;border-color:var(--teal)}
+.fab-av img{animation:fabBob 3.2s ease-in-out infinite}.ask-fab.on .fab-av img{animation:none}
+.fab-av{width:58px;height:58px;border-radius:50%;background:radial-gradient(circle at 50% 40%,#fff,#E6F4F5 60%,#C9E6E8);border:3px solid transparent;background-clip:padding-box;box-shadow:0 0 0 3px #0A6E79,0 0 0 6px #F4B740;overflow:hidden;flex:none;display:grid;place-items:end center}
+.fab-av img{width:100%;height:100%;object-fit:cover}
+.fab-t{display:flex;flex-direction:column;line-height:1.3;text-align:start}.fab-t b{font-size:16px;color:var(--teal)}.fab-t small{font-size:12px;color:var(--ink-3);font-weight:700}
+@keyframes fabBob{0%,100%{transform:translateY(2px)}50%{transform:translateY(-3px) rotate(-3deg)}}
+.ask-h{background:linear-gradient(135deg,#0A6E79,#1793A0);color:#fff}
+.ask-h small{color:rgba(255,255,255,.85)!important}.ask-h .mini{background:rgba(255,255,255,.18);color:#fff}
+.ask-av{position:relative;width:46px;height:46px;flex:none}
+.ask-av img{width:46px;height:46px;border-radius:50%;object-fit:cover;background:#fff;border:2px solid #fff}
+.ask-av i{position:absolute;bottom:1px;inset-inline-end:1px;width:11px;height:11px;border-radius:50%;background:#3CD07A;border:2px solid #0A6E79}
+.ask-hello{display:flex;gap:6px;align-items:flex-end}
+.ask-hello img{width:92px;flex:none;margin-bottom:-12px;filter:drop-shadow(0 6px 10px rgba(0,0,0,.12))}
+.ask-hello .ask-m{max-width:none}
+.ask-row{display:flex;gap:6px;align-items:flex-end;align-self:flex-start;max-width:92%}
+.ask-mini{width:28px;height:28px;border-radius:50%;object-fit:cover;background:#fff;border:1.5px solid var(--line);flex:none}
+.ask-row .ask-m{max-width:none}
+.typing{display:inline-flex;gap:4px;padding:4px 2px}.typing i{width:7px;height:7px;border-radius:50%;background:var(--teal);opacity:.4;animation:typ 1s infinite}.typing i:nth-child(2){animation-delay:.15s}.typing i:nth-child(3){animation-delay:.3s}
+@keyframes typ{0%,100%{opacity:.25;transform:translateY(0)}50%{opacity:1;transform:translateY(-3px)}}
+.ask-panel{bottom:96px}
+@media (max-width:600px){.fab-t{display:none}.ask-fab{padding:5px}.fab-av{width:54px;height:54px}.ask-panel{bottom:80px}}
+
+.sv-who .sv-opts{gap:10px}.sv-o.big{font-size:17px;padding:14px 22px}
