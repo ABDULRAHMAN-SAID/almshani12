@@ -844,3 +844,5 @@ h1,h2,h3,h4,h5,.brand b,.teacher b,.stats b{font-weight:700;letter-spacing:0}
 @media (max-width:600px){.fab-t{display:none}.ask-fab{padding:5px}.fab-av{width:54px;height:54px}.ask-panel{bottom:80px}}
 
 .sv-who .sv-opts{gap:10px}.sv-o.big{font-size:17px;padding:14px 22px}
+
+body.framed .ask-fab{bottom:78px}body.framed .ask-panel{bottom:150px}

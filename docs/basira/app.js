@@ -1783,6 +1783,8 @@ function pwaInit() {
     else toast(ios ? "في Safari: اضغطي زر المشاركة ⬆️ ثم «إضافة إلى الشاشة الرئيسية»" : "من قائمة المتصفح ⋮ اختاري «تثبيت التطبيق» أو «إضافة إلى الشاشة الرئيسية»"); };
 }
 window.__basiraAI = { aiQuizFromFiles, prepShow: p => showPrep(p, false), draft: d => { qEdit = d; tQuizzes(); } }; /* used by the site checks */
+/* inside a preview frame the host puts its own badge bottom-right: lift our button above it */
+if (window.top !== window) document.body.classList.add("framed");
 pwaInit();
 askInit();
 boot();
