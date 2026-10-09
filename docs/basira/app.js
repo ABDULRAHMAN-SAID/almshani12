@@ -68,7 +68,7 @@ async function unlockRoster(code) {
 }
 async function rosterReady() {
   if (ROSTER) return true; if (!RST.ct) return false;
-  let c = null; try { c = localStorage.getItem("basira:rc"); } catch (e) {}
+  let c = RST.k || null; try { c = localStorage.getItem("basira:rc") || c; } catch (e) {}
   if (!c) return false;
   try { await unlockRoster(c); return true; } catch (e) { try { localStorage.removeItem("basira:rc"); } catch (x) {} return false; }
 }
@@ -752,7 +752,7 @@ async function tStudents() {
   let sc = {}; try { (await store.list("scores")).forEach(x => sc[x.id] = x.total || 0); } catch (e) {}
   $("#stuNames").innerHTML = st.map(s => `<option value="${esc(s.name)}">`).join("");
   const cnt = c => ar(st.filter(x => x.cls === c.id).length) + "/" + ar(c.n);
-  const head = clsChips(tCls, cnt) + (RST.classes.length ? `<p class="muted" style="margin:0 0 6px">${tCls ? `${esc(CLS(tCls))}: دخلت ${ar(st.filter(x => x.cls === tCls).length)} من ${ar((RST.classes.find(c => c.id === tCls) || {}).n || 0)} طالبة` : `دخلت ${ar(st.length)} من ${ar(RST.classes.reduce((a, c) => a + c.n, 0))} طالبة في ${ar(RST.classes.length)} صفوف`}. أسماء الطالبات مُدخلة بصفوفهن، وتدخل الطالبة باختيار صفها واسمها. رمز الصفوف للطالبات وأولياء الأمور: <b dir="ltr">${esc((() => { try { return localStorage.getItem("basira:rc") || "—"; } catch (e) { return "—"; } })())}</b></p>` : "");
+  const head = clsChips(tCls, cnt) + (RST.classes.length ? `<p class="muted" style="margin:0 0 6px">${tCls ? `${esc(CLS(tCls))}: دخلت ${ar(st.filter(x => x.cls === tCls).length)} من ${ar((RST.classes.find(c => c.id === tCls) || {}).n || 0)} طالبة` : `دخلت ${ar(st.length)} من ${ar(RST.classes.reduce((a, c) => a + c.n, 0))} طالبة في ${ar(RST.classes.length)} صفوف`}. أسماء الطالبات مُدخلة بصفوفهن، وتدخل الطالبة باختيار صفها واسمها.</p>` : "");
   const bind = () => $$("#tStu [data-cls]").forEach(b => b.onclick = () => { tCls = b.dataset.cls; tStudents(); });
   if (tCls) st = st.filter(x => x.cls === tCls);
   if (!st.length) { el.innerHTML = head + `<div class="empty"><b>لم تسجّل أي طالبة ${tCls ? "من هذا الصف " : ""}بعد</b>شاركي رابط الموقع مع الطالبات ليسجّلن أسماءهن.</div>`; bind(); return; }
