@@ -721,3 +721,18 @@ h1,h2,h3,h4,h5,.brand b,.teacher b,.stats b{font-weight:700;letter-spacing:0}
 .prep-f textarea{width:100%;border:none;padding:12px 14px;font:inherit;font-size:15.5px;line-height:2;resize:vertical;min-height:110px;display:block}
 .prep-f textarea:focus{outline:2px solid var(--teal-l)}
 .mini.ok{background:var(--ok);color:#fff}
+
+.prep-mode{margin-bottom:8px}
+.prep-mode button{font-size:14.5px}
+.prep-sum{margin-top:8px;font-size:14px;line-height:2}
+.prep-sum .chip-s{margin:2px 0;border:1px solid var(--line)}
+.prep-many{max-height:300px;overflow:auto;border:1.5px solid var(--line);border-radius:14px;background:#fff;padding:6px 10px}
+.pm-unit{padding:6px 0;border-bottom:1px dashed var(--line)}
+.pm-unit:last-child{border-bottom:none}
+.pm-uh{display:flex;gap:8px;align-items:center;font-weight:800;color:var(--teal)}
+.pm-l{display:flex;gap:8px;align-items:center;padding:3px 26px 3px 0;font-size:14.5px}
+.pm-uh small,.pm-l small{color:var(--ink-3);font-weight:600}
+.prep-many input{width:18px;height:18px;accent-color:var(--teal);flex:none}
+.prep-pages label{display:flex;align-items:center;gap:6px;font-weight:700}
+.prep-pages input,.prep-periods input{width:90px;border:1.5px solid var(--line);border-radius:10px;padding:7px 10px;font:inherit}
+.prep-periods{max-width:220px}

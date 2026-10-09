@@ -418,12 +418,12 @@ function aiBox(el) {
 /* ---------- teacher: lesson preparation for منصة نور, written by AI from the lesson pages ---------- */
 const PREP_F = [["concepts", "المفاهيم"], ["warmup", "التهيئة / التمهيد / التعلم القبلي"], ["procedures", "إجراءات سير الدرس / الأنشطة التدريسية"], ["formative", "التقويم التكويني"], ["summative", "التقويم الختامي"], ["notes", "ملاحظات ضمن خطة الدراسة الأسبوعية (يشاهدها الطالب وولي الأمر)"]];
 const PREP_PROMPT = `أنت خبير في إعداد التحضير الدراسي لمادة اللغة العربية «لغتي الجميلة» للصف العاشر في سلطنة عُمان، وفق حقول التحضير في منصة نور.
-المرفق: صفحات الدرس من كتاب الطالبة (صور أو PDF) أو ملخص الدرس، أو كلاهما.
+المرفق: صفحات من كتاب الطالبة (صور أو PDF) أو ملخص الدروس، أو كلاهما. قد يكون المحتوى درسًا واحدًا، أو جزءًا من درس (صفحات محددة)، أو عدة دروس: اكتب تحضيرًا واحدًا يغطي المحتوى المحدد كله ولا يتجاوزه.
 اكتب حقول التحضير الآتية بالعربية الفصحى وبأسلوب تربوي واضح. اكتبها نصًّا عاديًّا جاهزًا للنسخ: بلا Markdown ولا نجوم ولا رموز تنسيق، وكل بند في سطر مستقل يبدأ برقم بهذا الشكل: ١- ، ٢- ...
-- lesson: عنوان الدرس ونوعه كما في الكتاب (مثل: القراءة: ...).
+- lesson: عنوان الدرس ونوعه كما في الكتاب (مثل: القراءة: ...)، وإن كانت عدة دروس فاذكر عناوينها مفصولة بـ « + »، وإن كانت صفحات محددة فاذكرها بين قوسين.
 - concepts: المفاهيم والمصطلحات الرئيسة في الدرس (من ٤ إلى ٨)، كل مفهوم مع تعريف قصير.
 - warmup: التهيئة والتمهيد والتعلم القبلي: نشاط تمهيدي قصير (٣–٥ دقائق) يربط الدرس بخبرات الطالبات، وسؤال أو سؤالان للتعلم القبلي.
-- procedures: إجراءات سير الدرس والأنشطة التدريسية في حصة مدتها ٤٠ دقيقة: من ٥ إلى ٨ خطوات مرتبة، تبيّن دور المعلمة ودور الطالبات، وتوظّف استراتيجيات التعلم النشط (العمل التعاوني، الحوار والمناقشة، الخريطة الذهنية، لعب الأدوار...)، مع الزمن التقريبي لكل خطوة بين قوسين.
+- procedures: إجراءات سير الدرس والأنشطة التدريسية لعدد الحصص المذكور (كل حصة ٤٠ دقيقة؛ إن كانت أكثر من حصة فقسّم الخطوات تحت عناوين: الحصة الأولى، الحصة الثانية...): من ٥ إلى ٨ خطوات مرتبة لكل حصة، تبيّن دور المعلمة ودور الطالبات، وتوظّف استراتيجيات التعلم النشط (العمل التعاوني، الحوار والمناقشة، الخريطة الذهنية، لعب الأدوار...)، مع الزمن التقريبي لكل خطوة بين قوسين.
 - formative: التقويم التكويني: من ٣ إلى ٥ أسئلة أو مهام قصيرة تُطرح أثناء الدرس.
 - summative: التقويم الختامي: من ٣ إلى ٤ أسئلة أو مهمة ختامية تقيس تحقق أهداف الدرس.
 - notes: ملاحظات ضمن خطة الدراسة الأسبوعية يقرؤها الطالب وولي الأمر: بأسلوب ودود موجّه للطالبة وأسرتها في ٣ إلى ٥ أسطر: ماذا ستتعلم الطالبة، وما المطلوب منها (قراءة، واجب، إحضار شيء)، وكيف يساعدها ولي الأمر في البيت.
@@ -436,17 +436,27 @@ function lessonText(uid, li) { const u = UNITS.find(x => x.id === uid); const l 
     ...(l.cards || []).map(c => `${c.title}: ${c.text}${c.quote ? " «" + c.quote + "»" : ""}`), (l.vocab || []).length ? "المفردات: " + l.vocab.map(v => typeof v === "string" ? v : `${v.w || v.word || ""}: ${v.m || v.meaning || ""}`).join("، ") : "",
     (l.keyPoints || []).length ? "نقاط مهمة: " + l.keyPoints.join("، ") : ""].filter(Boolean).join("\n"); }
 let prepFiles = [], prepCur = null;
+const prepSel = { mode: "one", one: "", many: new Set(), from: "", to: "", periods: 1 };
+/* every lesson with the pages it covers (to the page before the next lesson, or the unit's last page) */
+function lessonSpans() { const out = []; UNITS.forEach(u => { const end = +String(u.pages).split(/[–-]/).pop(); u.lessons.forEach((l, i) => { const nx = u.lessons[i + 1]; out.push({ u: u.id, i, unit: u, l, from: l.page, to: nx ? nx.page - 1 : end }); }); }); return out; }
+function prepScope() { const all = lessonSpans(), m = prepSel.mode;
+  if (m === "one") { const x = all.find(y => y.u + "|" + y.i === prepSel.one); return { items: x ? [x] : [], note: "" }; }
+  if (m === "many") return { items: all.filter(y => prepSel.many.has(y.u + "|" + y.i)), note: "" };
+  if (m === "pages") { const f = +digits(prepSel.from), t = +digits(prepSel.to) || f; if (!f) return { items: [], note: "" }; const lo = Math.min(f, t), hi = Math.max(f, t);
+    return { items: all.filter(y => y.from <= hi && y.to >= lo), note: `الصفحات من ${lo} إلى ${hi} فقط` }; }
+  return { items: [], note: "" }; }
 async function tPrep() {
   const el = $("#tPrep"); let hist = []; try { hist = (await store.list("preps")).sort(byTime); } catch (e) {}
-  el.innerHTML = `<div class="ai-box prep-box" tabindex="0"><div class="ai-h"><span class="ai-ic">📝</span><div><b>تحضير منصة نور بالذكاء الاصطناعي</b><p>ارفعي صور صفحات الدرس من الكتاب، أو اختاري الدرس من دروس الموقع، فيكتب الذكاء الاصطناعي حقول التحضير الستة. راجعيها، ثم انسخي كل حقل والصقيه في منصة نور.</p></div></div>
-    <div class="field" style="margin-top:12px"><label>الدرس من دروس الموقع (اختياري)</label><select data-les><option value="">— سأرفع صور الدرس —</option>${UNITS.map(u => `<optgroup label="الوحدة ${ORD[u.unitN]}: ${esc(u.theme)}">${u.lessons.map((l, i) => `<option value="${u.id}|${i}">${esc(l.type)}: ${esc(l.title)}</option>`).join("")}</optgroup>`).join("")}</select></div>
+  el.innerHTML = `<div class="ai-box prep-box" tabindex="0"><div class="ai-h"><span class="ai-ic">📝</span><div><b>تحضير منصة نور بالذكاء الاصطناعي</b><p>اختاري ما ستشرحينه: درسًا واحدًا، أو عدة دروس، أو صفحات محددة من الكتاب، أو ارفعي صور الصفحات. حدّدي عدد الحصص، فيكتب الذكاء الاصطناعي حقول التحضير الستة. راجعيها، ثم انسخي كل حقل والصقيه في منصة نور.</p></div></div>
+    <div class="field" style="margin-top:12px"><label>محتوى التحضير</label><div class="seg prep-mode" role="tablist">${[["one", "درس واحد"], ["many", "عدة دروس"], ["pages", "صفحات من الكتاب"], ["img", "من الصور فقط"]].map(([k, t]) => `<button type="button" data-mode="${k}" aria-pressed="${prepSel.mode === k}">${t}</button>`).join("")}</div><div data-modebox></div><div class="prep-sum" data-sum></div></div>
+    <div class="field prep-periods"><label>عدد الحصص</label><input data-periods type="number" min="1" max="10" value="${prepSel.periods}"></div>
     <label class="ai-drop"><input type="file" accept="application/pdf,image/*" multiple><span class="ai-drop-ic">⇪</span><span><b>اسحبي صور الدرس أو ملف PDF وأفلتيها هنا</b><small>أو اضغطي لاختيارها · يمكن لصق صورة (Ctrl+V)</small></span></label>
     <div class="ai-files" data-list></div>
     <div class="field" style="margin-top:10px"><label>توجيه إضافي (اختياري)</label><input data-extra maxlength="300" placeholder="مثال: الحصة الثانية من الدرس، ركّزي على الإعراب، استراتيجية الرؤوس المرقمة"></div>
     <div class="ai-row"><button type="button" class="pill-btn orange" data-go>✨ اكتبي التحضير</button></div><div data-pmsg></div></div>
     <div id="prepOut"></div>
     <h3 class="auth-t" style="margin-top:22px">التحضيرات المحفوظة</h3><div class="list" id="prepHist">${hist.length ? hist.map(h => `<div class="li" data-h="${h.id}"><div class="grow"><b>${esc(h.lesson || "تحضير")}</b><br><span class="muted" style="font-size:13.5px">${fmtDate(h.createdAt)}</span></div><button class="mini" data-a="open">فتح</button><button class="mini no" data-a="del">حذف</button></div>`).join("") : `<p class="muted">لم تحفظي تحضيرًا بعد.</p>`}</div>`;
-  const box = el.querySelector(".prep-box"), inp = box.querySelector("input[type=file]"), L = box.querySelector("[data-list]"), M = box.querySelector("[data-pmsg]"), go = box.querySelector("[data-go]"), les = box.querySelector("[data-les]");
+  const box = el.querySelector(".prep-box"), inp = box.querySelector("input[type=file]"), L = box.querySelector("[data-list]"), M = box.querySelector("[data-pmsg]"), go = box.querySelector("[data-go]");
   const ok = f => f && (f.type === "application/pdf" || /\.pdf$/i.test(f.name || "") || /^image\//.test(f.type));
   const draw = () => { L.innerHTML = prepFiles.map((f, i) => `<div class="ai-file"><span class="ai-n">${ar(i + 1)}</span><span class="ai-t">${/pdf/i.test(f.type) ? "📄" : "🖼"} <bdi dir="ltr">${esc(f.name || "صورة")}</bdi></span><button type="button" class="mini no" data-rm="${i}">✕</button></div>`).join(""); L.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => { prepFiles.splice(+b.dataset.rm, 1); draw(); }); };
   const add = list => { [...list].filter(ok).forEach(f => { if (!prepFiles.some(x => x.name === f.name && x.size === f.size)) prepFiles.push(f); }); if (prepFiles.length > 10) { prepFiles = prepFiles.slice(0, 10); msg(M, "يكفي ١٠ صور للدرس الواحد."); } draw(); };
@@ -457,17 +467,34 @@ async function tPrep() {
   const onPaste = e => { if (!box.isConnected) { window.removeEventListener("paste", onPaste); return; } const its = [...((e.clipboardData || {}).items || [])].filter(x => x.kind === "file").map(x => x.getAsFile()).filter(Boolean); if (its.length) { e.preventDefault(); add(its.map((f, k) => new File([f], `صورة ملصقة ${prepFiles.length + k + 1}.png`, { type: f.type }))); } };
   window.addEventListener("paste", onPaste);
   draw();
+  const MB = box.querySelector("[data-modebox]"), SUM = box.querySelector("[data-sum]");
+  const sum = () => { const sc = prepScope(); SUM.innerHTML = sc.items.length ? `<b>يشمل التحضير ${(n => n === 1 ? "درسًا واحدًا" : n === 2 ? "درسين" : n <= 10 ? ar(n) + " دروس" : ar(n) + " درسًا")(sc.items.length)}:</b> ${sc.items.map(y => `<span class="chip-s">${esc(y.l.type)}: ${esc(y.l.title.length > 38 ? y.l.title.slice(0, 38) + "…" : y.l.title)} <small>ص ${ar(y.from)}–${ar(y.to)}</small></span>`).join(" ")}${sc.note ? ` <span class="muted">(${ar(sc.note)})</span>` : ""}` : prepSel.mode === "img" ? `<span class="muted">سيكتب التحضير من الصور التي ترفعينها فقط.</span>` : ""; };
+  const modeBox = () => { const m = prepSel.mode;
+    MB.innerHTML = m === "one" ? `<select data-one><option value="">اختاري الدرس…</option>${UNITS.map(u => `<optgroup label="الوحدة ${ORD[u.unitN]}: ${esc(u.theme)}">${u.lessons.map((l, i) => `<option value="${u.id}|${i}" ${prepSel.one === u.id + "|" + i ? "selected" : ""}>${esc(l.type)}: ${esc(l.title)} (ص ${ar(l.page)})</option>`).join("")}</optgroup>`).join("")}</select>`
+      : m === "many" ? `<div class="prep-many">${UNITS.map(u => `<div class="pm-unit"><label class="pm-uh"><input type="checkbox" data-unit="${u.id}" ${u.lessons.every((l, i) => prepSel.many.has(u.id + "|" + i)) ? "checked" : ""}> الوحدة ${ORD[u.unitN]}: ${esc(u.theme)} <small>ص ${ar(u.pages)}</small></label>${u.lessons.map((l, i) => `<label class="pm-l"><input type="checkbox" data-l="${u.id}|${i}" ${prepSel.many.has(u.id + "|" + i) ? "checked" : ""}> ${esc(l.type)}: ${esc(l.title)} <small>ص ${ar(l.page)}</small></label>`).join("")}</div>`).join("")}</div>`
+      : m === "pages" ? `<div class="row prep-pages"><label>من صفحة <input data-from type="number" min="13" max="214" value="${esc(prepSel.from)}"></label><label>إلى صفحة <input data-to type="number" min="13" max="214" value="${esc(prepSel.to)}"></label><span class="muted">صفحات الكتاب من ١٣ إلى ٢١٤</span></div>`
+      : `<p class="muted" style="margin:6px 0 0">ارفعي صور الصفحات أو ملف PDF في الأسفل.</p>`;
+    const one = MB.querySelector("[data-one]"); if (one) one.onchange = () => { prepSel.one = one.value; sum(); };
+    MB.querySelectorAll("[data-l]").forEach(c => c.onchange = () => { c.checked ? prepSel.many.add(c.dataset.l) : prepSel.many.delete(c.dataset.l); sum(); });
+    MB.querySelectorAll("[data-unit]").forEach(c => c.onchange = () => { const u = UNITS.find(x => x.id === c.dataset.unit); u.lessons.forEach((l, i) => c.checked ? prepSel.many.add(u.id + "|" + i) : prepSel.many.delete(u.id + "|" + i)); modeBox(); });
+    ["from", "to"].forEach(k => { const x = MB.querySelector(`[data-${k}]`); if (x) x.oninput = () => { prepSel[k] = x.value; sum(); }; });
+    sum(); };
+  box.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => { prepSel.mode = b.dataset.mode; box.querySelectorAll("[data-mode]").forEach(x => x.setAttribute("aria-pressed", x === b)); modeBox(); });
+  box.querySelector("[data-periods]").oninput = e => { prepSel.periods = Math.max(1, Math.min(10, +e.target.value || 1)); };
+  modeBox();
   go.onclick = async () => {
-    const lv = les.value, extra = box.querySelector("[data-extra]").value.trim();
-    if (!lv && !prepFiles.length) { msg(M, "اختاري الدرس من القائمة أو ارفعي صور صفحاته."); return; }
-    const fb = cfg.firebase; if (!fb || !fb.apiKey) { msg(M, "هذه الخاصية تعمل في الموقع المربوط بـ Firebase فقط."); return; }
+    const sc = prepScope(), extra = box.querySelector("[data-extra]").value.trim();
+    if (prepSel.mode === "pages" && !sc.items.length && !prepFiles.length) { msg(M, "اكتبي رقم صفحة البداية والنهاية (بين ١٣ و٢١٤)، أو ارفعي صور الصفحات."); return; }
+    if (!sc.items.length && !prepFiles.length) { msg(M, prepSel.mode === "img" ? "ارفعي صور الصفحات أو ملف PDF." : "اختاري الدرس أو الدروس، أو ارفعي صور الصفحات."); return; }
+    const fb = cfg.firebase || (window.__basiraAI || {}).testFb; if (!fb || !fb.apiKey) { msg(M, "هذه الخاصية تعمل في الموقع المربوط بـ Firebase فقط."); return; }
     go.disabled = true; const t0 = Date.now();
     const tick = setInterval(() => { M.innerHTML = `<div class="msg ok ai-wait"><span class="spin"></span> يكتب الذكاء الاصطناعي التحضير… ${ar(Math.round((Date.now() - t0) / 1000))} ث</div>`; }, 500);
     try {
       const parts = []; let size = 0;
       for (const f of prepFiles) { if (/pdf/i.test(f.type) || /\.pdf$/i.test(f.name)) { size += f.size; parts.push({ inlineData: { mimeType: "application/pdf", data: await fileB64(f) } }); } else { const u = await shrink(f, 2000, .85); size += u.length * .75; parts.push({ inlineData: { mimeType: "image/jpeg", data: u.split(",")[1] } }); } }
       if (size > 15e6) throw new Error("حجم الملفات كبير. قلّلي عدد الصور.");
-      if (lv) { const [u, i] = lv.split("|"); parts.push({ text: "ملخص الدرس من موقع البصيرة:\n" + lessonText(u, +i) }); }
+      if (sc.items.length) parts.push({ text: `ملخص ${sc.items.length > 1 ? "الدروس" : "الدرس"} من موقع البصيرة:\n\n` + sc.items.map(y => lessonText(y.u, y.i) + `\n(صفحات الدرس في الكتاب: ${y.from}–${y.to})`).join("\n\n———\n\n") });
+      parts.push({ text: `نطاق التحضير: ${sc.note || (sc.items.length > 1 ? "الدروس المذكورة كلها" : sc.items.length ? "الدرس كاملًا" : "الصفحات المرفقة في الصور")}. عدد الحصص: ${prepSel.periods}.` });
       if (extra) parts.push({ text: "توجيه المعلمة: " + extra });
       const txt = await aiRaw(parts, fb, PREP_PROMPT, PREP_SCHEMA);
       let j; try { j = JSON.parse(String(txt).replace(/^\s*```(?:json)?/i, "").replace(/```\s*$/, "")); } catch (e) { throw new Error("لم يكتمل التحضير. حاولي مرة أخرى."); }
