@@ -263,18 +263,9 @@ function parseAiQuiz(txt) {
   if (!qs.length) throw new Error("لم أجد أسئلة اختيار في الملف. تأكدي أنه ورقة اختبار واضحة.");
   return { title: String(j.title || "").trim().slice(0, 80), passage: String(j.passage || "").trim(), qs, unsure };
 }
-async function aiQuizFromFiles(files, fb) {
-  fb = fb || cfg.firebase;
-  if (!fb || !fb.apiKey || !fb.projectId) throw new Error("هذه الخاصية تعمل في الموقع المربوط بـ Firebase فقط.");
-  const parts = []; let size = 0;
-  for (const f of files) {
-    if (f.type === "application/pdf") { if (f.size > 15e6) throw new Error("ملف PDF أكبر من ١٥ ميجابايت. صوّري الصفحات بدلًا منه."); size += f.size; parts.push({ inlineData: { mimeType: "application/pdf", data: await fileB64(f) } }); }
-    else if (/^image\//.test(f.type)) { const u = await shrink(f, 2000, .85); size += u.length * .75; parts.push({ inlineData: { mimeType: "image/jpeg", data: u.split(",")[1] } }); }
-  }
-  if (!parts.length) throw new Error("اختاري ملف PDF أو صورًا لورقة الاختبار.");
-  if (size > 18e6) throw new Error("حجم الملفات كبير. قلّلي عدد الصور أو قسّمي الاختبار.");
-  parts.push({ text: AI_PROMPT });
-  const body = JSON.stringify({ contents: [{ role: "user", parts }], generationConfig: { responseMimeType: "application/json", responseSchema: AI_SCHEMA, temperature: 0.2 } });
+/* one request to Gemini; on a retired model (404) it moves on to the model Google names */
+async function aiCall(parts, fb) {
+  const body = JSON.stringify({ contents: [{ role: "user", parts: [...parts, { text: AI_PROMPT }] }], generationConfig: { responseMimeType: "application/json", responseSchema: AI_SCHEMA, temperature: 0.2 } });
   let last = null; const queue = AI_MODELS.slice(), tried = new Set();
   while (queue.length) { const m = queue.shift(); if (tried.has(m)) continue; tried.add(m);
     let r; try { r = await fetch(`https://firebasevertexai.googleapis.com/v1beta/projects/${encodeURIComponent(fb.projectId)}/models/${m}:generateContent`, { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": fb.apiKey, "x-goog-api-client": "gl-js/2.16.0 fire/2.16.0" }, body }); }
@@ -286,19 +277,62 @@ async function aiQuizFromFiles(files, fb) {
   }
   throw new Error(aiErr(last));
 }
+/* any number of PDFs and photos: they are read in batches (in page order) and the questions are joined */
+const AI_BATCH_BYTES = 14e6, AI_BATCH_FILES = 8;
+async function aiQuizFromFiles(files, fb, onStep) {
+  fb = fb || cfg.firebase;
+  if (!fb || !fb.apiKey || !fb.projectId) throw new Error("هذه الخاصية تعمل في الموقع المربوط بـ Firebase فقط.");
+  const items = [];
+  for (const f of files) {
+    if (f.type === "application/pdf" || /\.pdf$/i.test(f.name || "")) { if (f.size > 14e6) throw new Error(`الملف «${f.name}» أكبر من ١٤ ميجابايت. قسّميه إلى ملفين أو صوّري صفحاته.`); items.push({ part: { inlineData: { mimeType: "application/pdf", data: await fileB64(f) } }, size: f.size }); }
+    else if (/^image\//.test(f.type)) { const u = await shrink(f, 2000, .85); items.push({ part: { inlineData: { mimeType: "image/jpeg", data: u.split(",")[1] } }, size: u.length * .75 }); }
+  }
+  if (!items.length) throw new Error("اختاري ملف PDF أو صورًا لورقة الاختبار.");
+  const batches = []; let cur = [], sz = 0;
+  for (const it of items) { if (cur.length && (sz + it.size > AI_BATCH_BYTES || cur.length >= AI_BATCH_FILES)) { batches.push(cur); cur = []; sz = 0; } cur.push(it.part); sz += it.size; }
+  if (cur.length) batches.push(cur);
+  const out = { title: "", passage: "", qs: [], unsure: [] }, seen = new Set();
+  for (let i = 0; i < batches.length; i++) {
+    onStep && onStep(i + 1, batches.length);
+    let r; try { r = await aiCall(batches[i], fb); } catch (e) { if (batches.length > 1 && out.qs.length && /لم أجد أسئلة/.test(e.message)) continue; throw e; }
+    if (!out.title && r.title) out.title = r.title;
+    if (r.passage && !out.passage.includes(r.passage.slice(0, 40))) out.passage += (out.passage ? "\n\n" : "") + r.passage;
+    r.qs.forEach((q, k) => { const key = q.q.replace(/\s+/g, " "); if (seen.has(key)) return; seen.add(key); out.qs.push(q); if (r.unsure.includes(k + 1)) out.unsure.push(out.qs.length); });
+  }
+  if (!out.qs.length) throw new Error("لم أجد أسئلة اختيار في الملفات. تأكدي أنها ورقة اختبار واضحة.");
+  return out;
+}
 function aiBox(el) {
-  el.innerHTML = `<div class="ai-box"><div class="ai-h"><span class="ai-ic">✨</span><div><b>حوّلي ورقة اختبار إلى اختبار إلكتروني</b><p>ارفعي ملف PDF أو صور صفحات الاختبار، فيقرأ الذكاء الاصطناعي الأسئلة والخيارات ويجهّز الاختبار، ثم تراجعينه وتحفظينه.</p></div></div>
-    <div class="ai-row"><label class="ai-drop"><input type="file" accept="application/pdf,image/*" multiple><span data-fl>📄 اختاري ملف PDF أو صور الاختبار</span></label><button type="button" class="pill-btn orange" data-ai disabled>✨ حوّليه إلى اختبار</button></div><div data-aimsg></div></div>`;
-  const inp = el.querySelector("input[type=file]"), go = el.querySelector("[data-ai]"), M = el.querySelector("[data-aimsg]");
-  inp.onchange = () => { const fs = [...inp.files]; go.disabled = !fs.length; el.querySelector("[data-fl]").textContent = fs.length ? (fs.length === 1 ? "📄 " + fs[0].name : `🖼 ${ar(fs.length)} ملفات مختارة`) : "📄 اختاري ملف PDF أو صور الاختبار"; msg(M, ""); };
+  let files = [];
+  el.innerHTML = `<div class="ai-box" tabindex="0"><div class="ai-h"><span class="ai-ic">✨</span><div><b>حوّلي ورقة اختبار إلى اختبار إلكتروني</b><p>اسحبي ملفات الاختبار وأفلتيها هنا، أو اختاريها، أو الصقي صورة (Ctrl+V). يمكنك رفع أكثر من ملف PDF وأكثر من صورة للاختبار الطويل، فيقرؤها الذكاء الاصطناعي بالترتيب ويجهّز الاختبار لتراجعيه ثم تحفظيه.</p></div></div>
+    <label class="ai-drop"><input type="file" accept="application/pdf,image/*" multiple><span class="ai-drop-ic">⇪</span><span><b>اسحبي الملفات وأفلتيها هنا</b><small>أو اضغطي لاختيارها · PDF أو صور · أكثر من ملف</small></span></label>
+    <div class="ai-files" data-list></div>
+    <div class="ai-row"><button type="button" class="pill-btn orange" data-ai disabled>✨ حوّليه إلى اختبار</button><button type="button" class="pill-btn ghost" data-clear hidden>إفراغ القائمة</button></div><div data-aimsg></div></div>`;
+  const box = el.querySelector(".ai-box"), inp = el.querySelector("input[type=file]"), go = el.querySelector("[data-ai]"), M = el.querySelector("[data-aimsg]"), L = el.querySelector("[data-list]"), clr = el.querySelector("[data-clear]");
+  const ok = f => f && (f.type === "application/pdf" || /\.pdf$/i.test(f.name || "") || /^image\//.test(f.type));
+  const kb = n => n > 1e6 ? ar((n / 1e6).toFixed(1)) + " م.ب" : ar(Math.max(1, Math.round(n / 1e3))) + " ك.ب";
+  const draw = () => {
+    L.innerHTML = files.map((f, i) => `<div class="ai-file"><span class="ai-n">${ar(i + 1)}</span><span class="ai-t">${/pdf/i.test(f.type) || /\.pdf$/i.test(f.name) ? "📄" : "🖼"} <bdi dir="ltr">${esc(f.name || "صورة ملصقة")}</bdi></span><small>${kb(f.size)}</small>${i ? `<button type="button" class="mini" data-up="${i}" title="قدّميه">▲</button>` : ""}<button type="button" class="mini no" data-rm="${i}" aria-label="احذفيه">✕</button></div>`).join("");
+    go.disabled = !files.length; clr.hidden = files.length < 2;
+    L.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => { files.splice(+b.dataset.rm, 1); draw(); });
+    L.querySelectorAll("[data-up]").forEach(b => b.onclick = () => { const i = +b.dataset.up; [files[i - 1], files[i]] = [files[i], files[i - 1]]; draw(); });
+  };
+  const add = list => { const fs = [...list]; const bad = fs.filter(f => !ok(f)).length; fs.filter(ok).forEach(f => { if (!files.some(x => x.name === f.name && x.size === f.size && x.lastModified === f.lastModified)) files.push(f); });
+    if (files.length > 40) { files = files.slice(0, 40); msg(M, "الحد ٤٠ ملفًا في المرة الواحدة."); } else msg(M, bad ? "تُقبل ملفات PDF والصور فقط، وتُرك الباقي." : ""); draw(); };
+  inp.onchange = () => { add(inp.files); inp.value = ""; };
+  clr.onclick = () => { files = []; draw(); msg(M, ""); };
+  ["dragenter", "dragover"].forEach(t => box.addEventListener(t, e => { e.preventDefault(); box.classList.add("drag"); }));
+  ["dragleave", "dragend"].forEach(t => box.addEventListener(t, e => { if (!box.contains(e.relatedTarget)) box.classList.remove("drag"); }));
+  box.addEventListener("drop", e => { e.preventDefault(); box.classList.remove("drag"); if (e.dataTransfer && e.dataTransfer.files) add(e.dataTransfer.files); });
+  const onPaste = e => { if (!box.isConnected) { window.removeEventListener("paste", onPaste); return; } const its = [...((e.clipboardData || {}).items || [])].filter(x => x.kind === "file").map(x => x.getAsFile()).filter(Boolean); if (its.length) { e.preventDefault(); add(its.map((f, k) => f.name && f.name !== "image.png" ? f : new File([f], `صورة ملصقة ${files.length + k + 1}.png`, { type: f.type }))); } };
+  window.addEventListener("paste", onPaste);
   go.onclick = async () => {
-    const fs = [...inp.files]; if (fs.length > 12) { msg(M, "اختاري ١٢ صورة على الأكثر."); return; }
-    go.disabled = true; inp.disabled = true; const t0 = Date.now();
-    const tick = setInterval(() => { M.innerHTML = `<div class="msg ok ai-wait"><span class="spin"></span> يقرأ الذكاء الاصطناعي ورقة الاختبار… ${ar(Math.round((Date.now() - t0) / 1000))} ث (قد يستغرق دقيقة)</div>`; }, 500);
-    try { const r = await aiQuizFromFiles(fs); clearInterval(tick);
-      qEdit = { title: r.title, cls: "", open: true, passage: r.passage, qs: r.qs, aiNote: `جهّز الذكاء الاصطناعي ${ar(r.qs.length)} سؤالًا. راجعي كل سؤال والإجابة الصحيحة قبل الحفظ، فقد يخطئ.${r.unsure.length ? ` لم يكن متأكدًا من إجابة الأسئلة: ${r.unsure.map(ar).join("، ")}.` : ""}` };
-      tQuizzes(); }
-    catch (e) { clearInterval(tick); msg(M, e.message); go.disabled = false; inp.disabled = false; }
+    go.disabled = true; inp.disabled = true; box.classList.add("busy"); const t0 = Date.now(); let step = "";
+    const tick = setInterval(() => { M.innerHTML = `<div class="msg ok ai-wait"><span class="spin"></span> يقرأ الذكاء الاصطناعي ورقة الاختبار${step}… ${ar(Math.round((Date.now() - t0) / 1000))} ث</div>`; }, 500);
+    try { const r = await aiQuizFromFiles(files, null, (i, n) => { step = n > 1 ? ` (الجزء ${ar(i)} من ${ar(n)})` : ""; }); clearInterval(tick);
+      qEdit = { title: r.title, cls: "", open: true, passage: r.passage, qs: r.qs, aiNote: `جهّز الذكاء الاصطناعي ${ar(r.qs.length)} سؤالًا من ${ar(files.length)} ${files.length > 1 ? "ملفات" : "ملف"}. راجعي كل سؤال والإجابة الصحيحة قبل الحفظ، فقد يخطئ.${r.unsure.length ? ` لم يكن متأكدًا من إجابة الأسئلة: ${r.unsure.map(ar).join("، ")}.` : ""}` };
+      window.removeEventListener("paste", onPaste); tQuizzes(); }
+    catch (e) { clearInterval(tick); msg(M, e.message); go.disabled = false; inp.disabled = false; box.classList.remove("busy"); }
   };
 }
 

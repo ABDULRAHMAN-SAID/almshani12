@@ -675,3 +675,15 @@ h1,h2,h3,h4,h5,.brand b,.teacher b,.stats b{font-weight:700;letter-spacing:0}
 .spin{width:18px;height:18px;border-radius:50%;border:3px solid rgba(10,110,121,.25);border-top-color:var(--teal);animation:spn .8s linear infinite;flex:none}
 @keyframes spn{to{transform:rotate(360deg)}}
 .qed textarea[data-q]{width:100%;border:1.5px solid var(--line);border-radius:12px;padding:8px 12px;font:inherit;resize:vertical}
+
+.ai-drop{flex-direction:row;gap:12px;margin-top:12px;border:2px dashed #C9B8F0;background:rgba(255,255,255,.75);padding:16px;border-radius:16px;position:relative;transition:background .15s,border-color .15s}
+.ai-drop b{display:block;color:var(--ink);font-size:16px}.ai-drop small{color:var(--ink-3);font-weight:600}
+.ai-drop-ic{width:44px;height:44px;border-radius:12px;background:#EFE8FF;color:#5B3FB0;display:grid;place-items:center;font-size:22px;flex:none}
+.ai-box.drag{background:linear-gradient(135deg,#EDE4FF,#FFF1E2);border-color:#7B5BD6}
+.ai-box.drag .ai-drop{border-color:#7B5BD6;background:#fff}
+.ai-box.busy .ai-drop{opacity:.5;pointer-events:none}
+.ai-files{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.ai-file{display:flex;align-items:center;gap:8px;background:#fff;border:1.5px solid var(--line);border-radius:12px;padding:6px 10px}
+.ai-n{width:24px;height:24px;border-radius:50%;background:var(--paper);display:grid;place-items:center;font-size:13px;font-weight:800;flex:none}
+.ai-t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700}
+.ai-file small{color:var(--ink-3)}
