@@ -15,7 +15,9 @@ service cloud.firestore {
     // رمز تفعيل لوحة المعلمة: يُطلب مرة واحدة عند إنشاء حسابها
     match /basira_admins/{uid} {
       allow read: if signedIn() && me() == uid;
-      allow create: if signedIn() && me() == uid && request.resource.data.key == "506887";
+      // حساب المعلمة ثابت: لا يصير أحد معلمةً إلا بحسابها هي
+      allow create: if signedIn() && me() == uid && request.resource.data.key == "506887"
+        && request.auth.token.email == "udb55fbc642688abf3b087ce90c53b798@basira-school.app";
       allow update, delete: if false;
     }
 

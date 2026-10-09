@@ -925,15 +925,34 @@ async function showFollow(l) {
 }
 
 /* ================= TEACHER ================= */
+/* the teacher's account is fixed: her name is set, she only types her PIN. the first correct login creates the account. */
+const T_ACC = { key: "t:aisha", name: "عائشة الكحالي", h: "wH7u3rKg8DEBryJC" };
+function teacherAuth(L) {
+  L.innerHTML = `<h3 class="auth-t">دخول المعلمة</h3><form class="form" novalidate>
+    <div class="field"><label>الاسم</label><input value="أ. ${T_ACC.name}" readonly tabindex="-1" style="background:var(--paper);font-weight:800"></div>
+    <div class="field"><label>الرقم السري</label><div class="pinrow"><input name="p" type="password" inputmode="numeric" maxlength="12" dir="ltr" autocomplete="current-password" autofocus><button type="button" class="eye" aria-label="إظهار الرقم السري">👁</button></div></div>
+    <button class="pill-btn orange big" type="submit" data-go>دخول</button><div data-msg></div>
+    <p class="muted hint">يبقى الدخول محفوظًا على هذا الجهاز حتى تضغطي «تسجيل الخروج».</p></form>`;
+  const f = L.querySelector("form"), M = f.querySelector("[data-msg]");
+  f.querySelector(".eye").onclick = () => { f.p.type = f.p.type === "password" ? "text" : "password"; };
+  f.onsubmit = async e => { e.preventDefault(); const pin = digits(f.p.value); if (!pin) { msg(M, "اكتبي الرقم السري."); return; }
+    const btn = f.querySelector("[data-go]"); btn.disabled = true; btn.textContent = "لحظة…";
+    try {
+      if ((await pinHash(T_ACC.key, pin)) !== T_ACC.h) throw new Error("الرقم السري غير صحيح.");
+      const opt = { key: T_ACC.key }; let me;
+      try { me = await acct.login(T_ACC.name, pin, opt); }
+      catch (x) { if (x.message !== ERR.bad && x.message !== ERR.gone) throw x; me = await acct.register(T_ACC.name, pin, "teacher", db ? "506887" : LOCAL_T_CODE, opt); }
+      IS_T = !!me.admin; toast("أهلًا أ. عائشة"); await refreshMe(); loadTeacher();
+    } catch (err) { msg(M, err.message || ERR.bad); }
+    finally { if (btn.isConnected) { btn.disabled = false; btn.textContent = "دخول"; } } };
+}
 async function loadTeacher() {
   await refreshMe(); IS_T = !!(ME && ME.admin);
   $("#tLogin").hidden = IS_T; $("#tPanel").hidden = !IS_T;
   if (!IS_T) {
     const L = $("#tLogin");
     if (ME) { L.innerHTML = `<div class="msg bad">هذه اللوحة للمعلمة فقط. أنت مسجّل الدخول بحساب ${ROLE_AR[ME.role]}.</div><button class="pill-btn ghost" style="margin-top:12px" data-out>خروج</button>`; L.querySelector("[data-out]").onclick = doLogout; return; }
-    authForm(L, { fixed: "teacher", teacher: true, title: "دخول المعلمة", onDone: () => loadTeacher() });
-    if (!db) L.insertAdjacentHTML("beforeend", `<p class="note" style="margin-top:12px">النسخة التجريبية: رمز التفعيل ١٢٣٤.</p>`);
-    return;
+    teacherAuth(L); return;
   }
   $("#tWho").textContent = "أ. " + ME.name; openTab(curTab);
 }
