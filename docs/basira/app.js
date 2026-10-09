@@ -327,13 +327,14 @@ function parseAiQuiz(txt) {
   return { title: String(j.title || "").trim().slice(0, 80), passage: String(j.passage || "").trim(), qs, unsure };
 }
 /* one request to Gemini; on a retired model (404) it moves on to the model Google names */
-async function aiCall(parts, fb) {
-  const body = JSON.stringify({ contents: [{ role: "user", parts: [...parts, { text: AI_PROMPT }] }], generationConfig: { responseMimeType: "application/json", responseSchema: AI_SCHEMA, temperature: 0.2 } });
+async function aiCall(parts, fb) { return parseAiQuiz(await aiRaw(parts, fb, AI_PROMPT, AI_SCHEMA)); }
+async function aiRaw(parts, fb, prompt, schema) {
+  const body = JSON.stringify({ contents: [{ role: "user", parts: [...parts, { text: prompt }] }], generationConfig: { responseMimeType: "application/json", responseSchema: schema, temperature: 0.2 } });
   let last = null; const queue = AI_MODELS.slice(), tried = new Set();
   while (queue.length) { const m = queue.shift(); if (tried.has(m)) continue; tried.add(m);
     let r; try { r = await fetch(`https://firebasevertexai.googleapis.com/v1beta/projects/${encodeURIComponent(fb.projectId)}/models/${m}:generateContent`, { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": fb.apiKey, "x-goog-api-client": "gl-js/2.16.0 fire/2.16.0" }, body }); }
     catch (e) { throw new Error(aiErr(null)); }
-    if (r.ok) { const j = await r.json(); const c = (j.candidates || [])[0] || {}; const txt = ((c.content || {}).parts || []).filter(p => !p.thought).map(p => p.text || "").join(""); if (!txt) throw new Error("لم يرجع الذكاء الاصطناعي أسئلة. جرّبي صورًا أوضح."); return parseAiQuiz(txt); }
+    if (r.ok) { const j = await r.json(); const c = (j.candidates || [])[0] || {}; const txt = ((c.content || {}).parts || []).filter(p => !p.thought).map(p => p.text || "").join(""); if (!txt) throw new Error("لم يرجع الذكاء الاصطناعي نتيجة. جرّبي صورًا أوضح."); return txt; }
     last = { status: r.status }; try { const e = await r.json(); last.msg = e.error && e.error.message; last.details = e.error && e.error.details; } catch (x) {}
     if (r.status !== 404) break;
     const sug = String(last.msg || "").match(/models\/(gemini-[\w.-]+)/g); if (sug) sug.map(x => x.slice(7).replace(/\.+$/, "")).filter(x => !tried.has(x)).reverse().forEach(x => queue.unshift(x));
@@ -397,6 +398,87 @@ function aiBox(el) {
       window.removeEventListener("paste", onPaste); tQuizzes(); }
     catch (e) { clearInterval(tick); msg(M, e.message); go.disabled = false; inp.disabled = false; box.classList.remove("busy"); }
   };
+}
+
+/* ---------- teacher: lesson preparation for منصة نور, written by AI from the lesson pages ---------- */
+const PREP_F = [["concepts", "المفاهيم"], ["warmup", "التهيئة / التمهيد / التعلم القبلي"], ["procedures", "إجراءات سير الدرس / الأنشطة التدريسية"], ["formative", "التقويم التكويني"], ["summative", "التقويم الختامي"], ["notes", "ملاحظات ضمن خطة الدراسة الأسبوعية (يشاهدها الطالب وولي الأمر)"]];
+const PREP_PROMPT = `أنت خبير في إعداد التحضير الدراسي لمادة اللغة العربية «لغتي الجميلة» للصف العاشر في سلطنة عُمان، وفق حقول التحضير في منصة نور.
+المرفق: صفحات الدرس من كتاب الطالبة (صور أو PDF) أو ملخص الدرس، أو كلاهما.
+اكتب حقول التحضير الآتية بالعربية الفصحى وبأسلوب تربوي واضح. اكتبها نصًّا عاديًّا جاهزًا للنسخ: بلا Markdown ولا نجوم ولا رموز تنسيق، وكل بند في سطر مستقل يبدأ برقم بهذا الشكل: ١- ، ٢- ...
+- lesson: عنوان الدرس ونوعه كما في الكتاب (مثل: القراءة: ...).
+- concepts: المفاهيم والمصطلحات الرئيسة في الدرس (من ٤ إلى ٨)، كل مفهوم مع تعريف قصير.
+- warmup: التهيئة والتمهيد والتعلم القبلي: نشاط تمهيدي قصير (٣–٥ دقائق) يربط الدرس بخبرات الطالبات، وسؤال أو سؤالان للتعلم القبلي.
+- procedures: إجراءات سير الدرس والأنشطة التدريسية في حصة مدتها ٤٠ دقيقة: من ٥ إلى ٨ خطوات مرتبة، تبيّن دور المعلمة ودور الطالبات، وتوظّف استراتيجيات التعلم النشط (العمل التعاوني، الحوار والمناقشة، الخريطة الذهنية، لعب الأدوار...)، مع الزمن التقريبي لكل خطوة بين قوسين.
+- formative: التقويم التكويني: من ٣ إلى ٥ أسئلة أو مهام قصيرة تُطرح أثناء الدرس.
+- summative: التقويم الختامي: من ٣ إلى ٤ أسئلة أو مهمة ختامية تقيس تحقق أهداف الدرس.
+- notes: ملاحظات ضمن خطة الدراسة الأسبوعية يقرؤها الطالب وولي الأمر: بأسلوب ودود موجّه للطالبة وأسرتها في ٣ إلى ٥ أسطر: ماذا ستتعلم الطالبة، وما المطلوب منها (قراءة، واجب، إحضار شيء)، وكيف يساعدها ولي الأمر في البيت.
+اعتمد على محتوى الدرس المرفق فقط، ولا تضف معلومات ليست فيه.`;
+const PREP_SCHEMA = { type: "object", properties: Object.fromEntries([["lesson", 1], ...PREP_F].map(([k]) => [k, { type: "string" }])), required: ["lesson", ...PREP_F.map(([k]) => k)] };
+const clean = s => String(s || "").replace(/\*\*|__|^#+\s*/gm, "").replace(/\r/g, "").trim();
+async function copyText(t) { try { await navigator.clipboard.writeText(t); return true; } catch (e) { const a = document.createElement("textarea"); a.value = t; a.style.position = "fixed"; a.style.opacity = "0"; document.body.appendChild(a); a.select(); let ok = false; try { ok = document.execCommand("copy"); } catch (x) {} a.remove(); return ok; } }
+function lessonText(uid, li) { const u = UNITS.find(x => x.id === uid); const l = u && u.lessons[li]; if (!l) return "";
+  return [`الوحدة ${u.unitN} من المحور ${u.axisN}: ${u.theme}`, `الدرس: ${l.type}: ${l.title} (ص ${l.page})`, l.about, l.idea && "الفكرة: " + l.idea,
+    ...(l.cards || []).map(c => `${c.title}: ${c.text}${c.quote ? " «" + c.quote + "»" : ""}`), (l.vocab || []).length ? "المفردات: " + l.vocab.map(v => typeof v === "string" ? v : `${v.w || v.word || ""}: ${v.m || v.meaning || ""}`).join("، ") : "",
+    (l.keyPoints || []).length ? "نقاط مهمة: " + l.keyPoints.join("، ") : ""].filter(Boolean).join("\n"); }
+let prepFiles = [], prepCur = null;
+async function tPrep() {
+  const el = $("#tPrep"); let hist = []; try { hist = (await store.list("preps")).sort(byTime); } catch (e) {}
+  el.innerHTML = `<div class="ai-box prep-box" tabindex="0"><div class="ai-h"><span class="ai-ic">📝</span><div><b>تحضير منصة نور بالذكاء الاصطناعي</b><p>ارفعي صور صفحات الدرس من الكتاب، أو اختاري الدرس من دروس الموقع، فيكتب الذكاء الاصطناعي حقول التحضير الستة. راجعيها، ثم انسخي كل حقل والصقيه في منصة نور.</p></div></div>
+    <div class="field" style="margin-top:12px"><label>الدرس من دروس الموقع (اختياري)</label><select data-les><option value="">— سأرفع صور الدرس —</option>${UNITS.map(u => `<optgroup label="الوحدة ${ORD[u.unitN]}: ${esc(u.theme)}">${u.lessons.map((l, i) => `<option value="${u.id}|${i}">${esc(l.type)}: ${esc(l.title)}</option>`).join("")}</optgroup>`).join("")}</select></div>
+    <label class="ai-drop"><input type="file" accept="application/pdf,image/*" multiple><span class="ai-drop-ic">⇪</span><span><b>اسحبي صور الدرس أو ملف PDF وأفلتيها هنا</b><small>أو اضغطي لاختيارها · يمكن لصق صورة (Ctrl+V)</small></span></label>
+    <div class="ai-files" data-list></div>
+    <div class="field" style="margin-top:10px"><label>توجيه إضافي (اختياري)</label><input data-extra maxlength="300" placeholder="مثال: الحصة الثانية من الدرس، ركّزي على الإعراب، استراتيجية الرؤوس المرقمة"></div>
+    <div class="ai-row"><button type="button" class="pill-btn orange" data-go>✨ اكتبي التحضير</button></div><div data-pmsg></div></div>
+    <div id="prepOut"></div>
+    <h3 class="auth-t" style="margin-top:22px">التحضيرات المحفوظة</h3><div class="list" id="prepHist">${hist.length ? hist.map(h => `<div class="li" data-h="${h.id}"><div class="grow"><b>${esc(h.lesson || "تحضير")}</b><br><span class="muted" style="font-size:13.5px">${fmtDate(h.createdAt)}</span></div><button class="mini" data-a="open">فتح</button><button class="mini no" data-a="del">حذف</button></div>`).join("") : `<p class="muted">لم تحفظي تحضيرًا بعد.</p>`}</div>`;
+  const box = el.querySelector(".prep-box"), inp = box.querySelector("input[type=file]"), L = box.querySelector("[data-list]"), M = box.querySelector("[data-pmsg]"), go = box.querySelector("[data-go]"), les = box.querySelector("[data-les]");
+  const ok = f => f && (f.type === "application/pdf" || /\.pdf$/i.test(f.name || "") || /^image\//.test(f.type));
+  const draw = () => { L.innerHTML = prepFiles.map((f, i) => `<div class="ai-file"><span class="ai-n">${ar(i + 1)}</span><span class="ai-t">${/pdf/i.test(f.type) ? "📄" : "🖼"} <bdi dir="ltr">${esc(f.name || "صورة")}</bdi></span><button type="button" class="mini no" data-rm="${i}">✕</button></div>`).join(""); L.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => { prepFiles.splice(+b.dataset.rm, 1); draw(); }); };
+  const add = list => { [...list].filter(ok).forEach(f => { if (!prepFiles.some(x => x.name === f.name && x.size === f.size)) prepFiles.push(f); }); if (prepFiles.length > 10) { prepFiles = prepFiles.slice(0, 10); msg(M, "يكفي ١٠ صور للدرس الواحد."); } draw(); };
+  inp.onchange = () => { add(inp.files); inp.value = ""; };
+  ["dragenter", "dragover"].forEach(t => box.addEventListener(t, e => { e.preventDefault(); box.classList.add("drag"); }));
+  ["dragleave", "dragend"].forEach(t => box.addEventListener(t, e => { if (!box.contains(e.relatedTarget)) box.classList.remove("drag"); }));
+  box.addEventListener("drop", e => { e.preventDefault(); box.classList.remove("drag"); if (e.dataTransfer) add(e.dataTransfer.files); });
+  const onPaste = e => { if (!box.isConnected) { window.removeEventListener("paste", onPaste); return; } const its = [...((e.clipboardData || {}).items || [])].filter(x => x.kind === "file").map(x => x.getAsFile()).filter(Boolean); if (its.length) { e.preventDefault(); add(its.map((f, k) => new File([f], `صورة ملصقة ${prepFiles.length + k + 1}.png`, { type: f.type }))); } };
+  window.addEventListener("paste", onPaste);
+  draw();
+  go.onclick = async () => {
+    const lv = les.value, extra = box.querySelector("[data-extra]").value.trim();
+    if (!lv && !prepFiles.length) { msg(M, "اختاري الدرس من القائمة أو ارفعي صور صفحاته."); return; }
+    const fb = cfg.firebase; if (!fb || !fb.apiKey) { msg(M, "هذه الخاصية تعمل في الموقع المربوط بـ Firebase فقط."); return; }
+    go.disabled = true; const t0 = Date.now();
+    const tick = setInterval(() => { M.innerHTML = `<div class="msg ok ai-wait"><span class="spin"></span> يكتب الذكاء الاصطناعي التحضير… ${ar(Math.round((Date.now() - t0) / 1000))} ث</div>`; }, 500);
+    try {
+      const parts = []; let size = 0;
+      for (const f of prepFiles) { if (/pdf/i.test(f.type) || /\.pdf$/i.test(f.name)) { size += f.size; parts.push({ inlineData: { mimeType: "application/pdf", data: await fileB64(f) } }); } else { const u = await shrink(f, 2000, .85); size += u.length * .75; parts.push({ inlineData: { mimeType: "image/jpeg", data: u.split(",")[1] } }); } }
+      if (size > 15e6) throw new Error("حجم الملفات كبير. قلّلي عدد الصور.");
+      if (lv) { const [u, i] = lv.split("|"); parts.push({ text: "ملخص الدرس من موقع البصيرة:\n" + lessonText(u, +i) }); }
+      if (extra) parts.push({ text: "توجيه المعلمة: " + extra });
+      const txt = await aiRaw(parts, fb, PREP_PROMPT, PREP_SCHEMA);
+      let j; try { j = JSON.parse(String(txt).replace(/^\s*```(?:json)?/i, "").replace(/```\s*$/, "")); } catch (e) { throw new Error("لم يكتمل التحضير. حاولي مرة أخرى."); }
+      clearInterval(tick); msg(M, "");
+      prepCur = { lesson: clean(j.lesson), ...Object.fromEntries(PREP_F.map(([k]) => [k, clean(j[k])])), createdAt: now() }; showPrep(prepCur, false);
+    } catch (e) { clearInterval(tick); msg(M, e.message); }
+    go.disabled = false;
+  };
+  el.querySelectorAll("#prepHist [data-a]").forEach(b => b.onclick = async () => { const id = b.closest("[data-h]").dataset.h, h = hist.find(x => x.id === id);
+    if (b.dataset.a === "open") { prepCur = { ...h }; showPrep(prepCur, true); }
+    if (b.dataset.a === "del") { if (!b.dataset.c) { b.dataset.c = 1; b.textContent = "تأكيد"; return; } await store.del("preps", id); tPrep(); } });
+}
+function showPrep(p, saved) {
+  const out = $("#prepOut");
+  out.innerHTML = `<div class="prep-out"><div class="row" style="justify-content:space-between;align-items:center"><div><small class="muted">التحضير</small><input class="prep-title" data-k="lesson" value="${esc(p.lesson || "")}" placeholder="عنوان الدرس"></div>
+    <div class="row"><button class="pill-btn ghost" data-all>📋 نسخ الكل</button><button class="pill-btn teal" data-save>${saved ? "احفظي التعديل" : "احفظي التحضير"}</button></div></div>
+    <p class="muted" style="margin:6px 0 0">راجعي كل حقل وعدّلي ما تريدين، ثم اضغطي «نسخ» والصقيه في الحقل نفسه في منصة نور.</p>
+    ${PREP_F.map(([k, n], i) => `<div class="prep-f"><div class="prep-fh"><span class="prep-n">${ar(i + 1)}</span><b>${n}</b><button class="mini o" data-copy="${k}">📋 نسخ</button></div><textarea data-k="${k}" rows="5">${esc(p[k] || "")}</textarea></div>`).join("")}<div data-smsg></div></div>`;
+  const grow = t => { t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight + 4, 520) + "px"; };
+  out.querySelectorAll("textarea").forEach(t => { grow(t); t.oninput = () => { p[t.dataset.k] = t.value; grow(t); }; });
+  out.querySelector(".prep-title").oninput = e => { p.lesson = e.target.value; };
+  out.querySelectorAll("[data-copy]").forEach(b => b.onclick = async () => { const ok = await copyText(p[b.dataset.copy] || ""); b.textContent = ok ? "✓ نُسخ" : "انسخي يدويًّا"; b.classList.toggle("ok", ok); setTimeout(() => { b.textContent = "📋 نسخ"; b.classList.remove("ok"); }, 1800); });
+  out.querySelector("[data-all]").onclick = async e => { const t = (p.lesson ? p.lesson + "\n\n" : "") + PREP_F.map(([k, n]) => `${n}:\n${p[k] || ""}`).join("\n\n"); const ok = await copyText(t); e.target.textContent = ok ? "✓ نُسخ الكل" : "تعذّر النسخ"; setTimeout(() => { e.target.textContent = "📋 نسخ الكل"; }, 1800); };
+  out.querySelector("[data-save]").onclick = async () => { const doc = { lesson: p.lesson || "", ...Object.fromEntries(PREP_F.map(([k]) => [k, p[k] || ""])), createdAt: p.createdAt || now() };
+    try { if (p.id) await store.set("preps", p.id, doc); else p.id = await store.add("preps", doc); toast("حُفظ التحضير"); const keep = p; await tPrep(); prepCur = keep; showPrep(keep, true); } catch (e) { msg(out.querySelector("[data-smsg]"), e && e.code ? fbErr(e) : "لم يُحفظ التحضير."); } };
+  out.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 /* ---------- teacher: announcements & photos ---------- */
@@ -1244,7 +1326,7 @@ $("#tOut").onclick = doLogout;
 let curTab = "req";
 $$("#tTabs button").forEach(b => b.onclick = () => openTab(b.dataset.t));
 function openTab(t) { curTab = t; $$("#tTabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.t === t)); $$("[data-p]").forEach(p => p.hidden = p.dataset.p !== t);
-  ({ stu: tStudents, acc: tAccounts, srv: tSurvey, ev: tEvals, quiz: tQuizzes, ann: tAnn, res: tResults, req: tRequests, sum: tSummaries, post: tPosts, book: tBooks, site: tSite }[t])(); badges(); }
+  ({ stu: tStudents, acc: tAccounts, srv: tSurvey, prep: tPrep, ev: tEvals, quiz: tQuizzes, ann: tAnn, res: tResults, req: tRequests, sum: tSummaries, post: tPosts, book: tBooks, site: tSite }[t])(); badges(); }
 async function badges() { try { const r = (await store.list("links", ["status", "pending"])).length; $("#reqN").hidden = !r; $("#reqN").textContent = ar(r); } catch (e) {} try { const s = (await store.list("summaries")).filter(x => x.status === "new").length; $("#sumN").hidden = !s; $("#sumN").textContent = ar(s); } catch (e) {} }
 let tCls = "";
 async function tStudents() {
@@ -1306,6 +1388,6 @@ $("#bookForm").addEventListener("submit", async e => { e.preventDefault(); try {
 async function tSite() { const s = await siteData(); $("#sDesc").value = s.desc; $("#sGoals").value = s.goals; }
 $("#siteForm").addEventListener("submit", async e => { e.preventDefault(); try { await store.set("site", "main", { desc: $("#sDesc").value.trim(), goals: $("#sGoals").value.trim() }); msg($("#siteMsg"), "حُفظ التوصيف والأهداف.", true); } catch (err) { msg($("#siteMsg"), "لم يُحفظ."); } });
 
-window.__basiraAI = { aiQuizFromFiles, draft: d => { qEdit = d; tQuizzes(); } }; /* used by the site checks */
+window.__basiraAI = { aiQuizFromFiles, prepShow: p => showPrep(p, false), draft: d => { qEdit = d; tQuizzes(); } }; /* used by the site checks */
 boot();
 })();

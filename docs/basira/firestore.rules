@@ -144,6 +144,9 @@ service cloud.firestore {
     }
 
     // محتوى عام يقرؤه الجميع وتكتبه المعلمة
+    // تحضير منصة نور: خاص بالمعلمة
+    match /basira_preps/{id} { allow read, write: if isTeacher(); }
+
     match /basira_posts/{id} { allow read: if true; allow write: if isTeacher(); }
     match /basira_books/{id} { allow read: if true; allow write: if isTeacher(); }
     match /basira_site/{id}  { allow read: if true; allow write: if isTeacher(); }

@@ -708,3 +708,16 @@ h1,h2,h3,h4,h5,.brand b,.teacher b,.stats b{font-weight:700;letter-spacing:0}
 .g-q{border:1.5px solid var(--line);border-radius:14px;padding:12px;background:#FCFDFD}
 .g-q input[type=number]{width:80px;border:1.5px solid var(--line);border-radius:10px;padding:6px 8px;font:inherit}
 @media (max-width:600px){.opts.tf,.qopts.tf{grid-template-columns:1fr 1fr}}
+
+/* lesson preparation for منصة نور */
+.prep-box select{width:100%;border:1.5px solid var(--line);border-radius:12px;padding:9px 10px;font:inherit;background:#fff}
+.prep-box [data-extra]{width:100%;border:1.5px solid var(--line);border-radius:12px;padding:9px 12px;font:inherit}
+.prep-out{margin-top:18px;border:1.5px solid var(--line);border-radius:22px;padding:16px;background:#fff}
+.prep-title{font:inherit;font-size:20px;font-weight:900;border:none;border-bottom:2px dashed var(--line);padding:4px 2px;min-width:min(420px,70vw);color:var(--ink)}
+.prep-f{margin-top:14px;border:1.5px solid var(--line);border-radius:16px;overflow:hidden}
+.prep-fh{display:flex;align-items:center;gap:10px;background:var(--paper);padding:8px 12px}
+.prep-fh b{flex:1;font-size:15.5px}
+.prep-n{width:26px;height:26px;border-radius:50%;background:var(--teal);color:#fff;display:grid;place-items:center;font-weight:800;font-size:13px;flex:none}
+.prep-f textarea{width:100%;border:none;padding:12px 14px;font:inherit;font-size:15.5px;line-height:2;resize:vertical;min-height:110px;display:block}
+.prep-f textarea:focus{outline:2px solid var(--teal-l)}
+.mini.ok{background:var(--ok);color:#fff}
