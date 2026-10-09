@@ -706,38 +706,80 @@ summary: ملخص مستواها في سطرين أو ثلاثة. strengths: ن�
   draw(); box.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-/* ---------- students: «اسألي البصيرة» (answers only from the unit), summary review, badges ---------- */
-const ASK_CAP = 25;
-function askLeft() { const k = "basira:ask:" + new Date().toISOString().slice(0, 10); let n = 0; try { n = +localStorage.getItem(k) || 0; } catch (e) {} return { left: Math.max(0, ASK_CAP - n), use: () => { try { localStorage.setItem(k, n + 1); } catch (e) {} n++; } }; }
-let askHist = [], askUnit = null;
-function askInit() {
-  const fab = $("#askFab"), P = $("#askPanel"); if (!fab || !U) return;
-  if (askUnit !== U.id) { askUnit = U.id; askHist = []; }
-  fab.onclick = () => { P.hidden = !P.hidden; fab.classList.toggle("on", !P.hidden); if (!P.hidden) askDraw(); };
+/* ---------- «اسألي البصيرة»: one assistant on every page; knows the whole site, every lesson, and general knowledge ---------- */
+const ASK_CAPS = { teacher: 80, student: 30, parent: 20, guest: 10 };
+const askRole = () => ME ? ME.role : "guest";
+function askLeft() { const cap = ASK_CAPS[askRole()] || 10, k = "basira:ask:" + new Date().toISOString().slice(0, 10); let n = 0; try { n = +localStorage.getItem(k) || 0; } catch (e) {} return { cap, left: Math.max(0, cap - n), use: () => { try { localStorage.setItem(k, n + 1); } catch (e) {} n++; } }; }
+const SITE_GUIDE = `موقع «البصيرة»: مبادرة قراءة وتعلّم لمادة «لغتي الجميلة» للصف العاشر (الفصل الأول)، صاحبتها أ. عائشة الكحالي، مدرسة نفيسة بنت الحسن، سلطنة عُمان. الصفوف: العاشر/١ والعاشر/٢ والعاشر/٣.
+الأقسام وروابطها (اكتب الرابط بالصيغة [[#الرابط|النص]]):
+- الرئيسية [[#home|الرئيسية]]: إعلانات المعلمة للجميع، ورحلة الوحدات، وأقسام المبادرة.
+- الوحدات [[#units|الوحدات]]: ٩ وحدات في ٣ محاور (الوطن، قضايا معاصرة، العمل والصناعات). لكل وحدة: الدروس (بطاقات ملخصة)، والأنشطة، والاختبار التدريبي (١٢ سؤالًا)، ولعبة. رابط الوحدة: #u1 إلى #u9، وتبويباتها: #u1-lessons و #u1-acts و #u1-test و #u1-game.
+- الألعاب [[#games|الألعاب]]: لعبة مختلفة لكل وحدة.
+- اقرئي [[#read|اقرئي]]: ١٥ رواية قصيرة، لكل رواية فصول وأسئلة، وزر «لقد قرأتُ الرواية».
+- المتصدرات [[#leaders|المتصدرات]]: ترتيب الطالبات بالنقاط، وكأس الصفوف.
+- من المعلمة [[#tasks|من المعلمة]]: للطالبة: اختبارات المعلمة وإعلانات صفها وتقييمها.
+- المكتبة [[#library|المكتبة]]: كتاب «لغتي الجميلة» وكتب أخرى.
+- تلخيص كتاب [[#summary|تلخيص كتاب]]: ورقة تلخيص تُرسل للمعلمة، وفيها زر «راجعي تلخيصي» بالذكاء الاصطناعي.
+- المشاركات [[#posts|المشاركات]]: أعمال الطالبات التي تنشرها المعلمة.
+- الاستبيان [[#survey|الاستبيان]]: للطالبات وأولياء الأمور، مرة واحدة لكل حساب.
+- المبادرة [[#about|المبادرة]]: توصيف المبادرة وأهدافها.
+- الدخول [[#register|الدخول]]: ثلاثة خيارات: طالبة، وليّ أمر، المعلمة.
+دخول الطالبة: لا تنشئ حسابًا؛ تختار صفها ثم اسمها وتكتب رقمها السري (٦ أرقام) الذي تعطيها إياه المعلمة. إن نسيته فلتسأل المعلمة.
+وليّ الأمر [[#parents|أولياء الأمور]]: أول مرة «حساب جديد»: اسمه الثلاثي ورقم سري يختاره، وتحته صف ابنته واسمها. بعد موافقة المعلمة يرى ابنته وحدها: تقييم المعلمة والغياب، ودرجاتها، ونقاطها، والملاحظات، وإعلانات صفها، ويرسل ملاحظة للمعلمة.
+النقاط: قراءة رواية ٣٠، إجابة أسئلة الرواية كلها ١٠، كتاب من المكتبة ٢٠، إنهاء لعبة وحدة ١٠، اختبار تدريبي ١٠، إتقان الاختبار (٨٥٪ فأكثر) ١٠، اختبار المعلمة ١٥، كل نشاط ٢. وتمنح المعلمة نقاطًا للمتميزات. تُحسب كل مكافأة مرة واحدة.
+الأوسمة في بطاقة الطالبة [[#register|بطاقتي]]: القارئة الأولى، قارئة نهمة (٥ روايات)، سفيرة القراءة (١٠)، نجمة البصيرة (١٠٠ نقطة)، المتألقة (٣٠٠)، أميرة البصيرة (٦٠٠)، المتقنة، بطلة الألعاب؛ ولكل وسام شهادة تُطبع.
+لوحة المعلمة [[#teacher|لوحة المعلمة]] (للمعلمة فقط): طلبات أولياء الأمور، الطالبات والنقاط، حسابات الطالبات وطباعة بطاقات الأرقام، التقييم والمتابعة والتقرير الشهري وتصدير الدرجات، اختبارات المعلمة (تحويل ورقة PDF أو صور إلى اختبار بالذكاء الاصطناعي، وأنواع: اختيار، صح وخطأ، إجابة قصيرة، كتابة حرة، وتصحيح الكتابة بالذكاء الاصطناعي)، تحضير منصة نور بالذكاء الاصطناعي، أوراق العمل، الإعلانات والصور، الاستبيان، النتائج، التلخيصات، المشاركات، الكتب، التوصيف والأهداف.
+التطبيق: زر «ثبّتي التطبيق على الجوال» أسفل الموقع.`;
+const VIEW_AR = { home: "الرئيسية", units: "الوحدات", unit: "صفحة وحدة", games: "الألعاب", read: "اقرئي", leaders: "المتصدرات", tasks: "من المعلمة", survey: "الاستبيان", about: "المبادرة", register: "الدخول/بطاقتي", library: "المكتبة", summary: "تلخيص كتاب", posts: "المشاركات", parents: "أولياء الأمور", teacher: "لوحة المعلمة" };
+function curView() { const h = (location.hash || "#home").slice(1); if (/^u[1-9]/.test(h)) return "unit"; if (/^read/.test(h)) return "read"; return VIEW_AR[h] ? h : "home"; }
+function askContext() {
+  const idx = UNITS.map(u => `الوحدة ${u.unitN} من المحور ${u.axisN} (${u.axis}): «${u.theme}» ص ${u.pages} [[#${u.id}|افتحي الوحدة]]\n` + u.lessons.map(l => `  - ${l.type}: ${l.title} (ص ${l.page}): ${l.about || ""} الفكرة: ${l.idea || ""}`).join("\n")).join("\n");
+  const nov = NOVELS.map(n => `- «${n.title}» (${n.genre}) [[#read-${n.id}|اقرئيها]]: ${n.blurb}`).join("\n");
+  let cur = ""; const v = curView();
+  if (v === "unit" && U) cur = `الطالبة الآن في الوحدة «${U.theme}». محتوى دروسها كاملًا:\n` + U.lessons.map((l, i) => lessonText(U.id, i)).join("\n\n———\n\n");
+  return `${SITE_GUIDE}\n\nفهرس الوحدات والدروس:\n${idx}\n\nالروايات:\n${nov}\n\n${cur}`.slice(0, 60000);
 }
-function askDraw() {
-  const P = $("#askPanel"), ok = ME && (ME.role === "student" || ME.role === "teacher"), cap = askLeft();
-  P.innerHTML = `<div class="ask-h"><span>💬</span><div><b>اسألي البصيرة</b><small>عن دروس وحدة «${esc(U.theme)}»</small></div><button class="mini" data-x aria-label="إغلاق">✕</button></div>
-    <div class="ask-body">${!ok ? `<div class="ask-m bot">أهلًا! ادخلي بحسابك أولًا لتسأليني عن الدروس. <a href="#register">الدخول</a></div>`
-      : (askHist.length ? "" : `<div class="ask-m bot">أهلًا ${esc(ME.name.split(" ")[0])} 👋 أنا البصيرة. اسأليني عن أي شيء في دروس هذه الوحدة: معنى كلمة، فكرة نص، قاعدة نحوية، أو اطلبي مني مثالًا.</div><div class="ask-sug">${["ما الفكرة الرئيسة لدرس القراءة؟", "اشرحي لي القاعدة النحوية بمثال", "ما معنى أصعب كلمات الدرس؟"].map(t => `<button class="chip-s" data-sug>${t}</button>`).join("")}</div>`)
-        + askHist.map(m => `<div class="ask-m ${m.r === "u" ? "me" : "bot"}">${esc(m.t)}</div>`).join("")}</div>
-    ${ok ? `<form class="ask-f"><input maxlength="300" placeholder="${cap.left ? "اكتبي سؤالك…" : "انتهت أسئلة اليوم، عودي غدًا"}" ${cap.left ? "" : "disabled"}><button class="pill-btn orange" ${cap.left ? "" : "disabled"}>اسألي</button></form><small class="ask-cap">بقي لكِ اليوم ${ar(cap.left)} من ${ar(ASK_CAP)} سؤالًا · تجيب البصيرة من دروس الوحدة فقط، وقد تخطئ أحيانًا</small>` : ""}`;
+const askSugs = () => { const r = askRole(), v = curView();
+  if (v === "unit") return ["ما الفكرة الرئيسة لدرس القراءة؟", "اشرحي لي القاعدة النحوية بمثال", "ما معنى أصعب كلمات الوحدة؟"];
+  if (r === "parent") return ["كيف أتابع ابنتي؟", "متى تظهر لي درجاتها؟", "كيف أرسل ملاحظة للمعلمة؟"];
+  if (r === "teacher") return ["كيف أحوّل ورقة اختبار إلى اختبار إلكتروني؟", "كيف أطبع بطاقات أرقام الطالبات؟", "كيف أصدّر الدرجات؟"];
+  if (r === "student") return ["كيف أجمع نقاطًا أكثر؟", "اقترحي عليّ رواية مشوّقة", "في أي وحدة درس الحال؟"];
+  return ["ما موقع البصيرة؟", "كيف تدخل الطالبة؟", "كيف يتابع وليّ الأمر ابنته؟"]; };
+/* answer text → safe HTML; [[#hash|label]] become buttons that open that page */
+function askFmt(t) { return esc(t).replace(/\[\[(#[a-z0-9-]{2,30})\|([^\]]{1,60})\]\]/gi, (m, h, l) => `<a class="ask-link" href="${h}">${l} ←</a>`).replace(/\[\[[^\]|]*\|([^\]]*)\]\]/g, "$1"); }
+let askHist = [];
+function askInit() {
+  const fab = $("#askFab"), P = $("#askPanel"); if (!fab) return;
+  fab.onclick = () => { P.hidden = !P.hidden; fab.classList.toggle("on", !P.hidden); if (!P.hidden) askDraw(true); };
+}
+function askDraw(focus) {
+  const P = $("#askPanel"), cap = askLeft(), first = ME ? ME.name.split(" ")[0] : "";
+  P.innerHTML = `<div class="ask-h"><span>💬</span><div><b>اسألي البصيرة</b><small>عن الموقع والدروس والروايات، وأي سؤال آخر</small></div>${askHist.length ? `<button class="mini" data-clear title="محادثة جديدة">↺</button>` : ""}<button class="mini" data-x aria-label="إغلاق">✕</button></div>
+    <div class="ask-body">${askHist.length ? "" : `<div class="ask-m bot">أهلًا${first ? " " + esc(first) : ""} 👋 أنا البصيرة، مساعدة الموقع. اسأليني: أين أجد شيئًا في الموقع، أو كيف أفعل شيئًا، أو عن أي درس أو رواية، أو حتى سؤالًا عامًّا.</div><div class="ask-sug">${askSugs().map(t => `<button class="chip-s" data-sug>${t}</button>`).join("")}</div>`}
+      ${askHist.map(m => `<div class="ask-m ${m.r === "u" ? "me" : "bot"}">${m.r === "u" ? esc(m.t) : m.t === "…" ? `<span class="spin"></span>` : askFmt(m.t)}</div>`).join("")}</div>
+    <form class="ask-f"><input maxlength="400" placeholder="${cap.left ? "اكتبي سؤالك…" : "انتهت أسئلة اليوم، عودي غدًا"}" ${cap.left ? "" : "disabled"}><button class="pill-btn orange" ${cap.left ? "" : "disabled"}>اسألي</button></form>
+    <small class="ask-cap">الأسئلة المتبقية اليوم: ${ar(cap.left)} من ${ar(cap.cap)} · قد تخطئ البصيرة أحيانًا</small>`;
   P.querySelector("[data-x]").onclick = () => { P.hidden = true; $("#askFab").classList.remove("on"); };
+  const cl = P.querySelector("[data-clear]"); if (cl) cl.onclick = () => { askHist = []; askDraw(true); };
+  P.querySelectorAll(".ask-link").forEach(a => a.onclick = () => { if (innerWidth < 700) { P.hidden = true; $("#askFab").classList.remove("on"); } });
   const body = P.querySelector(".ask-body"); body.scrollTop = body.scrollHeight;
-  const f = P.querySelector(".ask-f"); if (!f) return;
+  const f = P.querySelector(".ask-f");
   const send = async q => { q = q.trim(); if (!q) return; const c = askLeft(); if (!c.left) return; c.use();
     askHist.push({ r: "u", t: q }); askHist.push({ r: "b", t: "…" }); askDraw();
-    const ctx = U.lessons.map((l, i) => lessonText(U.id, i)).join("\n\n———\n\n").slice(0, 24000);
-    const conv = askHist.slice(0, -2).slice(-8).map(m => (m.r === "u" ? "الطالبة: " : "البصيرة: ") + m.t).join("\n");
-    let ans; try { ans = await aiText([{ text: "محتوى الوحدة:\n" + ctx }], `أنت «البصيرة»، مساعدة تعليمية لطيفة لطالبات الصف العاشر في مادة «لغتي الجميلة» بسلطنة عُمان.
-أجيبي بالعربية الفصحى المبسطة، في ٣ إلى ٨ أسطر، واعتمدي على محتوى الوحدة المرفق فقط. إن كان السؤال خارج دروس الوحدة أو خارج اللغة العربية فاعتذري بلطف ووجّهي الطالبة إلى معلمتها.
-لا تكتبي حلول الواجبات أو الاختبارات كاملة نيابةً عن الطالبة؛ اشرحي الفكرة ووجّهيها بسؤال أو مثال لتصل بنفسها. لا تستخدمي Markdown ولا نجومًا.
-${conv ? "المحادثة السابقة:\n" + conv + "\n" : ""}سؤال الطالبة الآن: ${q}`, AI_FAST); }
+    const conv = askHist.slice(0, -2).slice(-10).map(m => (m.r === "u" ? "السائل: " : "البصيرة: ") + m.t).join("\n");
+    const who = { student: `طالبة اسمها ${ME && ME.name} من الصف ${ME && CLS(ME.cls)}`, parent: `وليّ أمر اسمه ${ME && ME.name}`, teacher: "المعلمة أ. عائشة الكحالي", guest: "زائر لم يسجّل الدخول" }[askRole()];
+    let ans; try { ans = await aiText([{ text: askContext() }], `أنت «البصيرة»، المساعدة الذكية لموقع البصيرة. تعرفين الموقع كاملًا ودروسه ورواياته من المعلومات المرفقة.
+السائل: ${who}. الصفحة التي يتصفحها الآن: ${VIEW_AR[curView()]}.
+- أسئلة الموقع (أين أجد، كيف أفعل): أجيبي بخطوات قصيرة دقيقة من دليل الموقع، وأضيفي رابط القسم بالصيغة [[#الرابط|النص]] كما في الدليل. لا تخترعي أقسامًا أو روابط غير موجودة.
+- أسئلة الدروس والروايات: اشرحي من المحتوى المرفق بلغة مبسطة وأمثلة، ووجّهي إلى الوحدة أو الرواية برابطها. لا تحلّي الواجبات والاختبارات كاملة نيابةً عن الطالبة؛ اشرحي الفكرة ووجّهيها.
+- الأسئلة العامة (معلومة، لغة، نصيحة دراسية…): أجيبي بإيجاز ودقة وبما يناسب طالبات المرحلة الثانوية، وإن لم تتأكدي فقولي ذلك.
+- لا تذكري أرقامًا سرية ولا بيانات طالبات أخريات. اكتبي بالعربية الفصحى المبسطة، بلا Markdown ولا نجوم، في ٢ إلى ٨ أسطر غالبًا.
+${conv ? "المحادثة السابقة:\n" + conv + "\n" : ""}السؤال الآن: ${q}`, AI_FAST); }
     catch (e) { ans = "عذرًا، لم أستطع الإجابة الآن. " + (e.message || ""); }
     askHist[askHist.length - 1].t = clean(ans); askDraw(); };
   f.onsubmit = e => { e.preventDefault(); const i = f.querySelector("input"); const v = i.value; i.value = ""; send(v); };
   P.querySelectorAll("[data-sug]").forEach(b => b.onclick = () => send(b.textContent));
-  f.querySelector("input").focus();
+  if (focus) f.querySelector("input").focus();
 }
 /* summary review before sending it to the teacher */
 async function reviewSummary() {
@@ -1003,7 +1045,6 @@ function openUnit(id, sub) {
   hero.innerHTML = `<img class="u-art" src="assets/units/${U.id}.jpg" alt=""><div style="position:relative;z-index:1"><small>المحور ${["", "الأول", "الثاني", "الثالث"][U.axisN]}: ${esc(U.axis)} · الوحدة ${ORD[U.unitN]} · الصفحات ${ar(U.pages)}</small><h2>${esc(U.theme)}</h2></div><a class="pill-btn light back" href="#units">كل الوحدات</a>`;
   $$("#uTabs button").forEach(b => { b.setAttribute("aria-selected", b.dataset.t === sub); b.onclick = () => { location.hash = U.id + "-" + b.dataset.t; }; });
   ({ lessons: renderLessons, acts: renderActs, test: renderTest, game: renderGame }[sub])();
-  askInit();
 }
 
 /* ---------- lessons ---------- */
@@ -1708,5 +1749,6 @@ function pwaInit() {
 }
 window.__basiraAI = { aiQuizFromFiles, prepShow: p => showPrep(p, false), draft: d => { qEdit = d; tQuizzes(); } }; /* used by the site checks */
 pwaInit();
+askInit();
 boot();
 })();
