@@ -311,6 +311,14 @@ async function tAccounts() {
   el.querySelector("[data-list]").onclick = () => doPrint(`<h2 style="margin:0 0 8px">حسابات طالبات ${esc(C.name)} · مبادرة البصيرة</h2><table class="plist"><thead><tr><th>#</th><th>الطالبة</th><th>الرقم السري</th></tr></thead><tbody>${C.st.map((s, i) => `<tr><td>${i + 1}</td><td>${esc(s.n)}</td><td dir="ltr">${ACC[s.id]}</td></tr>`).join("")}</tbody></table>`);
 }
 
+/* tells the site owner at once if Firestore is missing or its rules are not published */
+async function dbCheck() {
+  try { await TO(db.collection(P + "site").doc("main").get({ source: "server" }), 10000); }
+  catch (e) { const c = String((e && e.code) || ""), d = $("#demo");
+    d.textContent = c.includes("permission") ? "تنبيه لصاحب الموقع: قاعدة البيانات موجودة لكن القواعد لم تُنشر. افتح Firestore Database ← Rules والصق ملف القواعد ثم Publish."
+      : "تنبيه لصاحب الموقع: قاعدة البيانات غير موجودة بعد. افتح Firebase ← Firestore Database ← Create database.";
+    d.style.background = "#FDECEC"; d.style.color = "#8E2A20"; d.hidden = false; }
+}
 async function boot() {
   if (hasFB) {
     try {
@@ -325,6 +333,7 @@ async function boot() {
     if (s) { UID = s; ME = await loadProfile(s); if (!ME) UID = null; }
   }
   IS_T = !!(ME && ME.admin);
+  if (db) dbCheck();
   renderAxes(); renderGamesGrid(); route(); refreshMe();
 }
 
