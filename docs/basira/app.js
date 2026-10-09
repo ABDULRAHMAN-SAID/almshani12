@@ -93,7 +93,7 @@ function clsChips(cur, counts) { if (!RST.classes.length) return ""; return `<di
 async function acctKey(name) { return { m: null, key: nameKey(name) }; }
 const fbPass = pin => "Bz!" + pin + "#2026";
 const LOCAL_T_CODE = "1234";
-let ME = null;
+let ME = null, loginRole = "student";
 const ERR = { roster: "تدخل الطالبة من صفحة «دخول الطالبات» باختيار صفها واسمها.", exists: "هذا الاسم مسجّل من قبل. إن كان حسابك فاختر «تسجيل الدخول»، وإن كان لشخص آخر فأضف اسم الجد الثاني أو اللقب.", bad: "الاسم أو الرقم السري غير صحيح.", many: "محاولات كثيرة. انتظر دقائق ثم حاول مرة أخرى.", net: "تعذّر الاتصال بالإنترنت. تأكد من الشبكة ثم حاول مرة أخرى.", code: "رمز تفعيل لوحة المعلمة غير صحيح.", gone: "لم يكتمل إنشاء هذا الحساب. اختر «حساب جديد» واكتب الاسم والرقم السري نفسيهما لإكماله.", role: "" };
 const ERR_DB = "تعذّر الاتصال بقاعدة البيانات. على صاحب الموقع التأكد من إنشاء Firestore Database في مشروع Firebase.";
 const ERR_RULES = "رفضت قاعدة البيانات الحفظ. على صاحب الموقع نشر القواعد (Rules) في Firestore.";
@@ -292,7 +292,7 @@ async function openAcc(code) {
 async function tAccounts() {
   const el = $("#tAcc"); const R = await allRoster();
   if (!RST.tp) { el.innerHTML = `<div class="empty">لم تُضف أرقام الطالبات بعد.</div>`; return; }
-  if (!ACC) { let c = null; try { c = localStorage.getItem("basira:tc"); } catch (e) {} if (c) { try { await openAcc(c); } catch (e) { ACC = null; } } }
+  if (!ACC) { let c = null; try { c = localStorage.getItem("basira:tc"); } catch (e) {} for (const k of [c, "506887"]) { if (!k || ACC) continue; try { await openAcc(k); } catch (e) { ACC = null; } } }
   if (!ACC) {
     el.innerHTML = `<form class="form" style="max-width:420px"><p class="muted" style="margin:0">قائمة دخول الطالبات محمية. اكتبي رمز تفعيل لوحة المعلمة لعرضها (يُطلب مرة واحدة على هذا الجهاز).</p><div class="field"><label>رمز لوحة المعلمة</label><input name="c" inputmode="numeric" maxlength="12" dir="ltr" autocomplete="off"></div><button class="pill-btn teal" type="submit">اعرضي القائمة</button><div data-msg></div></form>`;
     const f = el.querySelector("form"); f.onsubmit = async e => { e.preventDefault(); try { await openAcc(f.c.value); tAccounts(); } catch (x) { msg(f.querySelector("[data-msg]"), "الرمز غير صحيح."); } }; return;
@@ -319,6 +319,63 @@ async function dbCheck() {
       : "تنبيه لصاحب الموقع: قاعدة البيانات غير موجودة بعد. افتح Firebase ← Firestore Database ← Create database.";
     d.style.background = "#FDECEC"; d.style.color = "#8E2A20"; d.hidden = false; }
 }
+/* ================= SURVEY (inside the site) ================= */
+const SCALE = ["ضعيف", "مقبول", "جيد", "جيد جدًّا", "ممتاز"];
+const SURVEY = {
+  student: [
+    { id: "lessons", q: "ما مدى استفادتك من شروح الدروس في الموقع؟", t: "scale" },
+    { id: "games", q: "ما رأيك في ألعاب الوحدات؟", t: "scale" },
+    { id: "tests", q: "هل ساعدتك الاختبارات التدريبية على الاستعداد لاختبارات المدرسة؟", t: "scale" },
+    { id: "novels", q: "هل شجّعتك الروايات والنقاط على القراءة أكثر؟", t: "pick", o: ["نعم، كثيرًا", "قليلًا", "لا"] },
+    { id: "fav", q: "ما أكثر قسم أعجبك؟", t: "pick", o: ["الدروس", "الأنشطة", "الاختبارات", "الألعاب", "الروايات", "المتصدرات", "تلخيص كتاب"] },
+    { id: "freq", q: "كم مرة تدخلين الموقع في الأسبوع؟", t: "pick", o: ["أقل من مرة", "مرة واحدة", "٢–٣ مرات", "كل يوم تقريبًا"] },
+    { id: "easy", q: "هل استخدام الموقع سهل على الجوال؟", t: "scale" },
+    { id: "text", q: "ماذا تقترحين أن نضيف أو نحسّن؟", t: "text" }
+  ],
+  parent: [
+    { id: "follow", q: "ما مدى سهولة متابعة ابنتك من الموقع؟", t: "scale" },
+    { id: "clear", q: "ما مدى وضوح تقييم المعلمة وملاحظاتها؟", t: "scale" },
+    { id: "improve", q: "هل لاحظت اهتمامًا أكبر بالقراءة عند ابنتك؟", t: "pick", o: ["نعم، واضحًا", "قليلًا", "لا", "ما زال مبكرًا"] },
+    { id: "freq", q: "كم مرة تتابع ابنتك في الموقع؟", t: "pick", o: ["أقل من مرة في الأسبوع", "مرة في الأسبوع", "أكثر من مرة في الأسبوع"] },
+    { id: "text", q: "ملاحظاتك أو اقتراحاتك للمعلمة", t: "text" }
+  ]
+};
+async function loadSurvey() {
+  await refreshMe(); const el = $("#survey");
+  if (!ME || (ME.role !== "student" && ME.role !== "parent")) {
+    el.innerHTML = `<div class="empty"><b>${ME && ME.role === "teacher" ? "نتائج الاستبيان في لوحتك" : "الاستبيان للطالبات وأولياء الأمور"}</b>${ME && ME.role === "teacher" ? `<div style="margin-top:10px"><a class="pill-btn teal" href="#teacher">لوحة المعلمة ← الاستبيان</a></div>` : `ادخل بحسابك أولًا، فلكل حساب إجابة واحدة.<div style="margin-top:12px"><a class="pill-btn orange" href="#register">الدخول</a></div>`}</div>`; return; }
+  let old = null; try { old = await store.get("survey", UID); } catch (e) {}
+  if (old) { el.innerHTML = `<div class="card" style="text-align:center;padding:30px"><div style="font-size:44px">💚</div><h3 class="auth-t">شكرًا لك، وصلت إجابتك</h3><p class="muted">أُرسلت الإجابة في ${fmtDate(old.createdAt)}، ولكل حساب إجابة واحدة. رأيك يساعد المعلمة على تطوير المبادرة.</p></div>`; return; }
+  const Q = SURVEY[ME.role], ans = {};
+  el.innerHTML = `<form class="card form" id="svForm" novalidate><p class="muted" style="margin:0">دقيقتان فقط. لا تظهر إجابتك لأحد غير المعلمة، ولا يظهر اسمك في النتائج.</p>
+    ${Q.map((x, i) => `<div class="sv-q" data-q="${x.id}"><b>${ar(i + 1)}. ${esc(x.q)}</b>${x.t === "text" ? `<textarea name="${x.id}" maxlength="600" style="min-height:90px" placeholder="اكتب هنا (اختياري)"></textarea>`
+      : `<div class="sv-opts">${(x.t === "scale" ? SCALE : x.o).map((o, j) => `<button type="button" class="sv-o" data-v="${x.t === "scale" ? j + 1 : j}">${x.t === "scale" ? `<span class="sv-n">${ar(j + 1)}</span>` : ""}${esc(o)}</button>`).join("")}</div>`}</div>`).join("")}
+    <button class="pill-btn orange big" type="submit">أرسل الاستبيان</button><div data-msg></div></form>`;
+  const f = $("#svForm");
+  f.querySelectorAll(".sv-o").forEach(b => b.onclick = () => { const q = b.closest("[data-q]"); q.querySelectorAll(".sv-o").forEach(x => x.setAttribute("aria-pressed", x === b)); ans[q.dataset.q] = +b.dataset.v; q.classList.remove("miss"); });
+  f.onsubmit = async e => { e.preventDefault(); const miss = Q.filter(x => x.t !== "text" && ans[x.id] == null);
+    f.querySelectorAll(".sv-q").forEach(q => q.classList.toggle("miss", miss.some(x => x.id === q.dataset.q)));
+    if (miss.length) { msg(f.querySelector("[data-msg]"), `بقي ${ar(miss.length)} من الأسئلة دون إجابة.`); f.querySelector(".sv-q.miss").scrollIntoView({ behavior: "smooth", block: "center" }); return; }
+    const t = f.querySelector("textarea"); const doc = { role: ME.role, cls: ME.cls || "", a: ans, text: t ? t.value.trim() : "", createdAt: now() };
+    const btn = f.querySelector("button[type=submit]"); btn.disabled = true;
+    try { await store.set("survey", UID, doc); toast("شكرًا لك! وصلت إجابتك"); loadSurvey(); } catch (err) { btn.disabled = false; msg(f.querySelector("[data-msg]"), err && err.code ? fbErr(err) : "لم يُرسل الاستبيان، حاول مرة أخرى."); } };
+}
+let svRole = "student";
+async function tSurvey() {
+  const el = $("#tSrv"); let all = []; try { all = (await store.list("survey")).sort(byTime); } catch (e) {}
+  const nS = all.filter(x => x.role === "student").length, nP = all.filter(x => x.role === "parent").length;
+  const R = all.filter(x => x.role === svRole), Q = SURVEY[svRole];
+  el.innerHTML = `<p class="muted" style="margin:0 0 8px">استبيان البصيرة داخل الموقع: تجيب كل طالبة ووليّ أمر مرة واحدة من صفحة «الاستبيان». الإجابات بلا أسماء.</p>
+    <div class="nv-filters"><button class="chip-f" data-r="student" aria-pressed="${svRole === "student"}">الطالبات <small>${ar(nS)}</small></button><button class="chip-f" data-r="parent" aria-pressed="${svRole === "parent"}">أولياء الأمور <small>${ar(nP)}</small></button></div>
+    ${!R.length ? `<div class="empty"><b>لا توجد إجابات بعد</b>شاركي رابط الموقع، والاستبيان في الصفحة الرئيسية.</div>` : Q.map((x, i) => {
+      if (x.t === "text") { const tx = R.filter(r => r.text); return `<div class="sv-res"><b>${ar(i + 1)}. ${esc(x.q)}</b>${tx.length ? `<div class="notes">${tx.map(r => `<div class="bubble t"><small>${r.cls ? esc(CLS(r.cls)) + " · " : ""}${fmtDate(r.createdAt)}</small>${esc(r.text)}</div>`).join("")}</div>` : `<p class="muted">لا توجد اقتراحات مكتوبة.</p>`}</div>`; }
+      const opts = x.t === "scale" ? SCALE : x.o, vals = R.map(r => r.a && r.a[x.id]).filter(v => v != null);
+      const cnt = opts.map((o, j) => vals.filter(v => v === (x.t === "scale" ? j + 1 : j)).length), mx = Math.max(1, ...cnt);
+      const avg = x.t === "scale" && vals.length ? (vals.reduce((a, b) => a + b, 0) / vals.length) : null;
+      return `<div class="sv-res"><div class="row" style="justify-content:space-between"><b>${ar(i + 1)}. ${esc(x.q)}</b>${avg != null ? `<span class="status approved">المتوسط ${ar(avg.toFixed(1))} من ٥</span>` : ""}</div>${opts.map((o, j) => `<div class="sv-bar"><span>${esc(o)}</span><i><em style="width:${cnt[j] / mx * 100}%"></em></i><b>${ar(cnt[j])}</b></div>`).join("")}</div>`; }).join("")}`;
+  $$("#tSrv [data-r]").forEach(b => b.onclick = () => { svRole = b.dataset.r; tSurvey(); });
+}
+
 async function boot() {
   if (hasFB) {
     try {
@@ -338,7 +395,7 @@ async function boot() {
 }
 
 /* ================= ROUTER ================= */
-const VIEWS = ["home", "units", "unit", "games", "read", "leaders", "tasks", "about", "register", "library", "summary", "posts", "parents", "teacher"];
+const VIEWS = ["home", "units", "unit", "games", "read", "leaders", "tasks", "survey", "about", "register", "library", "summary", "posts", "parents", "teacher"];
 let current = null, gameInst = null;
 function route() {
   let h = (location.hash || "#home").slice(1); let unitId = null, sub = "lessons";
@@ -350,7 +407,7 @@ function route() {
   $$(".nav a").forEach(a => { const t = a.getAttribute("href").slice(1); if (t === h || (h === "unit" && t === "units")) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current"); });
   $("#nav").classList.remove("open"); $("#menuT").setAttribute("aria-expanded", "false");
   if (current !== location.hash) window.scrollTo({ top: 0 }); current = location.hash;
-  ({ home: loadHome, about: loadAbout, register: loadAccount, library: loadBooks, summary: loadSummary, posts: loadPosts, parents: loadParents, teacher: loadTeacher, read: () => loadRead(nid, nch), leaders: loadLeaders, tasks: loadTasks, unit: () => openUnit(unitId, sub) }[h] || (() => {}))();
+  ({ home: loadHome, about: loadAbout, register: loadAccount, library: loadBooks, summary: loadSummary, posts: loadPosts, parents: loadParents, teacher: loadTeacher, read: () => loadRead(nid, nch), leaders: loadLeaders, tasks: loadTasks, survey: loadSurvey, unit: () => openUnit(unitId, sub) }[h] || (() => {}))();
 }
 window.addEventListener("hashchange", route);
 $("#menuT").onclick = () => { const n = $("#nav"); n.classList.toggle("open"); $("#menuT").setAttribute("aria-expanded", n.classList.contains("open")); };
@@ -614,12 +671,13 @@ function authForm(el, o) {
   };
   paint();
 }
-async function doLogout() { await acct.logout(); toast("خرجت من حسابك"); await refreshMe(); route(); }
+async function doLogout() { loginRole = "student"; await acct.logout(); toast("خرجت من حسابك"); await refreshMe(); route(); }
 
 /* ================= ME (account page) ================= */
 async function refreshMe() {
   if (ME && UID) { try { const p = await loadProfile(UID); if (p) ME = p; } catch (e) {} }
-  $("#meTxt").textContent = ME ? ME.name.split(" ")[0] : "دخول";
+  $("#meTxt").textContent = ME ? (ME.role === "teacher" ? "لوحة المعلمة" : ME.name.split(" ")[0]) : "دخول";
+  const hb = $("#meTxt").closest("a"); if (hb) hb.setAttribute("href", ME && ME.role === "teacher" ? "#teacher" : ME && ME.role === "parent" ? "#parents" : "#register");
   await Promise.all([myResults(), loadMyPoints()]); renderAxes();
   $("#fPts").textContent = isStu() ? ar(myTotal()) + " نقطة" : "سجّلي لتجمعي النقاط";
 }
@@ -627,9 +685,16 @@ async function loadAccount() {
   await refreshMe();
   const A = $("#regAuth"), I = $("#meInfo");
   if (!ME) {
-    studentAuth(A, () => { location.hash = "register"; loadAccount(); });
-    I.innerHTML = `<h3 style="font-size:20px;font-weight:900">كيف أدخل؟</h3><ul class="why"><li>اختاري صفك ثم اسمك من القائمة، فأسماء طالبات الصف مُدخلة مسبقًا.</li><li>اكتبي رقمك السري (ستة أرقام) الذي أعطتك إياه المعلمة، ولا حاجة إلى إنشاء حساب.</li><li>تُحفظ نتائجك ونقاطك وتلخيصاتك، وتتابعك المعلمة ووليّ أمرك.</li></ul>
-      <div class="row" style="margin-top:14px"><a class="pill-btn ghost" href="#parents">دخول أولياء الأمور</a><a class="pill-btn ghost" href="#teacher">لوحة المعلمة</a></div>`;
+    const who = loginRole;
+    A.innerHTML = `<div class="seg seg-main who-seg" role="tablist" aria-label="من أنت؟">${[["student", "طالبة"], ["parent", "وليّ أمر"], ["teacher", "المعلمة"]].map(([r, t]) => `<button type="button" data-who="${r}" aria-pressed="${r === who}">${t}</button>`).join("")}</div><div id="whoBox"></div>`;
+    A.querySelectorAll("[data-who]").forEach(b => b.onclick = () => { loginRole = b.dataset.who; loadAccount(); });
+    const box = $("#whoBox");
+    if (who === "student") studentAuth(box, () => { location.hash = "register"; loadAccount(); });
+    else if (who === "parent") { await rosterReady(); authForm(box, { fixed: "parent", daughter: true, title: "دخول وليّ الأمر", onDone: () => { location.hash = "parents"; } }); }
+    else teacherAuth(box, () => { location.hash = "teacher"; });
+    I.innerHTML = who === "student" ? `<h3 style="font-size:20px;font-weight:900">كيف أدخل؟</h3><ul class="why"><li>اختاري صفك ثم اسمك من القائمة، فأسماء طالبات الصف مُدخلة مسبقًا.</li><li>اكتبي رقمك السري (ستة أرقام) الذي أعطتك إياه المعلمة، ولا حاجة إلى إنشاء حساب.</li><li>تُحفظ نتائجك ونقاطك وتلخيصاتك، وتتابعك المعلمة ووليّ أمرك.</li></ul>`
+      : who === "parent" ? `<h3 style="font-size:20px;font-weight:900">كيف يتابع وليّ الأمر؟</h3><ul class="why"><li>أول مرة: اضغط «حساب جديد»، واكتب اسمك الثلاثي ورقمًا سريًّا تختاره، ثم اختر صف ابنتك واسمها.</li><li>تراجع المعلمة الطلب وتوافق عليه، فلا يرى أي وليّ أمر إلا ابنته.</li><li>بعدها تدخل من «تسجيل الدخول» فتجد تقييم ابنتك ودرجاتها ونقاطها وملاحظات المعلمة.</li></ul>`
+      : `<h3 style="font-size:20px;font-weight:900">لوحة المعلمة</h3><ul class="why"><li>اكتبي رقمك السري فقط، فالاسم ثابت.</li><li>من اللوحة: طلبات أولياء الأمور، والتقييم، والاختبارات، والإعلانات، وحسابات الطالبات.</li></ul>`;
     return;
   }
   if (ME.role === "parent") { A.innerHTML = `<div class="msg ok">أنت مسجّل الدخول باسم «${esc(ME.name)}» (ولي أمر).</div><div class="row" style="margin-top:14px"><a class="pill-btn teal" href="#parents">صفحة المتابعة</a><button class="pill-btn ghost" data-out>خروج</button></div>`; }
@@ -639,7 +704,7 @@ async function loadAccount() {
   const tests = RESULTS.filter(r => r.kind === "test").sort(byTime), games = RESULTS.filter(r => r.kind === "game").length;
   I.innerHTML = `<div style="display:flex;gap:14px;align-items:center"><span class="avatar">${esc(ini(ME.name))}</span><div><b style="font-size:20px;color:var(--ink)">${esc(ME.name)}</b><br><span class="muted">${ROLE_AR[ME.role] || ""}${ME.cls ? " · الصف " + esc(CLS(ME.cls)) : ""}</span></div></div>
   ${ME.role === "student" ? `<div class="mestats"><div><b data-mypts>${ar(myTotal())}</b><span>نقطة</span></div><div><b>${ar([...MYPTS.values()].filter(p => p.kind === "novel").length)}</b><span>رواية</span></div><div><b>${ar(tests.length)}</b><span>اختبار</span></div><div><b>${ar(games)}</b><span>لعبة</span></div></div>
-  <div class="row" style="margin-top:10px"><a class="pill-btn soft" href="#leaders">🏆 لوحة المتصدرات</a><a class="pill-btn soft" href="#read">📖 اقرئي رواية</a></div>
+  <div class="row" style="margin-top:10px"><a class="pill-btn soft" href="#leaders">🏆 لوحة المتصدرات</a><a class="pill-btn soft" href="#read">📖 اقرئي رواية</a><a class="pill-btn soft" href="#tasks">💬 من المعلمة</a><a class="pill-btn soft" href="#survey">📝 الاستبيان</a></div>
   ${MYPTS.size ? `<div class="sub-h" style="margin-top:14px">آخر نقاطك</div><div class="pts-log">${[...MYPTS.values()].sort(byTime).slice(0, 8).map(p => `<div><span>${PTS_IC[p.kind] || "⭐"}</span><span class="grow">${esc(PTS_AR[p.kind] || "")}${p.label ? `: ${esc(p.label)}` : ""}</span><b>${plus(p.pts)}</b></div>`).join("")}</div>` : ""}
   <div style="margin-top:10px">${tests.length ? `<table class="res-table"><thead><tr><th>الوحدة</th><th>الدرجة</th><th>التاريخ</th></tr></thead><tbody>${tests.slice(0, 12).map(r => { const u = UNITS.find(x => x.id === r.unit); return `<tr><td>${u ? esc(u.theme) : ""}</td><td><b>${ar(r.score)}/${ar(r.total)}</b></td><td>${fmtDate(r.createdAt)}</td></tr>`; }).join("")}</tbody></table>` : `<span class="muted">لم تحلّي اختبارًا تدريبيًّا بعد.</span>`}</div>` : ""}`;
 }
@@ -806,7 +871,7 @@ async function loadLeaders() {
   await refreshMe();
   $("#ptsGuide").innerHTML = `<h3 style="font-size:20px;font-weight:900">كيف أجمع النقاط؟</h3><ul class="pts-guide">${Object.keys(PTS).map(k => `<li><span>${PTS_IC[k]}</span><b>${esc(PTS_AR[k])}</b><em>${plus(PTS[k])}</em></li>`).join("")}<li><span>${PTS_IC.teacher}</span><b>نقاط تمنحها المعلمة للمتميزات</b><em>★</em></li></ul><p class="muted" style="font-size:14px;margin:10px 0 0">تُحسب كل رواية وكل كتاب وكل لعبة واختبار ونشاط مرة واحدة فقط.</p>${isStu() ? `<div class="my-total"><span>رصيدك</span><b data-mypts>${ar(myTotal())}</b><span>نقطة</span></div>` : ""}`;
   const el = $("#leaders");
-  if (db && !UID) { el.innerHTML = `<div class="empty"><b>لوحة المتصدرات للطالبات المسجّلات</b>سجّلي الدخول بحسابك لتري الترتيب. <div style="margin-top:12px"><a class="pill-btn orange" href="#register">دخول / تسجيل</a></div></div>`; return; }
+  if (db && !UID) { el.innerHTML = `<div class="empty"><b>لوحة المتصدرات للطالبات المسجّلات</b>سجّلي الدخول بحسابك لتري الترتيب. <div style="margin-top:12px"><a class="pill-btn orange" href="#register">دخول الطالبات</a></div></div>`; return; }
   el.innerHTML = `<div class="card muted">جارٍ تحميل الترتيب…</div>`;
   let sc = [], us = [];
   try { us = await store.list("users", ["role", "student"]); } catch (e) {}
@@ -850,7 +915,7 @@ async function loadBooks() {
 /* ================= SUMMARY ================= */
 async function loadSummary() {
   await refreshMe(); const okS = ME && ME.role === "student";
-  $("#sumName").textContent = okS ? ME.name : "سجّلي الدخول أولًا"; $("#sumName").className = okS ? "" : "muted"; $("#sumCls").textContent = "العاشر";
+  $("#sumName").textContent = okS ? ME.name : "سجّلي الدخول أولًا"; $("#sumName").className = okS ? "" : "muted"; $("#sumCls").textContent = okS && ME.cls ? CLS(ME.cls) : "العاشر";
   const el = $("#mySums"); let s = []; if (okS) { try { s = (await store.list("summaries", ["uid", UID])).sort(byTime); } catch (e) {} }
   el.innerHTML = s.length ? s.map(x => `<div class="li"><div class="grow"><b>${esc(x.book)}</b><br><span class="muted" style="font-size:14px">${esc(x.author)} · ${fmtDate(x.createdAt)}</span></div><span class="status ${x.status === "published" ? "approved" : "pending"}">${x.status === "published" ? "نُشر في المشاركات" : "وصل للمعلمة"}</span></div>`).join("") : `<p class="muted" style="margin:6px 0 0">لم ترسلي تلخيصًا بعد.</p>`;
 }
@@ -880,7 +945,7 @@ async function loadParents() {
     await rosterReady(); authForm(A, { fixed: "parent", daughter: true, title: "دخول ولي الأمر", onDone: () => loadParents() }); return;
   }
   $("#parHow").hidden = true; A.style.gridColumn = "1 / -1";
-  A.innerHTML = `<div class="row" style="justify-content:space-between"><div><b style="font-size:19px">${esc(ME.name)}</b><br><span class="muted">ولي أمر</span></div><button class="mini" data-out>خروج</button></div>`;
+  A.innerHTML = `<div class="row" style="justify-content:space-between"><div><b style="font-size:19px">${esc(ME.name)}</b><br><span class="muted">ولي أمر</span></div><div class="row"><a class="mini" href="#survey">📝 الاستبيان</a><button class="mini" data-out>خروج</button></div></div>`;
   A.querySelector("[data-out]").onclick = doLogout;
   let links = []; try { links = (await store.list("links", ["parentUid", UID])).sort(byTime); } catch (e) {}
   area.innerHTML = `<div class="grid2" style="margin-top:18px">
@@ -936,7 +1001,7 @@ async function showFollow(l) {
 /* ================= TEACHER ================= */
 /* the teacher's account is fixed: her name is set, she only types her PIN. the first correct login creates the account. */
 const T_ACC = { key: "t:aisha", name: "عائشة الكحالي", h: "wH7u3rKg8DEBryJC" };
-function teacherAuth(L) {
+function teacherAuth(L, onDone) {
   L.innerHTML = `<h3 class="auth-t">دخول المعلمة</h3><form class="form" novalidate>
     <div class="field"><label>الاسم</label><input value="أ. ${T_ACC.name}" readonly tabindex="-1" style="background:var(--paper);font-weight:800"></div>
     <div class="field"><label>الرقم السري</label><div class="pinrow"><input name="p" type="password" inputmode="numeric" maxlength="12" dir="ltr" autocomplete="current-password" autofocus><button type="button" class="eye" aria-label="إظهار الرقم السري">👁</button></div></div>
@@ -951,7 +1016,7 @@ function teacherAuth(L) {
       const opt = { key: T_ACC.key }; let me;
       try { me = await acct.login(T_ACC.name, pin, opt); }
       catch (x) { if (x.message !== ERR.bad && x.message !== ERR.gone) throw x; me = await acct.register(T_ACC.name, pin, "teacher", db ? "506887" : LOCAL_T_CODE, opt); }
-      IS_T = !!me.admin; toast("أهلًا أ. عائشة"); await refreshMe(); loadTeacher();
+      IS_T = !!me.admin; toast("أهلًا أ. عائشة"); await refreshMe(); if (onDone) onDone(); else loadTeacher();
     } catch (err) { msg(M, err.message || ERR.bad); }
     finally { if (btn.isConnected) { btn.disabled = false; btn.textContent = "دخول"; } } };
 }
@@ -969,7 +1034,7 @@ $("#tOut").onclick = doLogout;
 let curTab = "req";
 $$("#tTabs button").forEach(b => b.onclick = () => openTab(b.dataset.t));
 function openTab(t) { curTab = t; $$("#tTabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.t === t)); $$("[data-p]").forEach(p => p.hidden = p.dataset.p !== t);
-  ({ stu: tStudents, acc: tAccounts, ev: tEvals, quiz: tQuizzes, ann: tAnn, res: tResults, req: tRequests, sum: tSummaries, post: tPosts, book: tBooks, site: tSite }[t])(); badges(); }
+  ({ stu: tStudents, acc: tAccounts, srv: tSurvey, ev: tEvals, quiz: tQuizzes, ann: tAnn, res: tResults, req: tRequests, sum: tSummaries, post: tPosts, book: tBooks, site: tSite }[t])(); badges(); }
 async function badges() { try { const r = (await store.list("links", ["status", "pending"])).length; $("#reqN").hidden = !r; $("#reqN").textContent = ar(r); } catch (e) {} try { const s = (await store.list("summaries")).filter(x => x.status === "new").length; $("#sumN").hidden = !s; $("#sumN").textContent = ar(s); } catch (e) {} }
 let tCls = "";
 async function tStudents() {

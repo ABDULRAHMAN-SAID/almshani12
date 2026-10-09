@@ -130,6 +130,17 @@ service cloud.firestore {
       allow delete: if isTeacher();
     }
 
+    // استبيان البصيرة: إجابة واحدة لكل حساب (المعرّف = uid)، تقرؤها المعلمة وصاحب الإجابة
+    match /basira_survey/{uid} {
+      allow read: if isTeacher() || (signedIn() && me() == uid);
+      allow create: if signedIn() && me() == uid && request.resource.data.role == myRole()
+        && request.resource.data.role in ['student', 'parent']
+        && request.resource.data.keys().hasOnly(['role', 'cls', 'a', 'text', 'createdAt'])
+        && request.resource.data.text is string && request.resource.data.text.size() <= 600;
+      allow update: if false;
+      allow delete: if isTeacher();
+    }
+
     // محتوى عام يقرؤه الجميع وتكتبه المعلمة
     match /basira_posts/{id} { allow read: if true; allow write: if isTeacher(); }
     match /basira_books/{id} { allow read: if true; allow write: if isTeacher(); }
