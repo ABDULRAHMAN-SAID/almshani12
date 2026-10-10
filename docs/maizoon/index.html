@@ -341,7 +341,8 @@ input.ro{background:#F3EEE3 !important;font-weight:700;cursor:default}
       <button class="btn l" type="button" id="back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg> <span id="backT">تعديل</span></button>
       <div class="grp">
         <button class="btn l" type="button" id="share">مشاركة</button>
-        <button class="btn" type="button" id="print"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4v-7h16v7h-2M8 14h8v7H8z"/></svg> طباعة / PDF</button>
+        <button class="btn l" type="button" id="print"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9V3h12v6M6 18H4v-7h16v7h-2M8 14h8v7H8z"/></svg> طباعة</button>
+        <button class="btn" type="button" id="dl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg> تنزيل PDF</button>
       </div>
     </div>
     <div class="opts">
@@ -752,7 +753,7 @@ async function share(M) {
 function mode(m) {
   document.body.classList.remove('m-edit', 'm-arch', 'm-view'); document.body.classList.add('m-' + m);
   $('#tEdit').setAttribute('aria-selected', m === 'edit'); $('#tArch').setAttribute('aria-selected', m === 'arch');
-  $('#lhp').textContent = m === 'view' ? 'تقريرك جاهز للطباعة، ومحفوظ في «تقاريري المحفوظة».' : m === 'arch' ? 'كل تقاريرك في مكان واحد: اعرضي، عدّلي، اطبعي، أو أنشئي تقريرًا شهريًّا.' : 'اكتبي كل عمل مع صوره، ثم أنشئي التقرير.';
+  $('#lhp').textContent = m === 'view' ? 'تقريرك جاهز: نزّليه ملفَّ PDF أو اطبعيه، وهو محفوظ في «تقاريري المحفوظة».' : m === 'arch' ? 'كل تقاريرك في مكان واحد: اعرضي، عدّلي، اطبعي، أو أنشئي تقريرًا شهريًّا.' : 'اكتبي كل عمل مع صوره، ثم أنشئي التقرير.';
   window.scrollTo(0, 0);
 }
 
@@ -766,6 +767,92 @@ $('#make').onclick = async () => {
 };
 $('#back').onclick = () => mode(BACK);
 $('#print').onclick = () => window.print();
+/* ---------- تنزيل التقرير ملفَّ PDF على الجهاز مباشرة ----------
+   كل صفحة تُرسم صورةً بمحرّك المتصفح نفسه (SVG foreignObject مع الخطوط مضمّنة)،
+   ثم تُجمع الصفحات في ملف PDF بحجم A4 دون أي مكتبة خارجية. */
+let FONTCSS = null;
+const b64 = (buf) => { let r = ''; const u = new Uint8Array(buf); for (let i = 0; i < u.length; i += 0x8000) r += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000)); return btoa(r); };
+function fontCSS() {
+  if (!FONTCSS) FONTCSS = (async () => {
+    try {
+      const l = document.querySelector('link[rel="stylesheet"][href*="fonts.googleapis"]'); if (!l) return '';
+      const css = await (await TO(fetch(l.href), 15000)).text();
+      const blocks = css.split(/(?=\/\*)/).filter((b) => /\/\*\s*(arabic|latin)\s*\*\//.test(b));
+      const out = await Promise.all(blocks.map(async (b) => {
+        const m = b.match(/url\((https:[^)]+)\)/); if (!m) return b;
+        try { const r = await TO(fetch(m[1]), 20000); return b.replace(m[1], 'data:font/woff2;base64,' + b64(await r.arrayBuffer())); } catch (e) { return ''; }
+      }));
+      return out.join('\n');
+    } catch (e) { FONTCSS = null; return ''; }
+  })();
+  return FONTCSS;
+}
+const sleepMs = (ms) => new Promise((r) => setTimeout(r, ms));
+async function pageJPEG(pg, scale) {
+  const W = 794, H = Math.round(W * 292 / 210);
+  const css = [...document.querySelectorAll('style')].map((x) => x.textContent).join('\n') + '\n' + await fontCSS();
+  const cl = pg.cloneNode(true); cl.style.cssText = 'width:' + W + 'px;max-width:none;box-shadow:none;margin:0';
+  const body = new XMLSerializer().serializeToString(cl);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}"><foreignObject x="0" y="0" width="${W}" height="${H}"><div xmlns="http://www.w3.org/1999/xhtml" dir="rtl" style="width:${W}px;height:${H}px;direction:rtl;font-family:'IBM Plex Sans Arabic',system-ui,sans-serif;color:#18203A;-webkit-text-size-adjust:100%"><style><![CDATA[${css.replace(/\]\]>/g, '')}]]></style>${body}</div></foreignObject></svg>`;
+  const img = new Image();
+  await new Promise((res, rej) => { img.onload = res; img.onerror = () => rej(new Error('svg')); img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); });
+  try { await img.decode(); } catch (e) {}
+  const c = document.createElement('canvas'); c.width = Math.round(W * scale); c.height = Math.round(H * scale);
+  const g = c.getContext('2d');
+  const draw = () => { g.fillStyle = '#FFFEFA'; g.fillRect(0, 0, c.width, c.height); g.drawImage(img, 0, 0, c.width, c.height); };
+  const blank = () => { const t = document.createElement('canvas'); t.width = 60; t.height = 84; const tg = t.getContext('2d'); tg.drawImage(c, 0, 0, 60, 84); const d = tg.getImageData(0, 0, 60, 84).data; let k = 0; for (let i = 0; i < d.length; i += 4) if (d[i] < 90 && d[i + 2] < 120) k++; return k < 20; };
+  draw(); await sleepMs(180); draw(); // سفاري يرسم الصور المضمّنة أحيانًا في المرة الثانية فقط
+  if (blank()) { await sleepMs(600); draw(); if (blank()) throw new Error('blank'); }
+  const u = c.toDataURL('image/jpeg', 0.9);
+  const bin = atob(u.slice(u.indexOf(',') + 1)); const data = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) data[i] = bin.charCodeAt(i);
+  return { data, w: c.width, h: c.height };
+}
+function makePDF(pages, title) {
+  const enc = new TextEncoder(); const parts = []; let len = 0; const offs = [];
+  const push = (x) => { const b = typeof x === 'string' ? enc.encode(x) : x; parts.push(b); len += b.length; };
+  const f = (n) => (Math.round(n * 100) / 100).toString();
+  const PW = 595.28, PHt = 841.89, n = pages.length, N = 4 + n * 3;
+  push('%PDF-1.4\n'); push(new Uint8Array([37, 226, 227, 207, 211, 10]));
+  const obj = (id, fn) => { offs[id] = len; push(id + ' 0 obj\n'); fn(); push('\nendobj\n'); };
+  const hex = (t) => '<FEFF' + [...String(t)].map((ch) => { const c = ch.codePointAt(0); return c > 0xFFFF ? ((0xD800 + ((c - 0x10000) >> 10)).toString(16) + (0xDC00 + ((c - 0x10000) & 0x3FF)).toString(16)) : c.toString(16).padStart(4, '0'); }).join('').toUpperCase() + '>';
+  obj(1, () => push('<< /Type /Catalog /Pages 2 0 R >>'));
+  obj(2, () => push('<< /Type /Pages /Kids [' + pages.map((_, i) => (4 + i * 3) + ' 0 R').join(' ') + '] /Count ' + n + ' >>'));
+  obj(3, () => push('<< /Title ' + hex(title) + ' /Producer (aamali) >>'));
+  pages.forEach((p, i) => {
+    const pid = 4 + i * 3, cid = pid + 1, iid = pid + 2;
+    const k = Math.min(PW / p.w, PHt / p.h), w = p.w * k, h = p.h * k, x = (PW - w) / 2, y = (PHt - h) / 2;
+    const cs = `0.9961 0.9961 0.9804 rg 0 0 ${PW} ${PHt} re f q ${f(w)} 0 0 ${f(h)} ${f(x)} ${f(y)} cm /Im${i} Do Q`;
+    obj(pid, () => push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PW} ${PHt}] /Resources << /XObject << /Im${i} ${iid} 0 R >> >> /Contents ${cid} 0 R >>`));
+    obj(cid, () => push(`<< /Length ${cs.length} >>\nstream\n${cs}\nendstream`));
+    obj(iid, () => { push(`<< /Type /XObject /Subtype /Image /Width ${p.w} /Height ${p.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${p.data.length} >>\nstream\n`); push(p.data); push('\nendstream'); });
+  });
+  const xref = len; let t = 'xref\n0 ' + N + '\n0000000000 65535 f \n';
+  for (let i = 1; i < N; i++) t += String(offs[i]).padStart(10, '0') + ' 00000 n \n';
+  push(t + 'trailer\n<< /Size ' + N + ' /Root 1 0 R /Info 3 0 R >>\nstartxref\n' + xref + '\n%%EOF\n');
+  return new Blob(parts, { type: 'application/pdf' });
+}
+function pdfName(M) {
+  const r = M.from; let tail = '';
+  if (M.month) tail = M.per.replace(/^شهر\s*/, ''); else if (r) tail = r.kind === 'day' ? recPer(r) : 'أسبوع ' + fd(dOf(r.week, 0), { day: 'numeric', month: 'long', year: 'numeric' });
+  const clean = (t) => String(t || '').replace(/[\\/:*?"<>|،,]+/g, ' ').trim().replace(/\s+/g, '-');
+  return [M.title, tail, M.name].filter(Boolean).map(clean).join('_') + '.pdf';
+}
+$('#dl').onclick = async () => {
+  if (!CUR) return; const btn = $('#dl'); if (btn.disabled) return;
+  btn.disabled = true; toast('جارٍ تجهيز ملف PDF…');
+  try {
+    const pgs = [...document.querySelectorAll('#pages .pg')]; if (!pgs.length) throw new Error('nopages');
+    const out = []; for (const pg of pgs) out.push(await pageJPEG(pg, 2));
+    const blob = makePDF(out, CUR.title + ' — ' + (CUR.name || ''));
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = pdfName(CUR); a.rel = 'noopener';
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 120000);
+    toast('✓ نُزّل التقرير ملفَّ PDF (' + AR(pgs.length) + (pgs.length === 1 ? ' صفحة' : pgs.length === 2 ? ' صفحتان' : ' صفحات') + ')');
+  } catch (e) {
+    alert('تعذّر تجهيز ملف PDF على هذا الجهاز. استعملي زر «طباعة» ثم اختاري «حفظ في الملفات» أو «حفظ بتنسيق PDF».');
+  }
+  btn.disabled = false;
+};
 $('#share').onclick = () => CUR && share(CUR);
 $('#newRep').onclick = () => {
   if (hasDraft() && !confirm('بدء صفحة جديدة؟ التقارير المحفوظة تبقى في السجل، وتُفرَّغ صفحة الكتابة فقط.')) return;
