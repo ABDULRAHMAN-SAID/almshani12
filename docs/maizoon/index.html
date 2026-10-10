@@ -82,61 +82,76 @@ body.show #edit{display:none}
 body.show #view{display:block}
 body.show .lh{padding-bottom:70px}
 .bar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:18px}
-.pw{overflow:hidden}
-.sheet{width:210mm;min-height:297mm;margin:0 auto;background:#FFFEFA;color:#18203A;padding:12mm;box-shadow:0 22px 60px rgba(24,32,58,.18);transform-origin:top right;font-family:var(--f)}
-.frame{border:3.5px double #CDB58A;min-height:calc(297mm - 24mm);display:flex;flex-direction:column;-webkit-box-decoration-break:clone;box-decoration-break:clone}
-.band{background:linear-gradient(180deg,#FFFDF8,#F7F0E2);color:#18203A;padding:4.5mm 8mm;border-top:2.2mm solid #18203A;border-bottom:1.2mm solid #A8844E;display:flex;align-items:center;gap:6mm}
-.band .org{flex:1;font-size:8.6pt;line-height:1.65;color:#4A5168}
-.band .org b{color:#18203A;font-weight:700;font-size:10pt}
-.band .lg{height:20mm;width:auto;object-fit:contain}
-.band .lg.sc{height:23mm}
-.band .lg.moe{height:23mm}
-.band .lgv{height:19mm;width:auto}
-.band .ls{display:flex;align-items:center;gap:4mm}
-.band .dt{text-align:center;font-size:8pt;color:#6D7385;line-height:1.5;margin-top:1mm}
+.pages{display:flex;flex-direction:column;align-items:center;gap:18px}
+/* every size inside a page is relative to the page width: --mm = 1mm, --pt = 1pt of an A4 sheet */
+:root{--mm:calc(100cqw / 210);--pt:calc(100cqw / 595.28)}
+.pg{position:relative;width:100%;max-width:820px;aspect-ratio:210/292;background:#FFFEFA;color:#18203A;font-family:var(--f);container-type:inline-size;box-shadow:0 22px 60px rgba(24,32,58,.18);overflow:hidden;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+.pgi{position:absolute;inset:calc(var(--mm)*7);border:calc(var(--mm)*1.1) double #CDB58A;display:flex;flex-direction:column;overflow:hidden}
+.band{flex:none;background:linear-gradient(180deg,#FFFDF8,#F7F0E2);color:#18203A;padding:calc(var(--mm)*4.5) calc(var(--mm)*8);border-top:calc(var(--mm)*2.2) solid #18203A;border-bottom:calc(var(--mm)*1.2) solid #A8844E;display:flex;align-items:center;gap:calc(var(--mm)*6)}
+.band .org{flex:1;font-size:calc(var(--pt)*8.6);line-height:1.65;color:#4A5168}
+.band .org b{color:#18203A;font-weight:700;font-size:calc(var(--pt)*10)}
+.band .lg{height:calc(var(--mm)*20);width:auto;object-fit:contain}
+.band .lg.sc,.band .lg.moe{height:calc(var(--mm)*23)}
+.band .lgv{height:calc(var(--mm)*19);width:auto}
+.band .ls{display:flex;align-items:center;gap:calc(var(--mm)*4)}
+.band .dt{text-align:center;font-size:calc(var(--pt)*8);color:#6D7385;line-height:1.5;margin-top:calc(var(--mm)*1)}
 .band .dt b{color:#8C6B38;font-weight:600}
-.body{padding:5mm 10mm 6mm;flex:1;display:flex;flex-direction:column}
+.mh{flex:none;display:flex;align-items:center;gap:calc(var(--mm)*3);padding:calc(var(--mm)*2.6) calc(var(--mm)*8);border-top:calc(var(--mm)*2.2) solid #18203A;border-bottom:calc(var(--mm)*.5) solid #A8844E;background:linear-gradient(180deg,#FFFDF8,#F7F0E2);font-size:calc(var(--pt)*8.5);color:#6D7385;line-height:1.5}
+.mh img{height:calc(var(--mm)*10);width:auto;object-fit:contain}
+.mh b{display:block;color:#18203A;font-family:var(--fs);font-weight:700;font-size:calc(var(--pt)*12);line-height:1.3}
+.mh .sp{flex:1}
+.mh .nm{text-align:end}
+.mh .nm b{font-family:var(--f);font-weight:600;font-size:calc(var(--pt)*9.5)}
+.flow{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;padding:calc(var(--mm)*5) calc(var(--mm)*10) calc(var(--mm)*3)}
+.flow>*{flex:none}
+.flow.done .spacer{flex:1}
 .ttl{text-align:center}
-.ttl .o{color:#A8844E;font-size:8pt;letter-spacing:5px;line-height:1}
-.ttl h1{font-family:var(--fs);font-weight:700;font-size:22pt;margin:1mm 0 0;line-height:1.3;color:#18203A}
-.ttl .per{display:inline-block;margin-top:1.5mm;font-size:9.5pt;color:#8C6B38;border-top:1px solid #E3D6BC;border-bottom:1px solid #E3D6BC;padding:.6mm 5mm}
-.who{display:grid;grid-template-columns:repeat(3,1fr);margin:4mm 0 2mm;background:#F7F2E7;border-radius:2mm}
-.who div{padding:2.6mm 4mm;text-align:center;border-inline-start:1px solid #E8DEC9}
+.ttl .o{color:#A8844E;font-size:calc(var(--pt)*8);letter-spacing:calc(var(--mm)*1.8);line-height:1}
+.ttl h1{font-family:var(--fs);font-weight:700;font-size:calc(var(--pt)*22);margin:calc(var(--mm)*1) 0 0;line-height:1.3;color:#18203A}
+.ttl .per{display:inline-block;margin-top:calc(var(--mm)*1.5);font-size:calc(var(--pt)*9.5);color:#8C6B38;border-top:1px solid #E3D6BC;border-bottom:1px solid #E3D6BC;padding:calc(var(--mm)*.6) calc(var(--mm)*5)}
+.who{display:grid;grid-template-columns:repeat(3,1fr);margin:calc(var(--mm)*4) 0 calc(var(--mm)*1);background:#F7F2E7;border-radius:calc(var(--mm)*2)}
+.who div{padding:calc(var(--mm)*2.6) calc(var(--mm)*4);text-align:center;border-inline-start:1px solid #E8DEC9}
 .who div:first-child{border-inline-start:0}
-.who small{display:block;font-size:7.5pt;color:#8A8F9E;letter-spacing:.3px}
-.who b{font-weight:600;font-size:10.5pt}
-.rd{margin-top:3mm}
-.rd-h{display:flex;align-items:center;gap:3mm;margin-bottom:1mm;break-after:avoid}
-.rd-h .n{font-family:var(--fs);font-weight:700;font-size:14pt;color:#18203A;line-height:1.2}
-.rd-h .d{font-size:8.5pt;color:#8C6B38}
-.rd-h .ln{flex:1;height:.3mm;background:linear-gradient(90deg,rgba(205,181,138,0),#CDB58A)}
-.rw{display:grid;grid-template-columns:7mm 1fr;gap:3mm;align-items:start;padding:2mm 0;break-inside:avoid}
-.rw.p{grid-template-columns:7mm 1fr 30mm;padding:1.6mm 0}
-.rw + .rw{border-top:1px solid #F0E9DB}
-.rw .k{width:6mm;height:6mm;border-radius:50%;border:1px solid #CDB58A;color:#A8844E;font-size:7.5pt;display:grid;place-items:center;margin-top:.4mm}
-.rw .t{font-size:10.5pt;line-height:1.75}
-.rw figure{margin:0;padding:1.2mm;background:#fff;border:1px solid #E3D6BC;box-shadow:0 .6mm 1.6mm rgba(24,32,58,.08)}
+.who small{display:block;font-size:calc(var(--pt)*7.5);color:#8A8F9E}
+.who b{font-weight:600;font-size:calc(var(--pt)*10.5)}
+.rd-h{display:flex;align-items:center;gap:calc(var(--mm)*3);margin:calc(var(--mm)*4) 0 calc(var(--mm)*1)}
+.flow>.rd-h:first-child{margin-top:0}
+.rd-h .n{font-family:var(--fs);font-weight:700;font-size:calc(var(--pt)*14);color:#18203A;line-height:1.2}
+.rd-h .d{font-size:calc(var(--pt)*8.5);color:#8C6B38}
+.rd-h .tb{font-size:calc(var(--pt)*7.5);color:#8A8F9E;border:1px solid #E3D6BC;border-radius:999px;padding:0 calc(var(--mm)*2.2);line-height:1.7}
+.rd-h .ln{flex:1;height:calc(var(--mm)*.3);background:linear-gradient(90deg,rgba(205,181,138,0),#CDB58A)}
+.rw{display:grid;grid-template-columns:calc(var(--mm)*7) minmax(0,1fr);gap:calc(var(--mm)*3);align-items:start;padding:calc(var(--mm)*2) 0}
+.rw.p{grid-template-columns:calc(var(--mm)*7) minmax(0,1fr) calc(var(--mm)*30);padding:calc(var(--mm)*1.6) 0}
+.rw+.rw{border-top:1px solid #F0E9DB}
+.rw .k{width:calc(var(--mm)*6);height:calc(var(--mm)*6);border-radius:50%;border:1px solid #CDB58A;color:#A8844E;font-size:calc(var(--pt)*7.5);display:grid;place-items:center;margin-top:calc(var(--mm)*.4)}
+.rw .t{font-size:calc(var(--pt)*10.5);line-height:1.75}
+.rw figure{margin:0;padding:calc(var(--mm)*1.2);background:#fff;border:1px solid #E3D6BC;box-shadow:0 calc(var(--mm)*.6) calc(var(--mm)*1.6) rgba(24,32,58,.08)}
 .rw figure img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block}
-.rw .gal{grid-column:2/-1;display:grid;grid-template-columns:repeat(3,1fr);gap:2.5mm;margin-top:1mm}
-.rw .gal.g2{grid-template-columns:repeat(2,1fr);width:75%}
-.rw .gal.g4{grid-template-columns:repeat(4,1fr)}
-.total{text-align:center;font-size:9.5pt;color:#5E6477;margin-top:5mm}
-.total b{font-family:var(--fs);font-size:13pt;color:#18203A}
-.spacer{flex:1}
-.signs{display:grid;grid-template-columns:1fr 1fr;gap:22mm;margin-top:5mm;padding:0 10mm;break-inside:avoid}
-.signs div{text-align:center;font-size:8.5pt;color:#8A8F9E}
-.signs b{display:block;height:1.4em;font-size:10.5pt;color:#18203A;font-weight:600}
-.signs span{display:block;margin-top:3mm;border-top:1px solid #CDB58A;padding-top:1.5mm}
-.foot{height:2.2mm;background:linear-gradient(90deg,#18203A,#18203A 70%,#A8844E 70%,#A8844E)}
+/* several photos for one task: a row of small photos under the text */
+.rw .gal{grid-column:2/-1;display:flex;flex-wrap:wrap;gap:calc(var(--mm)*2);margin-top:calc(var(--mm)*.6)}
+.rw .gal figure{width:calc(var(--mm)*24.5);padding:calc(var(--mm)*.8)}
+.notesP{margin-top:calc(var(--mm)*4);background:#F7F2E7;border-radius:calc(var(--mm)*2);padding:calc(var(--mm)*3) calc(var(--mm)*4)}
+.notesP h4{margin:0 0 calc(var(--mm)*1);font-family:var(--fs);font-size:calc(var(--pt)*12);color:#18203A}
+.notesP p{margin:0;font-size:calc(var(--pt)*10);line-height:1.8;white-space:pre-wrap}
+.signs{display:grid;grid-template-columns:1fr 1fr;gap:calc(var(--mm)*22);margin-top:calc(var(--mm)*6);padding:0 calc(var(--mm)*10)}
+.signs div{text-align:center;font-size:calc(var(--pt)*8.5);color:#8A8F9E}
+.signs b{display:block;height:1.4em;font-size:calc(var(--pt)*10.5);color:#18203A;font-weight:600}
+.signs span{display:block;margin-top:calc(var(--mm)*3);border-top:1px solid #CDB58A;padding-top:calc(var(--mm)*1.5)}
+.pf{flex:none;height:calc(var(--mm)*6.5);display:flex;align-items:center;justify-content:center;font-size:calc(var(--pt)*8);color:#8A8F9E;border-top:1px solid #EFE7D6}
+.foot{flex:none;height:calc(var(--mm)*2.2);background:linear-gradient(90deg,#18203A,#18203A 70%,#A8844E 70%,#A8844E)}
+#measure{position:fixed;top:0;left:0;width:794px;height:0;overflow:hidden;visibility:hidden;pointer-events:none;z-index:-5}
 @media (max-width:640px){.bar .btn{padding:12px 20px;white-space:nowrap;font-size:15px}.grid{grid-template-columns:1fr}.day{padding:16px}.work{grid-template-columns:26px minmax(0,1fr) 64px 30px;gap:8px}.ph{width:64px;height:50px}.thumbs .tb{width:64px;height:50px}.dh .d{display:none}.card{padding:18px}}
-@page{size:A4;margin:12mm}
+@page{size:A4;margin:8mm}
 @media print{
   html,body{background:#fff}
+  body:before{display:none}
+  body>:not(.wrap){display:none!important}
   .bar,#edit,.lh{display:none!important}
   #view{display:block!important}
   .wrap{padding:0;max-width:none;margin:0}
-  .pw{overflow:visible;height:auto!important}
-  .sheet{box-shadow:none;margin:0;transform:none!important;padding:0;width:auto;min-height:0}
+  .pages{display:block}
+  .pg{max-width:none;width:100%;box-shadow:none;break-inside:avoid;page-break-inside:avoid;break-after:page;page-break-after:always}
+  .pg:last-child{break-after:auto;page-break-after:auto}
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
 /* tabs, archive, extras */
@@ -194,10 +209,7 @@ textarea.notes:focus{outline:none;border-color:var(--gold)}
 .opts input[type=checkbox]{width:18px;height:18px;accent-color:var(--gold)}
 .bar{flex-wrap:wrap}
 .bar .grp{display:flex;gap:8px;flex-wrap:wrap}
-.notesP{margin-top:4mm;background:#F7F2E7;border-radius:2mm;padding:3mm 4mm;break-inside:avoid}
-.notesP h4{margin:0 0 1mm;font-family:var(--fs);font-size:12pt;color:#18203A}
-.notesP p{margin:0;font-size:10pt;line-height:1.8;white-space:pre-wrap}
-.rd-h .wk{font-size:8pt;color:#fff;background:#18203A;border-radius:1mm;padding:.3mm 2mm}
+
 .toast{position:fixed;bottom:22px;left:50%;transform:translate(-50%,30px);opacity:0;background:#18203A;color:#F3E6CC;border:1px solid rgba(217,194,154,.4);padding:12px 22px;border-radius:999px;font-weight:600;transition:.25s;z-index:20;box-shadow:0 10px 30px rgba(0,0,0,.35);max-width:calc(100% - 32px);text-align:center}
 .toast.on{opacity:1;transform:translate(-50%,0)}
 @media (max-width:640px){
@@ -279,7 +291,7 @@ input.ro{background:#F3EEE3 !important;font-weight:700;cursor:default}
       <div class="chips" id="qChips"></div>
     </div>
 
-    <p class="tip">اكتبي كل عمل في سطر، واضغطي أيقونة الكاميرا بجانبه لإرفاق صورة أو أكثر.</p>
+    <p class="tip">اكتبي كل عمل في سطر، واضغطي أيقونة الكاميرا بجانبه لإرفاق صوره — يمكنك تحديد عدة صور دفعة واحدة، وتظهر في التقرير صغيرة متجاورة.</p>
     <div id="days"></div>
 
     <div class="card">
@@ -336,10 +348,11 @@ input.ro{background:#F3EEE3 !important;font-weight:700;cursor:default}
       <label><input type="checkbox" id="oPh" checked> إظهار الصور</label>
       <label>التوقيع الثاني: <select id="oSig"><option>مديرة المدرسة</option><option>مساعدة مديرة المدرسة</option><option>المشرفة الإدارية</option><option>رئيسة القسم</option></select></label>
     </div>
-    <div class="pw" id="pw"><div class="sheet" id="sheet"></div></div>
+    <div class="pages" id="pages"></div>
   </section>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div id="measure" aria-hidden="true"></div>
 
 <script>!function(e,t){"object"==typeof exports&&"undefined"!=typeof module?module.exports=t():"function"==typeof define&&define.amd?define(t):(e="undefined"!=typeof globalThis?globalThis:e||self).firebase=t()}(this,function(){"use strict";const r=function(t){const r=[];let n=0;for(let i=0;i<t.length;i++){let e=t.charCodeAt(i);e<128?r[n++]=e:(e<2048?r[n++]=e>>6|192:(55296==(64512&e)&&i+1<t.length&&56320==(64512&t.charCodeAt(i+1))?(e=65536+((1023&e)<<10)+(1023&t.charCodeAt(++i)),r[n++]=e>>18|240,r[n++]=e>>12&63|128):r[n++]=e>>12|224,r[n++]=e>>6&63|128),r[n++]=63&e|128)}return r},n={byteToCharMap_:null,charToByteMap_:null,byteToCharMapWebSafe_:null,charToByteMapWebSafe_:null,ENCODED_VALS_BASE:"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789",get ENCODED_VALS(){return this.ENCODED_VALS_BASE+"+/="},get ENCODED_VALS_WEBSAFE(){return this.ENCODED_VALS_BASE+"-_."},HAS_NATIVE_SUPPORT:"function"==typeof atob,encodeByteArray(r,e){if(!Array.isArray(r))throw Error("encodeByteArray takes an array as a parameter");this.init_();var n=e?this.byteToCharMapWebSafe_:this.byteToCharMap_;const i=[];for(let h=0;h<r.length;h+=3){var a=r[h],s=h+1<r.length,o=s?r[h+1]:0,c=h+2<r.length,l=c?r[h+2]:0;let e=(15&o)<<2|l>>6,t=63&l;c||(t=64,s||(e=64)),i.push(n[a>>2],n[(3&a)<<4|o>>4],n[e],n[t])}return i.join("")},encodeString(e,t){return this.HAS_NATIVE_SUPPORT&&!t?btoa(e):this.encodeByteArray(r(e),t)},decodeString(e,t){return this.HAS_NATIVE_SUPPORT&&!t?atob(e):function(e){const t=[];let r=0,n=0;for(;r<e.length;){var i,a,s=e[r++];s<128?t[n++]=String.fromCharCode(s):191<s&&s<224?(i=e[r++],t[n++]=String.fromCharCode((31&s)<<6|63&i)):239<s&&s<365?(a=((7&s)<<18|(63&e[r++])<<12|(63&e[r++])<<6|63&e[r++])-65536,t[n++]=String.fromCharCode(55296+(a>>10)),t[n++]=String.fromCharCode(56320+(1023&a))):(i=e[r++],a=e[r++],t[n++]=String.fromCharCode((15&s)<<12|(63&i)<<6|63&a))}return t.join("")}(this.decodeStringToByteArray(e,t))},decodeStringToByteArray(e,t){this.init_();var r=t?this.charToByteMapWebSafe_:this.charToByteMap_;const n=[];for(let c=0;c<e.length;){var i=r[e.charAt(c++)],a=c<e.length?r[e.charAt(c)]:0;++c;var s=c<e.length?r[e.charAt(c)]:64;++c;var o=c<e.length?r[e.charAt(c)]:64;if(++c,null==i||null==a||null==s||null==o)throw new l;n.push(i<<2|a>>4),64!==s&&(n.push(a<<4&240|s>>2),64!==o&&n.push(s<<6&192|o))}return n},init_(){if(!this.byteToCharMap_){this.byteToCharMap_={},this.charToByteMap_={},this.byteToCharMapWebSafe_={},this.charToByteMapWebSafe_={};for(let e=0;e<this.ENCODED_VALS.length;e++)this.byteToCharMap_[e]=this.ENCODED_VALS.charAt(e),this.charToByteMap_[this.byteToCharMap_[e]]=e,this.byteToCharMapWebSafe_[e]=this.ENCODED_VALS_WEBSAFE.charAt(e),this.charToByteMapWebSafe_[this.byteToCharMapWebSafe_[e]]=e,e>=this.ENCODED_VALS_BASE.length&&(this.charToByteMap_[this.ENCODED_VALS_WEBSAFE.charAt(e)]=e,this.charToByteMapWebSafe_[this.ENCODED_VALS.charAt(e)]=e)}}};class l extends Error{constructor(){super(...arguments),this.name="DecodeBase64StringError"}}const i=function(e){return e=e,t=r(e),n.encodeByteArray(t,!0).replace(/\./g,"");var t};function c(e,t){if(!(t instanceof Object))return t;switch(t.constructor){case Date:const r=t;return new Date(r.getTime());case Object:void 0===e&&(e={});break;case Array:e=[];break;default:return t}for(const n in t)t.hasOwnProperty(n)&&"__proto__"!==n&&(e[n]=c(e[n],t[n]));return e}const e=()=>function(){if("undefined"!=typeof self)return self;if("undefined"!=typeof window)return window;if("undefined"!=typeof global)return global;throw new Error("Unable to locate global object.")}().__FIREBASE_DEFAULTS__,t=()=>{if("undefined"!=typeof document){let e;try{e=document.cookie.match(/__FIREBASE_DEFAULTS__=([^;]+)/)}catch(e){return}var t=e&&function(e){try{return n.decodeString(e,!0)}catch(e){console.error("base64Decode failed: ",e)}return null}(e[1]);return t&&JSON.parse(t)}},a=()=>{try{return e()||(()=>{if("undefined"!=typeof process&&void 0!==process.env){var e=process.env.__FIREBASE_DEFAULTS__;return e?JSON.parse(e):void 0}})()||t()}catch(e){return void console.info(`Unable to get __FIREBASE_DEFAULTS__ due to: ${e}`)}},h=()=>{var e;return null===(e=a())||void 0===e?void 0:e.config};class s{constructor(){this.reject=()=>{},this.resolve=()=>{},this.promise=new Promise((e,t)=>{this.resolve=e,this.reject=t})}wrapCallback(r){return(e,t)=>{e?this.reject(e):this.resolve(t),"function"==typeof r&&(this.promise.catch(()=>{}),1===r.length?r(e):r(e,t))}}}function d(){return"object"==typeof self&&self.self===self}class o extends Error{constructor(e,t,r){super(t),this.code=e,this.customData=r,this.name="FirebaseError",Object.setPrototypeOf(this,o.prototype),Error.captureStackTrace&&Error.captureStackTrace(this,u.prototype.create)}}class u{constructor(e,t,r){this.service=e,this.serviceName=t,this.errors=r}create(e,...t){var n,r=t[0]||{},i=`${this.service}/${e}`,a=this.errors[e],a=a?(n=r,a.replace(p,(e,t)=>{var r=n[t];return null!=r?String(r):`<${t}?>`})):"Error",a=`${this.serviceName}: ${a} (${i}).`;return new o(i,a,r)}}const p=/\{\$([^}]+)}/g;function f(e,t){return Object.prototype.hasOwnProperty.call(e,t)}function g(e,t){if(e===t)return 1;const r=Object.keys(e),n=Object.keys(t);for(const s of r){if(!n.includes(s))return;var i=e[s],a=t[s];if(b(i)&&b(a)){if(!g(i,a))return}else if(i!==a)return}for(const o of n)if(!r.includes(o))return;return 1}function b(e){return null!==e&&"object"==typeof e}function m(e,t){const r=new v(e,t);return r.subscribe.bind(r)}class v{constructor(e,t){this.observers=[],this.unsubscribes=[],this.observerCount=0,this.task=Promise.resolve(),this.finalized=!1,this.onNoObservers=t,this.task.then(()=>{e(this)}).catch(e=>{this.error(e)})}next(t){this.forEachObserver(e=>{e.next(t)})}error(t){this.forEachObserver(e=>{e.error(t)}),this.close(t)}complete(){this.forEachObserver(e=>{e.complete()}),this.close()}subscribe(e,t,r){let n;if(void 0===e&&void 0===t&&void 0===r)throw new Error("Missing Observer.");n=function(e,t){if("object"!=typeof e||null===e)return!1;for(const r of t)if(r in e&&"function"==typeof e[r])return!0;return!1}(e,["next","error","complete"])?e:{next:e,error:t,complete:r},void 0===n.next&&(n.next=_),void 0===n.error&&(n.error=_),void 0===n.complete&&(n.complete=_);var i=this.unsubscribeOne.bind(this,this.observers.length);return this.finalized&&this.task.then(()=>{try{this.finalError?n.error(this.finalError):n.complete()}catch(e){}}),this.observers.push(n),i}unsubscribeOne(e){void 0!==this.observers&&void 0!==this.observers[e]&&(delete this.observers[e],--this.observerCount,0===this.observerCount&&void 0!==this.onNoObservers&&this.onNoObservers(this))}forEachObserver(t){if(!this.finalized)for(let e=0;e<this.observers.length;e++)this.sendOne(e,t)}sendOne(e,t){this.task.then(()=>{if(void 0!==this.observers&&void 0!==this.observers[e])try{t(this.observers[e])}catch(e){"undefined"!=typeof console&&console.error&&console.error(e)}})}close(e){this.finalized||(this.finalized=!0,void 0!==e&&(this.finalError=e),this.task.then(()=>{this.observers=void 0,this.onNoObservers=void 0}))}}function _(){}class E{constructor(e,t,r){this.name=e,this.instanceFactory=t,this.type=r,this.multipleInstances=!1,this.serviceProps={},this.instantiationMode="LAZY",this.onInstanceCreated=null}setInstantiationMode(e){return this.instantiationMode=e,this}setMultipleInstances(e){return this.multipleInstances=e,this}setServiceProps(e){return this.serviceProps=e,this}setInstanceCreatedCallback(e){return this.onInstanceCreated=e,this}}const y="[DEFAULT]";class w{constructor(e,t){this.name=e,this.container=t,this.component=null,this.instances=new Map,this.instancesDeferred=new Map,this.instancesOptions=new Map,this.onInitCallbacks=new Map}get(e){var t=this.normalizeInstanceIdentifier(e);if(!this.instancesDeferred.has(t)){const n=new s;if(this.instancesDeferred.set(t,n),this.isInitialized(t)||this.shouldAutoInitialize())try{var r=this.getOrInitializeService({instanceIdentifier:t});r&&n.resolve(r)}catch(e){}}return this.instancesDeferred.get(t).promise}getImmediate(e){var t=this.normalizeInstanceIdentifier(null==e?void 0:e.identifier),r=null!==(r=null==e?void 0:e.optional)&&void 0!==r&&r;if(!this.isInitialized(t)&&!this.shouldAutoInitialize()){if(r)return null;throw Error(`Service ${this.name} is not available`)}try{return this.getOrInitializeService({instanceIdentifier:t})}catch(e){if(r)return null;throw e}}getComponent(){return this.component}setComponent(e){if(e.name!==this.name)throw Error(`Mismatching Component ${e.name} for Provider ${this.name}.`);if(this.component)throw Error(`Component for ${this.name} has already been provided`);if(this.component=e,this.shouldAutoInitialize()){if("EAGER"===e.instantiationMode)try{this.getOrInitializeService({instanceIdentifier:y})}catch(e){}for(var[t,r]of this.instancesDeferred.entries()){t=this.normalizeInstanceIdentifier(t);try{var n=this.getOrInitializeService({instanceIdentifier:t});r.resolve(n)}catch(e){}}}}clearInstance(e=y){this.instancesDeferred.delete(e),this.instancesOptions.delete(e),this.instances.delete(e)}async delete(){const e=Array.from(this.instances.values());await Promise.all([...e.filter(e=>"INTERNAL"in e).map(e=>e.INTERNAL.delete()),...e.filter(e=>"_delete"in e).map(e=>e._delete())])}isComponentSet(){return null!=this.component}isInitialized(e=y){return this.instances.has(e)}getOptions(e=y){return this.instancesOptions.get(e)||{}}initialize(e={}){var{options:t={}}=e,r=this.normalizeInstanceIdentifier(e.instanceIdentifier);if(this.isInitialized(r))throw Error(`${this.name}(${r}) has already been initialized`);if(!this.isComponentSet())throw Error(`Component ${this.name} has not been registered yet`);var n,i,a=this.getOrInitializeService({instanceIdentifier:r,options:t});for([n,i]of this.instancesDeferred.entries())r===this.normalizeInstanceIdentifier(n)&&i.resolve(a);return a}onInit(e,t){var r=this.normalizeInstanceIdentifier(t);const n=null!==(i=this.onInitCallbacks.get(r))&&void 0!==i?i:new Set;n.add(e),this.onInitCallbacks.set(r,n);var i=this.instances.get(r);return i&&e(i,r),()=>{n.delete(e)}}invokeOnInitCallbacks(e,t){var r=this.onInitCallbacks.get(t);if(r)for(const n of r)try{n(e,t)}catch(e){}}getOrInitializeService({instanceIdentifier:e,options:t={}}){let r=this.instances.get(e);if(!r&&this.component&&(r=this.component.instanceFactory(this.container,{instanceIdentifier:(n=e)===y?void 0:n,options:t}),this.instances.set(e,r),this.instancesOptions.set(e,t),this.invokeOnInitCallbacks(r,e),this.component.onInstanceCreated))try{this.component.onInstanceCreated(this.container,e,r)}catch(e){}var n;return r||null}normalizeInstanceIdentifier(e=y){return!this.component||this.component.multipleInstances?e:y}shouldAutoInitialize(){return!!this.component&&"EXPLICIT"!==this.component.instantiationMode}}class C{constructor(e){this.name=e,this.providers=new Map}addComponent(e){const t=this.getProvider(e.name);if(t.isComponentSet())throw new Error(`Component ${e.name} has already been registered with ${this.name}`);t.setComponent(e)}addOrOverwriteComponent(e){const t=this.getProvider(e.name);t.isComponentSet()&&this.providers.delete(e.name),this.addComponent(e)}getProvider(e){if(this.providers.has(e))return this.providers.get(e);var t=new w(e,this);return this.providers.set(e,t),t}getProviders(){return Array.from(this.providers.values())}}const D=[];var I,S,O;(S=I=I||{})[S.DEBUG=0]="DEBUG",S[S.VERBOSE=1]="VERBOSE",S[S.INFO=2]="INFO",S[S.WARN=3]="WARN",S[S.ERROR=4]="ERROR",S[S.SILENT=5]="SILENT";const A={debug:I.DEBUG,verbose:I.VERBOSE,info:I.INFO,warn:I.WARN,error:I.ERROR,silent:I.SILENT},L=I.INFO,N={[I.DEBUG]:"log",[I.VERBOSE]:"log",[I.INFO]:"info",[I.WARN]:"warn",[I.ERROR]:"error"},B=(e,t,...r)=>{if(!(t<e.logLevel)){var n=(new Date).toISOString(),i=N[t];if(!i)throw new Error(`Attempted to log a message with an invalid logType (value: ${t})`);console[i](`[${n}]  ${e.name}:`,...r)}};class T{constructor(e){this.name=e,this._logLevel=L,this._logHandler=B,this._userLogHandler=null,D.push(this)}get logLevel(){return this._logLevel}set logLevel(e){if(!(e in I))throw new TypeError(`Invalid value "${e}" assigned to \`logLevel\``);this._logLevel=e}setLogLevel(e){this._logLevel="string"==typeof e?A[e]:e}get logHandler(){return this._logHandler}set logHandler(e){if("function"!=typeof e)throw new TypeError("Value assigned to `logHandler` must be a function");this._logHandler=e}get userLogHandler(){return this._userLogHandler}set userLogHandler(e){this._userLogHandler=e}debug(...e){this._userLogHandler&&this._userLogHandler(this,I.DEBUG,...e),this._logHandler(this,I.DEBUG,...e)}log(...e){this._userLogHandler&&this._userLogHandler(this,I.VERBOSE,...e),this._logHandler(this,I.VERBOSE,...e)}info(...e){this._userLogHandler&&this._userLogHandler(this,I.INFO,...e),this._logHandler(this,I.INFO,...e)}warn(...e){this._userLogHandler&&this._userLogHandler(this,I.WARN,...e),this._logHandler(this,I.WARN,...e)}error(...e){this._userLogHandler&&this._userLogHandler(this,I.ERROR,...e),this._logHandler(this,I.ERROR,...e)}}const R=(t,e)=>e.some(e=>t instanceof e);let P,M;const k=new WeakMap,F=new WeakMap,j=new WeakMap,$=new WeakMap,z=new WeakMap;let H={get(e,t,r){if(e instanceof IDBTransaction){if("done"===t)return F.get(e);if("objectStoreNames"===t)return e.objectStoreNames||j.get(e);if("store"===t)return r.objectStoreNames[1]?void 0:r.objectStore(r.objectStoreNames[0])}return U(e[t])},set(e,t,r){return e[t]=r,!0},has(e,t){return e instanceof IDBTransaction&&("done"===t||"store"===t)||t in e}};function x(n){return n!==IDBDatabase.prototype.transaction||"objectStoreNames"in IDBTransaction.prototype?(M=M||[IDBCursor.prototype.advance,IDBCursor.prototype.continue,IDBCursor.prototype.continuePrimaryKey]).includes(n)?function(...e){return n.apply(W(this),e),U(k.get(this))}:function(...e){return U(n.apply(W(this),e))}:function(e,...t){var r=n.call(W(this),e,...t);return j.set(r,e.sort?e.sort():[e]),U(r)}}function V(e){return"function"==typeof e?x(e):(e instanceof IDBTransaction&&(a=e,F.has(a)||(t=new Promise((e,t)=>{const r=()=>{a.removeEventListener("complete",n),a.removeEventListener("error",i),a.removeEventListener("abort",i)},n=()=>{e(),r()},i=()=>{t(a.error||new DOMException("AbortError","AbortError")),r()};a.addEventListener("complete",n),a.addEventListener("error",i),a.addEventListener("abort",i)}),F.set(a,t))),R(e,P=P||[IDBDatabase,IDBObjectStore,IDBIndex,IDBCursor,IDBTransaction])?new Proxy(e,H):e);var a,t}function U(e){if(e instanceof IDBRequest)return function(a){const e=new Promise((e,t)=>{const r=()=>{a.removeEventListener("success",n),a.removeEventListener("error",i)},n=()=>{e(U(a.result)),r()},i=()=>{t(a.error),r()};a.addEventListener("success",n),a.addEventListener("error",i)});return e.then(e=>{e instanceof IDBCursor&&k.set(e,a)}).catch(()=>{}),z.set(e,a),e}(e);if($.has(e))return $.get(e);var t=V(e);return t!==e&&($.set(e,t),z.set(t,e)),t}const W=e=>z.get(e);const J=["get","getKey","getAll","getAllKeys","count"],G=["put","add","delete","clear"],K=new Map;function Y(e,t){if(e instanceof IDBDatabase&&!(t in e)&&"string"==typeof t){if(K.get(t))return K.get(t);const i=t.replace(/FromIndex$/,""),a=t!==i,s=G.includes(i);if(i in(a?IDBIndex:IDBObjectStore).prototype&&(s||J.includes(i))){var r=async function(e,...t){var r=this.transaction(e,s?"readwrite":"readonly");let n=r.store;return a&&(n=n.index(t.shift())),(await Promise.all([n[i](...t),s&&r.done]))[0]};return K.set(t,r),r}}}H={...O=H,get:(e,t,r)=>Y(e,t)||O.get(e,t,r),has:(e,t)=>!!Y(e,t)||O.has(e,t)};class X{constructor(e){this.container=e}getPlatformInfoString(){const e=this.container.getProviders();return e.map(e=>{if("VERSION"!==(null==(t=e.getComponent())?void 0:t.type))return null;var t,t=e.getImmediate();return`${t.library}/${t.version}`}).filter(e=>e).join(" ")}}const q="@firebase/app",Z="0.10.5",Q=new T("@firebase/app");var ee;const te="[DEFAULT]",re={"@firebase/app":"fire-core","@firebase/app-compat":"fire-core-compat","@firebase/analytics":"fire-analytics","@firebase/analytics-compat":"fire-analytics-compat","@firebase/app-check":"fire-app-check","@firebase/app-check-compat":"fire-app-check-compat","@firebase/auth":"fire-auth","@firebase/auth-compat":"fire-auth-compat","@firebase/database":"fire-rtdb","@firebase/database-compat":"fire-rtdb-compat","@firebase/functions":"fire-fn","@firebase/functions-compat":"fire-fn-compat","@firebase/installations":"fire-iid","@firebase/installations-compat":"fire-iid-compat","@firebase/messaging":"fire-fcm","@firebase/messaging-compat":"fire-fcm-compat","@firebase/performance":"fire-perf","@firebase/performance-compat":"fire-perf-compat","@firebase/remote-config":"fire-rc","@firebase/remote-config-compat":"fire-rc-compat","@firebase/storage":"fire-gcs","@firebase/storage-compat":"fire-gcs-compat","@firebase/firestore":"fire-fst","@firebase/firestore-compat":"fire-fst-compat","@firebase/vertexai-preview":"fire-vertex","fire-js":"fire-js",firebase:"fire-js-all"},ne=new Map,ie=new Map,ae=new Map;function se(t,r){try{t.container.addComponent(r)}catch(e){Q.debug(`Component ${r.name} failed to register with FirebaseApp ${t.name}`,e)}}function oe(e,t){e.container.addOrOverwriteComponent(t)}function ce(e){var t=e.name;if(ae.has(t))return Q.debug(`There were multiple attempts to register component ${t}.`),!1;ae.set(t,e);for(const r of ne.values())se(r,e);for(const n of ie.values())se(n,e);return!0}function le(e,t){const r=e.container.getProvider("heartbeat").getImmediate({optional:!0});return r&&r.triggerHeartbeat(),e.container.getProvider(t)}function he(e){return void 0!==e.options}const de=new u("app","Firebase",{"no-app":"No Firebase App '{$appName}' has been created - call initializeApp() first","bad-app-name":"Illegal App name: '{$appName}'","duplicate-app":"Firebase App named '{$appName}' already exists with different options or config","app-deleted":"Firebase App named '{$appName}' already deleted","server-app-deleted":"Firebase Server App has been deleted","no-options":"Need to provide options, when not being deployed to hosting via source.","invalid-app-argument":"firebase.{$appName}() takes either no argument or a Firebase App instance.","invalid-log-argument":"First argument to `onLog` must be null or a function.","idb-open":"Error thrown when opening IndexedDB. Original error: {$originalErrorMessage}.","idb-get":"Error thrown when reading from IndexedDB. Original error: {$originalErrorMessage}.","idb-set":"Error thrown when writing to IndexedDB. Original error: {$originalErrorMessage}.","idb-delete":"Error thrown when deleting from IndexedDB. Original error: {$originalErrorMessage}.","finalization-registry-not-supported":"FirebaseServerApp deleteOnDeref field defined but the JS runtime does not support FinalizationRegistry.","invalid-server-app-environment":"FirebaseServerApp is not for use in browser environments."});class ue{constructor(e,t,r){this._isDeleted=!1,this._options=Object.assign({},e),this._config=Object.assign({},t),this._name=t.name,this._automaticDataCollectionEnabled=t.automaticDataCollectionEnabled,this._container=r,this.container.addComponent(new E("app",()=>this,"PUBLIC"))}get automaticDataCollectionEnabled(){return this.checkDestroyed(),this._automaticDataCollectionEnabled}set automaticDataCollectionEnabled(e){this.checkDestroyed(),this._automaticDataCollectionEnabled=e}get name(){return this.checkDestroyed(),this._name}get options(){return this.checkDestroyed(),this._options}get config(){return this.checkDestroyed(),this._config}get container(){return this._container}get isDeleted(){return this._isDeleted}set isDeleted(e){this._isDeleted=e}checkDestroyed(){if(this.isDeleted)throw de.create("app-deleted",{appName:this._name})}}class pe extends ue{constructor(e,t,r,n){var i=void 0!==t.automaticDataCollectionEnabled&&t.automaticDataCollectionEnabled,a={name:r,automaticDataCollectionEnabled:i};void 0!==e.apiKey?super(e,a,n):super(e.options,a,n),this._serverConfig=Object.assign({automaticDataCollectionEnabled:i},t),this._finalizationRegistry=new FinalizationRegistry(()=>{this.automaticCleanup()}),this._refCount=0,this.incRefCount(this._serverConfig.releaseOnDeref),this._serverConfig.releaseOnDeref=void 0,t.releaseOnDeref=void 0,me(q,Z,"serverapp")}toJSON(){}get refCount(){return this._refCount}incRefCount(e){this.isDeleted||(this._refCount++,void 0!==e&&this._finalizationRegistry.register(e,this))}decRefCount(){return this.isDeleted?0:--this._refCount}automaticCleanup(){be(this)}get settings(){return this.checkDestroyed(),this._serverConfig}checkDestroyed(){if(this.isDeleted)throw de.create("server-app-deleted")}}const fe="10.12.2";function ge(e,t={}){let r=e;if("object"!=typeof t){const i=t;t={name:i}}var n=Object.assign({name:te,automaticDataCollectionEnabled:!1},t);const i=n.name;if("string"!=typeof i||!i)throw de.create("bad-app-name",{appName:String(i)});if(r=r||h(),!r)throw de.create("no-options");var a=ne.get(i);if(a){if(g(r,a.options)&&g(n,a.config))return a;throw de.create("duplicate-app",{appName:i})}const s=new C(i);for(const o of ae.values())s.addComponent(o);n=new ue(r,n,s);return ne.set(i,n),n}async function be(e){let t=!1;var r=e.name;if(ne.has(r))t=!0,ne.delete(r);else if(ie.has(r)){const n=e;n.decRefCount()<=0&&(ie.delete(r),t=!0)}t&&(await Promise.all(e.container.getProviders().map(e=>e.delete())),e.isDeleted=!0)}function me(e,t,r){let n=null!==(a=re[e])&&void 0!==a?a:e;r&&(n+=`-${r}`);var i=n.match(/\s|\//),a=t.match(/\s|\//);if(i||a){const s=[`Unable to register library "${n}" with version "${t}":`];return i&&s.push(`library name "${n}" contains illegal characters (whitespace or "/")`),i&&a&&s.push("and"),a&&s.push(`version name "${t}" contains illegal characters (whitespace or "/")`),void Q.warn(s.join(" "))}ce(new E(`${n}-version`,()=>({library:n,version:t}),"VERSION"))}function ve(e,t){if(null!==e&&"function"!=typeof e)throw de.create("invalid-log-argument");!function(a,e){for(const t of D){let i=null;e&&e.level&&(i=A[e.level]),t.userLogHandler=null===a?null:(e,t,...r)=>{var n=r.map(e=>{if(null==e)return null;if("string"==typeof e)return e;if("number"==typeof e||"boolean"==typeof e)return e.toString();if(e instanceof Error)return e.message;try{return JSON.stringify(e)}catch(e){return null}}).filter(e=>e).join(" ");t>=(null!==i&&void 0!==i?i:e.logLevel)&&a({level:I[t].toLowerCase(),message:n,args:r,type:e.name})}}}(e,t)}function _e(e){var t;t=e,D.forEach(e=>{e.setLogLevel(t)})}const Ee="firebase-heartbeat-database",ye=1,we="firebase-heartbeat-store";let Ce=null;function De(){return Ce=Ce||function(e,t,{blocked:r,upgrade:n,blocking:i,terminated:a}){const s=indexedDB.open(e,t),o=U(s);return n&&s.addEventListener("upgradeneeded",e=>{n(U(s.result),e.oldVersion,e.newVersion,U(s.transaction),e)}),r&&s.addEventListener("blocked",e=>r(e.oldVersion,e.newVersion,e)),o.then(e=>{a&&e.addEventListener("close",()=>a()),i&&e.addEventListener("versionchange",e=>i(e.oldVersion,e.newVersion,e))}).catch(()=>{}),o}(Ee,ye,{upgrade:(e,t)=>{if(0===t)try{e.createObjectStore(we)}catch(e){console.warn(e)}}}).catch(e=>{throw de.create("idb-open",{originalErrorMessage:e.message})}),Ce}async function Ie(e,t){try{const n=await De(),i=n.transaction(we,"readwrite"),a=i.objectStore(we);await a.put(t,Se(e)),await i.done}catch(e){var r;e instanceof o?Q.warn(e.message):(r=de.create("idb-set",{originalErrorMessage:null==e?void 0:e.message}),Q.warn(r.message))}}function Se(e){return`${e.name}!${e.options.appId}`}class Oe{constructor(e){this.container=e,this._heartbeatsCache=null;var t=this.container.getProvider("app").getImmediate();this._storage=new Le(t),this._heartbeatsCachePromise=this._storage.read().then(e=>this._heartbeatsCache=e)}async triggerHeartbeat(){var e;const t=this.container.getProvider("platform-logger").getImmediate();var r=t.getPlatformInfoString();const n=Ae();if((null!=(null===(e=this._heartbeatsCache)||void 0===e?void 0:e.heartbeats)||(this._heartbeatsCache=await this._heartbeatsCachePromise,null!=(null===(e=this._heartbeatsCache)||void 0===e?void 0:e.heartbeats)))&&this._heartbeatsCache.lastSentHeartbeatDate!==n&&!this._heartbeatsCache.heartbeats.some(e=>e.date===n))return this._heartbeatsCache.heartbeats.push({date:n,agent:r}),this._heartbeatsCache.heartbeats=this._heartbeatsCache.heartbeats.filter(e=>{var t=new Date(e.date).valueOf();return Date.now()-t<=2592e6}),this._storage.overwrite(this._heartbeatsCache)}async getHeartbeatsHeader(){if(null===this._heartbeatsCache&&await this._heartbeatsCachePromise,null==(null===(r=this._heartbeatsCache)||void 0===r?void 0:r.heartbeats)||0===this._heartbeatsCache.heartbeats.length)return"";var e=Ae(),{heartbeatsToSend:t,unsentEntries:r}=function(e,t=1024){const r=[];let n=e.slice();for(const i of e){const a=r.find(e=>e.agent===i.agent);if(a){if(a.dates.push(i.date),Ne(r)>t){a.dates.pop();break}}else if(r.push({agent:i.agent,dates:[i.date]}),Ne(r)>t){r.pop();break}n=n.slice(1)}return{heartbeatsToSend:r,unsentEntries:n}}(this._heartbeatsCache.heartbeats),t=i(JSON.stringify({version:2,heartbeats:t}));return this._heartbeatsCache.lastSentHeartbeatDate=e,0<r.length?(this._heartbeatsCache.heartbeats=r,await this._storage.overwrite(this._heartbeatsCache)):(this._heartbeatsCache.heartbeats=[],this._storage.overwrite(this._heartbeatsCache)),t}}function Ae(){const e=new Date;return e.toISOString().substring(0,10)}class Le{constructor(e){this.app=e,this._canUseIndexedDBPromise=this.runIndexedDBEnvironmentCheck()}async runIndexedDBEnvironmentCheck(){return!!function(){try{return"object"==typeof indexedDB}catch(e){return}}()&&new Promise((t,r)=>{try{let e=!0;const n="validate-browser-context-for-indexeddb-analytics-module",i=self.indexedDB.open(n);i.onsuccess=()=>{i.result.close(),e||self.indexedDB.deleteDatabase(n),t(!0)},i.onupgradeneeded=()=>{e=!1},i.onerror=()=>{var e;r((null===(e=i.error)||void 0===e?void 0:e.message)||"")}}catch(e){r(e)}}).then(()=>!0).catch(()=>!1)}async read(){if(await this._canUseIndexedDBPromise){var e=await async function(e){try{const r=await De(),n=r.transaction(we);var t=await n.objectStore(we).get(Se(e));return await n.done,t}catch(e){e instanceof o?Q.warn(e.message):(t=de.create("idb-get",{originalErrorMessage:null==e?void 0:e.message}),Q.warn(t.message))}}(this.app);return null!=e&&e.heartbeats?e:{heartbeats:[]}}return{heartbeats:[]}}async overwrite(e){var t;if(await this._canUseIndexedDBPromise){var r=await this.read();return Ie(this.app,{lastSentHeartbeatDate:null!==(t=e.lastSentHeartbeatDate)&&void 0!==t?t:r.lastSentHeartbeatDate,heartbeats:e.heartbeats})}}async add(e){var t;if(await this._canUseIndexedDBPromise){var r=await this.read();return Ie(this.app,{lastSentHeartbeatDate:null!==(t=e.lastSentHeartbeatDate)&&void 0!==t?t:r.lastSentHeartbeatDate,heartbeats:[...r.heartbeats,...e.heartbeats]})}}}function Ne(e){return i(JSON.stringify({version:2,heartbeats:e})).length}ee="",ce(new E("platform-logger",e=>new X(e),"PRIVATE")),ce(new E("heartbeat",e=>new Oe(e),"PRIVATE")),me(q,Z,ee),me(q,Z,"esm2017"),me("fire-js","");var Be=Object.freeze({__proto__:null,SDK_VERSION:fe,_DEFAULT_ENTRY_NAME:te,_addComponent:se,_addOrOverwriteComponent:oe,_apps:ne,_clearComponents:function(){ae.clear()},_components:ae,_getProvider:le,_isFirebaseApp:he,_isFirebaseServerApp:function(e){return void 0!==e.settings},_registerComponent:ce,_removeServiceInstance:function(e,t,r=te){le(e,t).clearInstance(r)},_serverApps:ie,deleteApp:be,getApp:function(e=te){var t=ne.get(e);if(!t&&e===te&&h())return ge();if(!t)throw de.create("no-app",{appName:e});return t},getApps:function(){return Array.from(ne.values())},initializeApp:ge,initializeServerApp:function(e,t){if(d())throw de.create("invalid-server-app-environment");void 0===t.automaticDataCollectionEnabled&&(t.automaticDataCollectionEnabled=!1);let r;r=he(e)?e.options:e;const n=Object.assign(Object.assign({},t),r);if(void 0!==n.releaseOnDeref&&delete n.releaseOnDeref,void 0!==t.releaseOnDeref&&"undefined"==typeof FinalizationRegistry)throw de.create("finalization-registry-not-supported",{});var i=""+[...JSON.stringify(n)].reduce((e,t)=>Math.imul(31,e)+t.charCodeAt(0)|0,0);const a=ie.get(i);if(a)return a.incRefCount(t.releaseOnDeref),a;const s=new C(i);for(const c of ae.values())s.addComponent(c);var o=new pe(r,t,i,s);return ie.set(i,o),o},onLog:ve,registerVersion:me,setLogLevel:_e,FirebaseError:o});class Te{constructor(e,t){this._delegate=e,this.firebase=t,se(e,new E("app-compat",()=>this,"PUBLIC")),this.container=e.container}get automaticDataCollectionEnabled(){return this._delegate.automaticDataCollectionEnabled}set automaticDataCollectionEnabled(e){this._delegate.automaticDataCollectionEnabled=e}get name(){return this._delegate.name}get options(){return this._delegate.options}delete(){return new Promise(e=>{this._delegate.checkDestroyed(),e()}).then(()=>(this.firebase.INTERNAL.removeApp(this.name),be(this._delegate)))}_getService(e,t=te){var r;this._delegate.checkDestroyed();const n=this._delegate.container.getProvider(e);return n.isInitialized()||"EXPLICIT"!==(null===(r=n.getComponent())||void 0===r?void 0:r.instantiationMode)||n.initialize(),n.getImmediate({identifier:t})}_removeServiceInstance(e,t=te){this._delegate.container.getProvider(e).clearInstance(t)}_addComponent(e){se(this._delegate,e)}_addOrOverwriteComponent(e){oe(this._delegate,e)}toJSON(){return{name:this.name,automaticDataCollectionEnabled:this.automaticDataCollectionEnabled,options:this.options}}}const Re=new u("app-compat","Firebase",{"no-app":"No Firebase App '{$appName}' has been created - call Firebase App.initializeApp()","invalid-app-argument":"firebase.{$appName}() takes either no argument or a Firebase App instance."});function Pe(i){const a={},s={__esModule:!0,initializeApp:function(e,t={}){var r=ge(e,t);if(f(a,r.name))return a[r.name];var n=new i(r,s);return a[r.name]=n},app:o,registerVersion:me,setLogLevel:_e,onLog:ve,apps:null,SDK_VERSION:fe,INTERNAL:{registerComponent:function(r){const n=r.name,t=n.replace("-compat","");{var e;ce(r)&&"PUBLIC"===r.type&&(e=(e=o())=>{if("function"!=typeof e[t])throw Re.create("invalid-app-argument",{appName:n});return e[t]()},void 0!==r.serviceProps&&c(e,r.serviceProps),s[t]=e,i.prototype[t]=function(...e){const t=this._getService.bind(this,n);return t.apply(this,r.multipleInstances?e:[])})}return"PUBLIC"===r.type?s[t]:null},removeApp:function(e){delete a[e]},useAsService:function(e,t){if("serverAuth"===t)return null;var r=t;return r},modularAPIs:Be}};function o(e){if(e=e||te,!f(a,e))throw Re.create("no-app",{appName:e});return a[e]}return s.default=s,Object.defineProperty(s,"apps",{get:function(){return Object.keys(a).map(e=>a[e])}}),o.App=i,s}var Me=function e(){const t=Pe(Te);return t.INTERNAL=Object.assign(Object.assign({},t.INTERNAL),{createFirebaseNamespace:e,extendNamespace:function(e){c(t,e)},createSubscribe:m,ErrorFactory:u,deepExtend:c}),t}();const ke=new T("@firebase/app-compat");if(d()&&void 0!==self.firebase){ke.warn(`
     Warning: Firebase is already defined in the global scope. Please make sure
@@ -462,7 +475,7 @@ function renderDays() {
       <div class="ws">${list.map((w, wi) => `<div class="work">
         <span class="num">${AR(wi + 1)}</span>
         <textarea rows="1" data-d="${di}" data-w="${wi}" aria-label="العمل ${wi + 1} يوم ${n}" placeholder="${wi === 0 && di === 0 ? 'مثال: صيانة أجهزة مختبر الحاسب الآلي' : 'اكتبي العمل…'}">${esc(w.t)}</textarea>
-        <label class="ph" title="${w.ps.length ? 'إضافة صور أخرى لهذا العمل' : 'إرفاق صورة أو أكثر لهذا العمل'}">${CAM}${w.ps.length ? `<span class="cnt">${AR(w.ps.length)}</span><small>+ صورة</small>` : ''}<input type="file" accept="image/*" multiple hidden data-pic="${di}:${wi}" aria-label="صور العمل ${wi + 1}"></label>
+        <label class="ph" title="${w.ps.length ? 'إضافة صور أخرى لهذا العمل' : 'إرفاق صورة أو أكثر لهذا العمل'}">${CAM}${w.ps.length ? `<span class="cnt">${AR(w.ps.length)}</span><small>+ صور</small>` : ''}<input type="file" accept="image/*" multiple hidden data-pic="${di}:${wi}" aria-label="صور العمل ${wi + 1}"></label>
         <button class="del" type="button" data-del="${di}:${wi}" aria-label="حذف العمل">${DEL}</button>
         ${w.ps.length ? `<div class="thumbs">${w.ps.map((p, pi) => `<div class="tb"><img src="${src(p)}" alt="صورة ${AR(pi + 1)}"><button class="x" type="button" data-rm="${di}:${wi}:${pi}" aria-label="حذف الصورة">✕</button></div>`).join('')}</div>` : ''}
       </div>`).join('')}</div>
@@ -653,38 +666,71 @@ function monthModel(k, uf) {
   return { title: 'تقرير الأعمال الشهري', per: 'شهر ' + monthName(k), name: name || S.name, job: job || S.job, notes, secs, month: true };
 }
 let CUR = null, BACK = 'edit';
-function sheetHTML(M) {
+let LAYT = 0;
+const rowHTML = (w, i, si, ph) => { const n = ph ? w.ps.length : 0; return `<div class="rw${n === 1 ? ' p' : ''}" data-s="${si}"><span class="k">${AR(i + 1)}</span><div class="t">${esc(w.t)}</div>${n === 1 ? `<figure><img src="${src(w.ps[0])}" alt=""></figure>` : n > 1 ? `<div class="gal">${w.ps.map((p) => `<figure><img src="${src(p)}" alt=""></figure>`).join('')}</div>` : ''}</div>`; };
+/* يوزّع التقرير على صفحات A4 مستقلة: لكل صفحة إطارها وترويستها ورقمها، ولا يبقى التوقيع وحده */
+async function layout(M) {
+  const tok = ++LAYT;
   const ph = $('#oPh').checked, sig = $('#oSig').value;
   const total = M.secs.reduce((a, x) => a + x.w.length, 0);
-  let lastWeek = '';
-  const body = M.secs.map((x) => {
-    let wk = '';
-    if (M.month) { const s = new Date(x.d); s.setDate(s.getDate() - s.getDay()); const k = iso(s); if (k !== lastWeek) { lastWeek = k; } }
-    return `<div class="rd"><div class="rd-h"><span class="n">${x.n}</span><span class="d">${fd(x.d, { day: 'numeric', month: 'long' })}</span><span class="ln"></span>${wk}</div>
-      ${x.w.map((w, i) => { const n = ph ? w.ps.length : 0; return `<div class="rw${n === 1 ? ' p' : ''}"><span class="k">${AR(i + 1)}</span><div class="t">${esc(w.t)}</div>${n === 1 ? `<figure><img src="${src(w.ps[0])}" alt=""></figure>` : n > 1 ? `<div class="gal${n === 2 ? ' g2' : n === 4 || n > 6 ? ' g4' : ''}">${w.ps.map((p) => `<figure><img src="${src(p)}" alt=""></figure>`).join('')}</div>` : ''}</div>`; }).join('')}</div>`;
-  }).join('');
-  return `<div class="frame">
-    <div class="band">
+  try { await document.fonts.ready; } catch (e) {}
+  if (tok !== LAYT) return;
+  const meas = $('#measure'); meas.innerHTML = '';
+  const pages = []; let flow = null;
+  const band = `<div class="band">
       <img class="lg moe" src="${LG.moe}" alt="">
       <div class="org"><b>سلطنة عُمان</b><br>وزارة التعليم<br>المديرية العامة للتعليم بمحافظة ظفار<br><b style="color:#8C6B38">مدرسة السيدة ميزون بنت أحمد</b><br>للتعليم الأساسي (٦–١٢)</div>
       <div><div class="ls"><img class="lgv" src="${LG.vis}" alt=""><img class="lg sc" src="${LG.sch}" alt=""></div><div class="dt">تاريخ الإصدار: <b>${fd(new Date(), { day: 'numeric', month: 'long', year: 'numeric' })}</b></div></div>
-    </div>
-    <div class="body">
-      <div class="ttl"><div class="o">◆ ◆ ◆</div><h1>${M.title}</h1><div class="per">${M.per}</div></div>
-      <div class="who"><div><small>الاسم</small><b>${esc(M.name) || '—'}</b></div><div><small>المهنة</small><b>${esc(M.job) || '—'}</b></div><div><small>مجموع الأعمال</small><b>${AR(total)}${M.month ? ' · ' + dplural(M.secs.length) : ''}</b></div></div>
-      ${body || '<p style="text-align:center;color:#8A8F9E;margin-top:10mm">لم تُكتب أعمال بعد.</p>'}
-      ${M.notes ? `<div class="notesP"><h4>ملاحظات وتوصيات</h4><p>${esc(M.notes)}</p></div>` : ''}
-      <div class="spacer"></div>
-      <div class="signs"><div><b>${esc(M.name)}</b><span>${esc(M.job) || 'الموظفة'}</span></div><div><b></b><span>${esc(sig)}</span></div></div>
-    </div>
-  </div>`;
+    </div>`;
+  const mini = `<div class="mh"><img src="${LG.sch}" alt=""><div><b>${M.title}</b>${M.per}</div><span class="sp"></span><div class="nm"><b>${esc(M.name) || ''}</b>مدرسة السيدة ميزون بنت أحمد</div></div>`;
+  const newPage = (first) => {
+    const pg = document.createElement('div'); pg.className = 'pg';
+    pg.innerHTML = `<div class="pgi">${first ? band : mini}<div class="flow"></div><div class="pf"></div><div class="foot"></div></div>`;
+    meas.appendChild(pg); pages.push(pg); flow = pg.querySelector('.flow'); return pg;
+  };
+  const add = (html) => { const t = document.createElement('div'); t.innerHTML = html; const nodes = [...t.children]; nodes.forEach((n) => flow.appendChild(n)); return nodes; };
+  const fits = () => { const l = flow.lastElementChild; if (!l) return true; const r = flow.getBoundingClientRect(), cs = getComputedStyle(flow); const used = l.getBoundingClientRect().bottom + parseFloat(getComputedStyle(l).marginBottom || 0) - r.top + parseFloat(cs.paddingBottom) + parseFloat(cs.borderTopWidth); return used <= flow.clientHeight * 0.985; };
+  const place = (html, contHead) => {
+    const empty = !flow.children.length; const nodes = add(html);
+    if (empty || fits()) return nodes;
+    nodes.forEach((n) => n.remove()); newPage(false); return add((contHead || '') + html);
+  };
+  const head = (si, cont) => { const x = M.secs[si]; return `<div class="rd-h" data-s="${si}"><span class="n">${x.n}</span><span class="d">${fd(x.d, { day: 'numeric', month: 'long' })}</span>${cont ? '<span class="tb">تابع</span>' : ''}<span class="ln"></span></div>`; };
+  const p1 = newPage(true);
+  await Promise.all([...p1.querySelectorAll('img')].map((im) => (im.decode ? im.decode() : Promise.resolve()).catch(() => {})));
+  if (tok !== LAYT) return;
+  add(`<div class="ttl"><div class="o">◆ ◆ ◆</div><h1>${M.title}</h1><div class="per">${M.per}</div></div>
+    <div class="who"><div><small>الاسم</small><b>${esc(M.name) || '—'}</b></div><div><small>المهنة</small><b>${esc(M.job) || '—'}</b></div><div><small>مجموع الأعمال</small><b>${AR(total)}${M.month ? ' · ' + dplural(M.secs.length) : ''}</b></div></div>`);
+  if (!total) add('<p style="text-align:center;color:#8A8F9E;margin-top:calc(var(--mm)*10)">لم تُكتب أعمال بعد.</p>');
+  M.secs.forEach((x, si) => x.w.forEach((w, i) => place((i ? '' : head(si, false)) + rowHTML(w, i, si, ph), i ? head(si, true) : '')));
+  if (M.notes) place(`<div class="notesP"><h4>ملاحظات وتوصيات</h4><p>${esc(M.notes)}</p></div>`, '');
+  const signs = `<div class="spacer"></div><div class="signs"><div><b>${esc(M.name)}</b><span>${esc(M.job) || 'الموظفة'}</span></div><div><b></b><span>${esc(sig)}</span></div></div>`;
+  const sn = add(signs);
+  if (!fits()) {
+    // التوقيع لا يبدأ صفحة وحده: يُنقل معه آخر عمل (أو الملاحظات) إلى الصفحة الجديدة
+    sn.forEach((n) => n.remove());
+    const kids = [...flow.children]; const last = kids[kids.length - 1]; let mv = [];
+    if (last && (last.classList.contains('rw') || last.classList.contains('notesP'))) {
+      mv = [last]; const prev = last.previousElementSibling;
+      if (last.classList.contains('rw') && prev && prev.classList.contains('rd-h')) mv.unshift(prev);
+    }
+    if (mv.length >= kids.length) mv = [];
+    const contRow = mv.length === 1 && mv[0].classList.contains('rw');
+    newPage(false);
+    if (contRow) add(head(+mv[0].dataset.s, true));
+    mv.forEach((n) => flow.appendChild(n));
+    add(signs);
+  }
+  pages.forEach((pg, i) => { pg.querySelector('.flow').classList.add('done'); pg.querySelector('.pf').textContent = pages.length > 1 ? 'صفحة ' + AR(i + 1) + ' من ' + AR(pages.length) : ''; });
+  if (tok !== LAYT) return;
+  const box = $('#pages'); box.innerHTML = ''; pages.forEach((pg) => box.appendChild(pg));
 }
 async function openView(M, back) {
   const refs = M.secs.flatMap((x) => x.w.flatMap((w) => w.ps)); if (refs.some((p) => p.startsWith('pid:') && !PH[p.slice(4)])) { toast('جارٍ تحميل الصور…'); await ensurePhotos(refs); }
   CUR = M; BACK = back; $('#backT').textContent = back === 'arch' ? 'رجوع إلى تقاريري' : 'تعديل';
-  $('#sheet').innerHTML = sheetHTML(M); mode('view'); requestAnimationFrame(fit);
+  $('#pages').innerHTML = ''; mode('view'); await layout(M);
 }
-const reView = () => { if (CUR) { $('#sheet').innerHTML = sheetHTML(CUR); requestAnimationFrame(fit); } S.opt = { ph: $('#oPh').checked, sig: $('#oSig').value }; save(); };
+const reView = () => { S.opt = { ph: $('#oPh').checked, sig: $('#oSig').value }; save(); if (CUR) layout(CUR); };
 $('#oPh').onchange = reView; $('#oSig').onchange = reView;
 
 /* ---------- مشاركة نصّية (واتساب) ---------- */
@@ -709,10 +755,6 @@ function mode(m) {
   $('#lhp').textContent = m === 'view' ? 'تقريرك جاهز للطباعة، ومحفوظ في «تقاريري المحفوظة».' : m === 'arch' ? 'كل تقاريرك في مكان واحد: اعرضي، عدّلي، اطبعي، أو أنشئي تقريرًا شهريًّا.' : 'اكتبي كل عمل مع صوره، ثم أنشئي التقرير.';
   window.scrollTo(0, 0);
 }
-function fit() { const s = $('#sheet'), w = $('#pw').clientWidth, sw = s.offsetWidth; const k = Math.min(1, w / sw); s.style.transform = k < 1 ? `scale(${k})` : ''; $('#pw').style.height = k < 1 ? s.offsetHeight * k + 'px' : ''; }
-window.addEventListener('resize', () => { if (document.body.classList.contains('m-view')) fit(); });
-window.addEventListener('beforeprint', () => { $('#sheet').style.transform = ''; $('#pw').style.height = ''; });
-window.addEventListener('afterprint', fit);
 
 $('#tEdit').onclick = () => mode('edit');
 $('#tArch').onclick = () => { renderArch(); mode('arch'); };
@@ -723,7 +765,7 @@ $('#make').onclick = async () => {
   await openView(recModel(r), 'edit'); toast(UID ? '✓ حُفظ التقرير في قاعدة البيانات' : '✓ حُفظ التقرير في «تقاريري المحفوظة»');
 };
 $('#back').onclick = () => mode(BACK);
-$('#print').onclick = () => { $('#sheet').style.transform = ''; $('#pw').style.height = ''; window.print(); };
+$('#print').onclick = () => window.print();
 $('#share').onclick = () => CUR && share(CUR);
 $('#newRep').onclick = () => {
   if (hasDraft() && !confirm('بدء صفحة جديدة؟ التقارير المحفوظة تبقى في السجل، وتُفرَّغ صفحة الكتابة فقط.')) return;
