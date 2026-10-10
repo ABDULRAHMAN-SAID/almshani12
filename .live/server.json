@@ -1,8 +1,8 @@
 {
-  "status": "down",
-  "url": null,
-  "startedAt": null,
-  "expiresAt": null,
-  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/37983889577",
+  "status": "up",
+  "url": "https://pushed-manor-excitement-separation.trycloudflare.com",
+  "startedAt": "2026-10-10T01:02:03Z",
+  "expiresAt": "2026-10-10T06:02:03Z",
+  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/38011439414",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
