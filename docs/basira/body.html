@@ -174,7 +174,7 @@
 
 <!-- ================= SUMMARY ================= -->
 <section class="view" id="v-summary" hidden>
-  <div class="page-h"><span class="ico" style="background:#FFF1DC;color:var(--orange)"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/></svg></span><div><h2>تلخيص كتاب</h2><p>اكتبي تلخيصك، فيصل إلى المعلمة مباشرة</p></div><a class="pill-btn ghost back" href="#home">الرئيسية</a></div>
+  <div class="page-h"><span class="ico" style="background:#FFF1DC;color:var(--orange)"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/></svg></span><div><h2>تلخيص كتاب</h2><p>لخّصي الكتاب على ورقة، ثم صوّريها وارفعيها هنا لتصل إلى المعلمة</p></div><a class="pill-btn ghost back" href="#home">الرئيسية</a></div>
   <form class="sheet" id="sumForm" autocomplete="off">
     <span class="sheet-t">تلخيص كتاب</span>
     <div class="row" style="justify-content:center;gap:24px;font-weight:800;margin-bottom:16px">
@@ -185,8 +185,15 @@
       <label class="scroll"><b>اسم الكتاب:</b><input id="sBook" required maxlength="80"></label>
       <label class="scroll"><b>اسم الكاتب:</b><input id="sAuthor" required maxlength="60"></label>
     </div>
-    <label for="sText" class="muted" style="font-size:14px">التلخيص</label>
-    <textarea id="sText" class="lined" required maxlength="4000"></textarea>
+    <div class="sum-up">
+      <div class="sum-how"><span>١</span> لخّصي الكتاب على ورقة بخط يدك <span>٢</span> صوّري الورقة بوضوح <span>٣</span> ارفعي الصورة هنا وأرسليها</div>
+      <div class="sum-pick">
+        <label class="sum-btn cam"><input id="sCam" type="file" accept="image/*" capture="environment" hidden><span class="sum-ic">📷</span><b>صوّري الورقة الآن</b><small>بكاميرا الجوال</small></label>
+        <label class="sum-btn gal"><input id="sImg" type="file" accept="image/*" multiple hidden><span class="sum-ic">🖼️</span><b>اختاري صورة جاهزة</b><small>من الصور أو الملفات</small></label>
+      </div>
+      <div class="sum-thumbs" id="sThumbs"></div>
+      <small class="muted sum-note">يمكنك رفع حتى ٤ صفحات. اجعلي الورقة كاملة داخل الصورة وفي مكان مضيء.</small>
+    </div>
     <div class="sign">أ: عائشة الكحالي</div>
     <div class="row" style="justify-content:center;margin-top:10px"><button class="pill-btn ghost big" type="button" id="sumReview">✨ راجعي تلخيصي قبل الإرسال</button><button class="pill-btn orange big" type="submit">أرسلي التلخيص للمعلمة</button></div>
     <div id="sumAI" style="margin-top:10px"></div>

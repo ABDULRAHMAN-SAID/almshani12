@@ -30,7 +30,7 @@ const store = {
   async list(c, f) { if (db) { let q = db.collection(P + c); if (f) q = q.where(f[0], "==", f[1]); const s = await TO(q.get()); return s.docs.map(d => ({ id: d.id, ...d.data() })); }
     return Object.entries(LS.all(c)).map(([id, v]) => ({ id, ...v })).filter(r => !f || r[f[0]] === f[1]); },
   async get(c, id) { if (db) { const d = await TO(db.collection(P + c).doc(id).get()); return d.exists ? { id: d.id, ...d.data() } : null; } const o = LS.all(c); return o[id] ? { id, ...o[id] } : null; },
-  async set(c, id, v) { if (db) return TO(db.collection(P + c).doc(id).set(v)); const o = LS.all(c); o[id] = v; LS.save(c, o); },
+  async set(c, id, v, ms) { if (db) return TO(db.collection(P + c).doc(id).set(v), ms); const o = LS.all(c); o[id] = v; LS.save(c, o); },
   async add(c, v) { if (db) { const r = await TO(db.collection(P + c).add(v)); return r.id; } const id = Math.random().toString(36).slice(2, 12); await this.set(c, id, v); return id; },
   async update(c, id, v) { if (db) return TO(db.collection(P + c).doc(id).update(v)); const o = LS.all(c); o[id] = { ...o[id], ...v }; LS.save(c, o); },
   async del(c, id) { if (db) return TO(db.collection(P + c).doc(id).delete()); const o = LS.all(c); delete o[id]; LS.save(c, o); }
@@ -720,7 +720,7 @@ const SITE_GUIDE = `موقع «البصيرة»: مبادرة قراءة وتع�
 - المتصدرات [[#leaders|المتصدرات]]: ترتيب الطالبات بالنقاط، وكأس الصفوف.
 - من المعلمة [[#tasks|من المعلمة]]: للطالبة: اختبارات المعلمة وإعلانات صفها وتقييمها.
 - المكتبة [[#library|المكتبة]]: كتاب «لغتي الجميلة» وكتب أخرى.
-- تلخيص كتاب [[#summary|تلخيص كتاب]]: ورقة تلخيص تُرسل للمعلمة، وفيها زر «راجعي تلخيصي» بالذكاء الاصطناعي.
+- تلخيص كتاب [[#summary|تلخيص كتاب]]: تلخّص الطالبة الكتاب على ورقة بخط يدها، ثم تصوّرها وترفع الصورة (حتى ٤ صفحات) فتصل للمعلمة، وفيها زر «راجعي تلخيصي» بالذكاء الاصطناعي يقرأ الصورة.
 - المشاركات [[#posts|المشاركات]]: أعمال الطالبات التي تنشرها المعلمة.
 - الاستبيان [[#survey|الاستبيان]]: للطالبات وأولياء الأمور، مرة واحدة لكل حساب.
 - المبادرة [[#about|المبادرة]]: توصيف المبادرة وأهدافها.
@@ -788,14 +788,16 @@ ${conv ? "المحادثة السابقة:\n" + conv + "\n" : ""}السؤال ا
 /* summary review before sending it to the teacher */
 async function reviewSummary() {
   const M = $("#sumAI"); if (!ME || ME.role !== "student") { msg($("#sumMsg"), "ادخلي بحسابك أولًا."); return; }
-  const text = $("#sText").value.trim(), book = $("#sBook").value.trim(); if (text.length < 40) { msg($("#sumMsg"), "اكتبي تلخيصك أولًا (فقرة على الأقل)، ثم اطلبي المراجعة."); return; }
+  const book = $("#sBook").value.trim(); if (!SUM_FILES.length) { msg($("#sumMsg"), "ارفعي صورة ورقة التلخيص أولًا، ثم اطلبي المراجعة."); return; }
   const c = askLeft(); if (!c.left) { msg($("#sumMsg"), "انتهت مراجعات اليوم، عودي غدًا."); return; } c.use();
   const stop = aiWait(M, "تقرأ البصيرة تلخيصك");
-  try { const j = await aiJSON([{ text: `الكتاب: ${book || "غير مذكور"}\nالكاتب: ${$("#sAuthor").value.trim() || "غير مذكور"}\n\nتلخيص الطالبة:\n${text}` }], `أنت معلمة لغة عربية لطيفة تراجع تلخيص كتاب كتبته طالبة في الصف العاشر قبل أن ترسله لمعلمتها. لا تعيدي كتابة التلخيص، بل أعطيها ملاحظات تساعدها على تحسينه بنفسها، بالعربية الفصحى المبسطة وبلا Markdown:
+  try { const parts = []; for (const x of SUM_FILES) { const u = await shrink(x.f, 2000, .85); parts.push({ inlineData: { mimeType: "image/jpeg", data: u.split(",")[1] } }); }
+    parts.push({ text: `الكتاب: ${book || "غير مذكور"}\nالكاتب: ${$("#sAuthor").value.trim() || "غير مذكور"}\n\nتلخيص الطالبة مكتوب بخط يدها في الصور المرفقة.` });
+    const j = await aiJSON(parts, `أنت معلمة لغة عربية لطيفة تراجع تلخيص كتاب كتبته طالبة في الصف العاشر بخط يدها على ورقة وصوّرته، قبل أن ترسله لمعلمتها. اقرئي الخط من الصور. لا تعيدي كتابة التلخيص، بل أعطيها ملاحظات تساعدها على تحسينه بنفسها، بالعربية الفصحى المبسطة وبلا Markdown. إن كانت الصورة غير واضحة أو لا تظهر الورقة كاملة فاذكري ذلك بلطف في improve واطلبي منها إعادة التصوير.
 good: ما أحسنت فيه (سطر أو سطران). improve: ما يحسّن التلخيص من حيث الأفكار الرئيسة والترتيب والإيجاز (٢–٣ نقاط مرقمة). language: أهم ملاحظات اللغة والإملاء وعلامات الترقيم مع أمثلة من نصها إن وُجدت (٢–٤ نقاط مرقمة). stars: تقدير من 1 إلى 5.`,
     { type: "object", properties: { good: { type: "string" }, improve: { type: "string" }, language: { type: "string" }, stars: { type: "integer" } }, required: ["good", "improve", "language", "stars"] }, AI_FAST);
     stop(); const st = Math.max(1, Math.min(5, +j.stars || 3));
-    M.innerHTML = `<div class="sum-ai"><div class="row" style="justify-content:space-between"><b>✨ ملاحظات البصيرة على تلخيصك</b><span class="sum-stars">${"★".repeat(st)}${"☆".repeat(5 - st)}</span></div><h4>👍 أحسنتِ</h4><p>${esc(clean(j.good))}</p><h4>🧭 لتحسين التلخيص</h4><p>${esc(clean(j.improve))}</p><h4>✍️ اللغة والإملاء</h4><p>${esc(clean(j.language))}</p><small class="muted">عدّلي تلخيصك إن شئتِ، ثم أرسليه للمعلمة.</small></div>`; }
+    M.innerHTML = `<div class="sum-ai"><div class="row" style="justify-content:space-between"><b>✨ ملاحظات البصيرة على تلخيصك</b><span class="sum-stars">${"★".repeat(st)}${"☆".repeat(5 - st)}</span></div><h4>👍 أحسنتِ</h4><p>${esc(clean(j.good))}</p><h4>🧭 لتحسين التلخيص</h4><p>${esc(clean(j.improve))}</p><h4>✍️ اللغة والإملاء</h4><p>${esc(clean(j.language))}</p><small class="muted">عدّلي ورقتك إن شئتِ وصوّريها من جديد، ثم أرسليها للمعلمة.</small></div>`; }
   catch (e) { stop(); msg(M, e.message); }
 }
 /* badges and printable certificates */
@@ -1345,7 +1347,7 @@ async function loadAccount() {
   }
   if (ME.role === "parent") { A.innerHTML = `<div class="msg ok">أنت مسجّل الدخول باسم «${esc(ME.name)}» (ولي أمر).</div><div class="row" style="margin-top:14px"><a class="pill-btn teal" href="#parents">صفحة المتابعة</a><button class="pill-btn ghost" data-out>خروج</button></div>`; }
   else if (ME.role === "teacher") { A.innerHTML = `<div class="msg ok">مرحبًا أ. ${esc(ME.name)}.</div><div class="row" style="margin-top:14px"><a class="pill-btn teal" href="#teacher">لوحة المعلمة</a><button class="pill-btn ghost" data-out>خروج</button></div>`; }
-  else A.innerHTML = `<div class="msg ok">أنتِ مسجّلة الدخول باسم «${esc(ME.name)}». تُحفظ نتائجك وألعابك ونقاطك تلقائيًّا.</div><div class="row" style="margin-top:14px"><a class="pill-btn orange" href="#units">ادرسي الوحدات</a><a class="pill-btn ghost" href="#summary">اكتبي تلخيصًا</a><button class="pill-btn ghost" data-out>خروج</button></div>`;
+  else A.innerHTML = `<div class="msg ok">أنتِ مسجّلة الدخول باسم «${esc(ME.name)}». تُحفظ نتائجك وألعابك ونقاطك تلقائيًّا.</div><div class="row" style="margin-top:14px"><a class="pill-btn orange" href="#units">ادرسي الوحدات</a><a class="pill-btn ghost" href="#summary">ارفعي تلخيصًا</a><button class="pill-btn ghost" data-out>خروج</button></div>`;
   A.querySelector("[data-out]").onclick = doLogout;
   const tests = RESULTS.filter(r => r.kind === "test").sort(byTime), games = RESULTS.filter(r => r.kind === "game").length;
   I.innerHTML = `<div style="display:flex;gap:14px;align-items:center"><span class="avatar">${esc(ini(ME.name))}</span><div><b style="font-size:20px;color:var(--ink)">${esc(ME.name)}</b><br><span class="muted">${ROLE_AR[ME.role] || ""}${ME.cls ? " · الصف " + esc(CLS(ME.cls)) : ""}</span></div></div>
@@ -1462,7 +1464,7 @@ function openNovel(n, ch) {
       <div class="card nv-vals"><div class="sub-h">قيم في الرواية</div><div class="row">${n.values.map(v => `<span class="chip-v">${esc(v)}</span>`).join("")}</div></div>
       <div class="card"><div class="sub-h">📘 معاني كلمات</div><div class="nv-vocab">${n.vocab.map(v => `<div><b>${esc(v.w)}</b><span>${esc(v.m)}</span></div>`).join("")}</div></div>
       <div class="card"><div class="sub-h">🧠 اختبري فهمك ${qd ? `<span class="chip-s done-badge">✓ أنجزتِه</span>` : `<span class="chip-s">${plus(PTS.novelq)} نقاط إن أجبتِ كلها من المحاولة الأولى</span>`}</div><div id="nvQuiz"></div></div>
-      <div class="card"><div class="sub-h">💬 للنقاش</div><ol class="nv-disc">${n.discuss.map(d => `<li>${esc(d)}</li>`).join("")}</ol><a class="pill-btn ghost" href="#summary" data-sum>اكتبي رأيك في ورقة التلخيص</a></div>
+      <div class="card"><div class="sub-h">💬 للنقاش</div><ol class="nv-disc">${n.discuss.map(d => `<li>${esc(d)}</li>`).join("")}</ol><a class="pill-btn ghost" href="#summary" data-sum>لخّصي الرواية وارفعي ورقتك</a></div>
       <div class="nv-done${read ? " is" : ""}" id="nvDoneBox">${read
         ? `<div class="big-ok">✓</div><h3>قرأتِ هذه الرواية</h3><p>أُضيفت ${ar(PTS.novel)} نقطة إلى رصيدك. اختاري روايتك التالية!</p><div class="row" style="justify-content:center"><a class="pill-btn orange" href="#read">روايات أخرى</a><a class="pill-btn ghost" href="#leaders">لوحة المتصدرات</a></div>`
         : `<h3>أنهيتِ «${esc(n.title)}»؟</h3><p>اضغطي الزر لتُسجَّل قراءتك وتحصلي على <b>${ar(PTS.novel)} نقطة</b>.</p><button class="pill-btn orange big" id="nvRead">📖 لقد قرأتُ الرواية</button><div class="muted" id="nvReadMsg" style="font-size:14px;margin-top:8px">${isStu() ? "" : ptsNudge()}</div>`}</div>
@@ -1584,19 +1586,64 @@ async function loadBooks() {
   $$("#books [data-book]").forEach(a => a.addEventListener("click", () => setTimeout(() => { $("#sBook").value = a.dataset.book; }, 60)));
 }
 
-/* ================= SUMMARY ================= */
+/* ================= SUMMARY =================
+   the student writes the summary on paper, photographs it and uploads the photos (up to 4 pages).
+   photos are shrunk on the device so the whole summary fits one Firestore document (< 1 MB);
+   the document id is made on the device, so a retry after a slow network never sends it twice. */
+const SUM_MAX = 4; let SUM_FILES = [];
+function viewImg(src) { let o = $("#imgView"); if (!o) { o = document.createElement("div"); o.id = "imgView"; o.className = "img-view"; o.innerHTML = `<button type="button" aria-label="إغلاق">✕</button><img alt="">`; o.onclick = () => o.hidden = true; document.body.appendChild(o); } o.querySelector("img").src = src; o.hidden = false; }
+function sumThumbs() {
+  const el = $("#sThumbs"); if (!el) return;
+  el.innerHTML = SUM_FILES.map((f, i) => `<div class="sum-th"><img src="${f.url}" alt="صفحة ${ar(i + 1)}" data-v="${i}"><span>صفحة ${ar(i + 1)}</span><button type="button" data-rm="${i}" aria-label="احذفي الصورة">✕</button></div>`).join("");
+  el.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => { const f = SUM_FILES.splice(+b.dataset.rm, 1)[0]; try { URL.revokeObjectURL(f.url); } catch (e) {} sumThumbs(); });
+  el.querySelectorAll("[data-v]").forEach(im => im.onclick = () => viewImg(im.src));
+  $$(".sum-btn").forEach(l => l.classList.toggle("off", SUM_FILES.length >= SUM_MAX));
+}
+async function addSumFiles(list, inp) {
+  msg($("#sumMsg"), "");
+  for (const f of [...(list || [])]) {
+    if (SUM_FILES.length >= SUM_MAX) { msg($("#sumMsg"), `يمكنك رفع ${ar(SUM_MAX)} صفحات على الأكثر.`); break; }
+    if (!/^image\//.test(f.type || "") && !/\.(jpe?g|png|webp|heic|heif)$/i.test(f.name || "")) { msg($("#sumMsg"), `«${f.name}» ليست صورة. اختاري صورة لورقة التلخيص.`); continue; }
+    try { const d = await shrink(f, 1400, .72); SUM_FILES.push({ f, url: d }); }
+    catch (e) { msg($("#sumMsg"), `تعذّرت قراءة الصورة «${f.name || ""}». صوّري الورقة من جديد أو اختاري صورة أخرى.`); }
+  }
+  if (inp) inp.value = ""; sumThumbs();
+}
+/* make every page smaller until the whole summary fits one document */
+async function sumPack() {
+  for (const [mx, q] of [[1400, .72], [1250, .64], [1100, .58], [950, .52], [820, .48]]) {
+    const out = []; for (const x of SUM_FILES) out.push(mx === 1400 && Math.abs(q - .72) < .01 ? x.url : await shrink(x.f, mx, q));
+    if (out.reduce((n, u) => n + u.length, 0) < 880000) return out;
+  }
+  throw new Error("big");
+}
 async function loadSummary() {
   await refreshMe(); const okS = ME && ME.role === "student";
   $("#sumName").textContent = okS ? ME.name : "سجّلي الدخول أولًا"; $("#sumName").className = okS ? "" : "muted"; $("#sumCls").textContent = okS && ME.cls ? CLS(ME.cls) : "العاشر";
   const el = $("#mySums"); let s = []; if (okS) { try { s = (await store.list("summaries", ["uid", UID])).sort(byTime); } catch (e) {} }
-  el.innerHTML = s.length ? s.map(x => `<div class="li"><div class="grow"><b>${esc(x.book)}</b><br><span class="muted" style="font-size:14px">${esc(x.author)} · ${fmtDate(x.createdAt)}</span></div><span class="status ${x.status === "published" ? "approved" : "pending"}">${x.status === "published" ? "نُشر في المشاركات" : "وصل للمعلمة"}</span></div>`).join("") : `<p class="muted" style="margin:6px 0 0">لم ترسلي تلخيصًا بعد.</p>`;
+  el.innerHTML = s.length ? s.map(x => `<div class="li">${(x.imgs || []).length ? `<img class="sum-mini" src="${x.imgs[0]}" alt="" data-v>` : ""}<div class="grow"><b>${esc(x.book)}</b><br><span class="muted" style="font-size:14px">${esc(x.author)} · ${fmtDate(x.createdAt)}${(x.imgs || []).length ? ` · ${ar(x.imgs.length)} ${x.imgs.length > 1 ? "صفحات" : "صفحة"}` : ""}</span></div><span class="status ${x.status === "published" ? "approved" : "pending"}">${x.status === "published" ? "نُشر في المشاركات" : "وصل للمعلمة"}</span></div>`).join("") : `<p class="muted" style="margin:6px 0 0">لم ترسلي تلخيصًا بعد.</p>`;
+  el.querySelectorAll("[data-v]").forEach(im => im.onclick = () => viewImg(im.src));
+  sumThumbs();
 }
 $("#sumReview").onclick = reviewSummary;
+$("#sImg").addEventListener("change", e => addSumFiles(e.target.files, e.target));
+$("#sCam").addEventListener("change", e => addSumFiles(e.target.files, e.target));
+let sumBusy = false;
 $("#sumForm").addEventListener("submit", async e => {
-  e.preventDefault(); if (!ME || ME.role !== "student") { msg($("#sumMsg"), "سجّلي الدخول بحسابك أولًا من صفحة «دخول / تسجيل»."); return; }
-  const v = { uid: UID, name: ME.name, book: $("#sBook").value.trim(), author: $("#sAuthor").value.trim(), text: $("#sText").value.trim(), status: "new", createdAt: now() };
-  if (v.text.length < 40) { msg($("#sumMsg"), "التلخيص قصير. اكتبي فقرة أو أكثر."); return; }
-  try { await store.add("summaries", v); $("#sumForm").reset(); msg($("#sumMsg"), "أُرسل تلخيصك إلى المعلمة. أحسنتِ!", true); loadSummary(); } catch (err) { msg($("#sumMsg"), "لم يُرسل التلخيص. تأكدي من الاتصال ثم أعيدي المحاولة."); }
+  e.preventDefault(); if (sumBusy) return; if (!ME || ME.role !== "student") { msg($("#sumMsg"), "سجّلي الدخول بحسابك أولًا من صفحة «دخول / تسجيل»."); return; }
+  if (!SUM_FILES.length) { msg($("#sumMsg"), "ارفعي صورة ورقة التلخيص أولًا 📷"); return; }
+  if (navigator.onLine === false) { msg($("#sumMsg"), "لا يوجد اتصال بالإنترنت الآن. اتصلي بالشبكة ثم اضغطي «أرسلي» مرة أخرى، وصورك باقية هنا لن تضيع."); return; }
+  const btn = $("#sumForm [type=submit]"), M = $("#sumMsg"); sumBusy = true; btn.disabled = true;
+  const stop = aiWait(M, "يُرفع تلخيصك، لا تغلقي الصفحة");
+  let imgs; try { imgs = await sumPack(); } catch (err) { stop(); sumBusy = false; btn.disabled = false; msg(M, "الصور كبيرة جدًّا. احذفي صفحة أو صوّري من مسافة أبعد قليلًا."); return; }
+  const id = (UID || "x").slice(0, 10) + "_" + Date.now().toString(36);
+  const v = { uid: UID, name: ME.name, book: $("#sBook").value.trim(), author: $("#sAuthor").value.trim(), text: "", imgs, pages: imgs.length, status: "new", createdAt: now() };
+  let ok = false;
+  try { await store.set("summaries", id, v, 120000); ok = true; }
+  catch (err) { try { ok = !!(await store.get("summaries", id)); } catch (x) {} }
+  stop(); sumBusy = false; btn.disabled = false;
+  if (ok) { $("#sumForm").reset(); SUM_FILES = []; $("#sumAI").innerHTML = ""; msg(M, "وصل تلخيصك إلى المعلمة ✓ أحسنتِ!", true); loadSummary(); }
+  else msg(M, navigator.onLine === false ? "انقطع الإنترنت أثناء الرفع. اتصلي بالشبكة ثم أرسليه مرة أخرى، وصورك باقية هنا." : "لم يصل التلخيص، فالشبكة بطيئة الآن. انتظري قليلًا ثم اضغطي «أرسلي» مرة أخرى، وصورك باقية هنا.");
 });
 
 /* ================= POSTS ================= */
@@ -1604,7 +1651,8 @@ async function loadPosts() {
   const el = $("#posts"); let p = []; try { p = (await store.list("posts")).sort(byTime); } catch (e) {}
   if (!p.length) { el.style.columns = "auto"; el.innerHTML = `<div class="empty"><b>لا توجد مشاركات منشورة بعد</b>حين تختار المعلمة أعمالًا متميزة، تظهر هنا بأسماء صاحباتها.</div>`; return; }
   el.style.columns = "";
-  el.innerHTML = p.map(x => `<article class="post">${x.img ? `<img src="${x.img}" alt="">` : ""}<div class="pb"><span class="kind">${esc(x.kind || "مشاركة")}</span><h3>${esc(x.title)}</h3><div class="by"><span class="av">${esc((x.name || " ").trim()[0])}</span>${esc(x.name)}</div>${x.text ? `<p>${esc(x.text)}</p>` : ""}</div></article>`).join("");
+  el.innerHTML = p.map(x => `<article class="post">${(x.imgs || []).length > 1 ? `<div class="post-gal">${x.imgs.map(u => `<img src="${u}" alt="" data-v>`).join("")}</div>` : x.img ? `<img src="${x.img}" alt="" data-v>` : ""}<div class="pb"><span class="kind">${esc(x.kind || "مشاركة")}</span><h3>${esc(x.title)}</h3><div class="by"><span class="av">${esc((x.name || " ").trim()[0])}</span>${esc(x.name)}</div>${x.text ? `<p>${esc(x.text)}</p>` : ""}</div></article>`).join("");
+  el.querySelectorAll("[data-v]").forEach(im => im.onclick = () => viewImg(im.src));
 }
 
 /* ================= PARENTS ================= */
@@ -1749,9 +1797,10 @@ async function tRequests() {
 async function tSummaries() {
   const el = $("#tSum"); let s = []; try { s = (await store.list("summaries")).sort(byTime); } catch (e) {}
   if (!s.length) { el.innerHTML = `<div class="empty"><b>لا توجد تلخيصات بعد</b>تصلك هنا تلخيصات الطالبات من ورقة «تلخيص كتاب».</div>`; return; }
-  el.innerHTML = s.map(x => `<div class="li" data-x="${x.id}" style="align-items:flex-start"><div class="grow"><b>${esc(x.book)}</b> — ${esc(x.author)}<br><span class="muted" style="font-size:14px">${esc(x.name)} · ${fmtDate(x.createdAt)}</span><p style="margin:8px 0 0;white-space:pre-line;color:var(--ink-2)">${esc(x.text)}</p></div>${x.status === "published" ? '<span class="status approved">منشور</span>' : '<button class="mini ok" data-a="pub">انشريه في المشاركات</button>'}<button class="mini no" data-a="del">حذف</button></div>`).join("");
+  el.innerHTML = s.map(x => `<div class="li" data-x="${x.id}" style="align-items:flex-start"><div class="grow"><b>${esc(x.book)}</b> — ${esc(x.author)}<br><span class="muted" style="font-size:14px">${esc(x.name)} · ${fmtDate(x.createdAt)}</span>${x.text ? `<p style="margin:8px 0 0;white-space:pre-line;color:var(--ink-2)">${esc(x.text)}</p>` : ""}${(x.imgs || []).length ? `<div class="sum-gal">${x.imgs.map((u, i) => `<img src="${u}" alt="صفحة ${ar(i + 1)}" data-v>`).join("")}</div>` : ""}</div>${x.status === "published" ? '<span class="status approved">منشور</span>' : '<button class="mini ok" data-a="pub">انشريه في المشاركات</button>'}<button class="mini no" data-a="del">حذف</button></div>`).join("");
+  el.querySelectorAll("[data-v]").forEach(im => im.onclick = () => viewImg(im.src));
   el.querySelectorAll("[data-a]").forEach(b => b.onclick = async () => { const id = b.closest("[data-x]").dataset.x, x = s.find(y => y.id === id);
-    if (b.dataset.a === "pub") { await store.add("posts", { name: x.name, kind: "تلخيص كتاب", title: x.book + " — " + x.author, text: x.text, createdAt: now() }); await store.update("summaries", id, { status: "published" }); toast("نُشر في المشاركات"); }
+    if (b.dataset.a === "pub") { const im = x.imgs || []; await store.add("posts", { name: x.name, kind: "تلخيص كتاب", title: x.book + " — " + x.author, text: x.text || "", ...(im.length ? { img: im[0], imgs: im } : {}), createdAt: now() }); await store.update("summaries", id, { status: "published" }); toast("نُشر في المشاركات"); }
     else { if (!b.dataset.c) { b.dataset.c = 1; b.textContent = "تأكيد"; return; } await store.del("summaries", id); }
     tSummaries(); badges(); });
 }
