@@ -1,8 +1,8 @@
 {
-  "status": "down",
-  "url": null,
-  "startedAt": null,
-  "expiresAt": null,
-  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/38179570177",
+  "status": "up",
+  "url": "https://necessarily-latitude-sleep-year.trycloudflare.com",
+  "startedAt": "2026-10-12T03:16:22Z",
+  "expiresAt": "2026-10-12T08:16:22Z",
+  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/38198989798",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
