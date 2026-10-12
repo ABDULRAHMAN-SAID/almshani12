@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://ada-puts-reflects-employment.trycloudflare.com",
-  "startedAt": "2026-10-12T08:17:41Z",
-  "expiresAt": "2026-10-12T13:17:41Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/38222573091",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
