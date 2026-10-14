@@ -28,7 +28,25 @@ export async function handle(req, store, seed = SEED) {
   const raw = await req.text();
   if (raw.length > MAX) return json({ ok: false, error: "too_large" });
   let body; try { body = JSON.parse(raw); } catch { return json({ ok: false, error: "bad_request" }); }
-  const { pw, base, state } = body || {};
+  const { pw, base, state, op } = body || {};
+  // تسجيل دخول وليّ الأمر (آخر ظهور وعدد الزيارات)
+  if (op === "seen") {
+    const id = String(body.id || "");
+    if (!/^[A-Za-z0-9]{1,40}$/.test(id)) return json({ ok: false, error: "bad_request" });
+    const k = "seen/" + id, now = new Date().toISOString();
+    const old = (await store.get(k, { type: "json" })) || { f: now, n: 0 };
+    await store.setJSON(k, { f: old.f, l: now, n: (old.n || 0) + 1 });
+    return json({ ok: true });
+  }
+  if (op === "seen-read") {
+    if (typeof pw !== "string") return json({ ok: false, error: "bad_request" });
+    const ref0 = (await store.get("state", { type: "json" })) || seed;
+    if (!(await canOpen("T|" + pw, ref0.t))) return json({ ok: false, error: "bad_password" });
+    const { blobs } = await store.list({ prefix: "seen/" });
+    const out = {};
+    await Promise.all(blobs.map(async (b) => { const v = await store.get(b.key, { type: "json" }); if (v) out[b.key.slice(5)] = v; }));
+    return json({ ok: true, seen: out, now: new Date().toISOString() });
+  }
   if (typeof pw !== "string" || !valid(state)) return json({ ok: false, error: "bad_request" });
   const cur = await store.get("state", { type: "json" });
   const ref = cur || seed;
