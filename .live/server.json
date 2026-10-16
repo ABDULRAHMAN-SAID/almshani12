@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://food-under-holmes-looksmart.trycloudflare.com",
-  "startedAt": "2026-10-15T21:43:19Z",
-  "expiresAt": "2026-10-16T02:43:19Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/38811829141",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
