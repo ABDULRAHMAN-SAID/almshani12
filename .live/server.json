@@ -1,8 +1,8 @@
 {
-  "status": "down",
-  "url": null,
-  "startedAt": null,
-  "expiresAt": null,
-  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/38942388623",
+  "status": "up",
+  "url": "https://foot-city-explorer-walker.trycloudflare.com",
+  "startedAt": "2026-10-16T22:50:23Z",
+  "expiresAt": "2026-10-17T03:50:23Z",
+  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/38977953137",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
