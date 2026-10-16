@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://luis-soft-promote-dale.trycloudflare.com",
-  "startedAt": "2026-10-16T02:44:36Z",
-  "expiresAt": "2026-10-16T07:44:36Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/38841886454",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
