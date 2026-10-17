@@ -1,8 +1,8 @@
 {
-  "status": "down",
-  "url": null,
-  "startedAt": null,
-  "expiresAt": null,
-  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/39060193411",
+  "status": "up",
+  "url": "https://circus-slowly-morrison-writings.trycloudflare.com",
+  "startedAt": "2026-10-17T23:58:10Z",
+  "expiresAt": "2026-10-18T04:58:10Z",
+  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/39080923671",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
