@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://polyester-dependent-foam-medicaid.trycloudflare.com",
-  "startedAt": "2026-10-17T03:52:02Z",
-  "expiresAt": "2026-10-17T08:52:02Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/39000317814",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
