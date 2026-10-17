@@ -1,8 +1,8 @@
 {
-  "status": "down",
-  "url": null,
-  "startedAt": null,
-  "expiresAt": null,
-  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/39000317814",
+  "status": "up",
+  "url": "https://prime-monitors-metric-filter.trycloudflare.com",
+  "startedAt": "2026-10-17T08:53:35Z",
+  "expiresAt": "2026-10-17T13:53:35Z",
+  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/39018980820",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
