@@ -1,8 +1,8 @@
 {
-  "status": "down",
-  "url": null,
-  "startedAt": null,
-  "expiresAt": null,
-  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/39207958531",
+  "status": "up",
+  "url": "https://magical-img-sugar-conferences.trycloudflare.com",
+  "startedAt": "2026-10-19T11:09:45Z",
+  "expiresAt": "2026-10-19T16:09:45Z",
+  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/39242351056",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
