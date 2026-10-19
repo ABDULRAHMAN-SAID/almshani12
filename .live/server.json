@@ -1,8 +1,8 @@
 {
-  "status": "down",
-  "url": null,
-  "startedAt": null,
-  "expiresAt": null,
-  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/39161497766",
+  "status": "up",
+  "url": "https://florists-derek-silly-treat.trycloudflare.com",
+  "startedAt": "2026-10-19T01:05:44Z",
+  "expiresAt": "2026-10-19T06:05:44Z",
+  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/39183612639",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
