@@ -1,8 +1,8 @@
 {
-  "status": "down",
-  "url": null,
-  "startedAt": null,
-  "expiresAt": null,
-  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/39420961189",
+  "status": "up",
+  "url": "https://pretty-bosnia-editorials-healthcare.trycloudflare.com",
+  "startedAt": "2026-10-20T17:18:52Z",
+  "expiresAt": "2026-10-20T22:18:52Z",
+  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/39464753567",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
