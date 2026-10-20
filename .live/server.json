@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://hawk-gabriel-hamilton-indices.trycloudflare.com",
-  "startedAt": "2026-10-20T07:15:55Z",
-  "expiresAt": "2026-10-20T12:15:55Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/39385237607",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
