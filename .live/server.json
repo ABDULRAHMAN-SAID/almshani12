@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://cho-volleyball-scientific-asin.trycloudflare.com",
-  "startedAt": "2026-10-21T13:25:25Z",
-  "expiresAt": "2026-10-21T18:25:25Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/39607572380",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
