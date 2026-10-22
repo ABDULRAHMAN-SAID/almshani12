@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://colors-sticks-soul-retailer.trycloudflare.com",
-  "startedAt": "2026-10-22T04:29:22Z",
-  "expiresAt": "2026-10-22T09:29:22Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/39722538865",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
