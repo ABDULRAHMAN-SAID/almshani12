@@ -1,8 +1,8 @@
 {
-  "status": "down",
-  "url": null,
-  "startedAt": null,
-  "expiresAt": null,
-  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/39980004992",
+  "status": "up",
+  "url": "https://superb-gdp-planet-res.trycloudflare.com",
+  "startedAt": "2026-10-23T20:41:20Z",
+  "expiresAt": "2026-10-24T01:41:20Z",
+  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/40020959603",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
