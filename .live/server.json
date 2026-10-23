@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://shadow-sailing-paper-customers.trycloudflare.com",
-  "startedAt": "2026-10-23T05:36:58Z",
-  "expiresAt": "2026-10-23T10:36:58Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/39906605448",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
