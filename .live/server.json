@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://artwork-cage-summaries-developing.trycloudflare.com",
-  "startedAt": "2026-10-22T19:34:03Z",
-  "expiresAt": "2026-10-23T00:34:03Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/39841017403",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
