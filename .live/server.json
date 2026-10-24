@@ -1,8 +1,8 @@
 {
-  "status": "down",
-  "url": null,
-  "startedAt": null,
-  "expiresAt": null,
-  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/40071306954",
+  "status": "up",
+  "url": "https://predict-stakeholders-mardi-dealing.trycloudflare.com",
+  "startedAt": "2026-10-24T11:46:12Z",
+  "expiresAt": "2026-10-24T16:46:12Z",
+  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/40091126651",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
