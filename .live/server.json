@@ -1,8 +1,8 @@
 {
-  "status": "down",
-  "url": null,
-  "startedAt": null,
-  "expiresAt": null,
-  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/40050938407",
+  "status": "up",
+  "url": "https://camel-historic-periodic-proceeding.trycloudflare.com",
+  "startedAt": "2026-10-24T06:44:35Z",
+  "expiresAt": "2026-10-24T11:44:35Z",
+  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/40071306954",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
