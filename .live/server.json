@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://barely-changes-measured-engaging.trycloudflare.com",
-  "startedAt": "2026-10-26T19:03:02Z",
-  "expiresAt": "2026-10-27T00:03:02Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/40382975225",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
