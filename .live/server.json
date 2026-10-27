@@ -1,8 +1,8 @@
 {
-  "status": "down",
-  "url": null,
-  "startedAt": null,
-  "expiresAt": null,
-  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/40382975225",
+  "status": "up",
+  "url": "https://anatomy-item-functioning-advertisers.trycloudflare.com",
+  "startedAt": "2026-10-27T00:04:36Z",
+  "expiresAt": "2026-10-27T05:04:36Z",
+  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/40423866016",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
