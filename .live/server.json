@@ -1,8 +1,8 @@
 {
-  "status": "down",
-  "url": null,
-  "startedAt": null,
-  "expiresAt": null,
-  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/40613473045",
+  "status": "up",
+  "url": "https://introducing-capitol-layout-bonds.trycloudflare.com",
+  "startedAt": "2026-10-28T06:13:46Z",
+  "expiresAt": "2026-10-28T11:13:46Z",
+  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/40642472736",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
