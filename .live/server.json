@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://until-magnificent-condition-hits.trycloudflare.com",
-  "startedAt": "2026-10-28T01:12:26Z",
-  "expiresAt": "2026-10-28T06:12:26Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/40613473045",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
