@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://charms-northwest-architect-initially.trycloudflare.com",
-  "startedAt": "2026-10-29T17:24:29Z",
-  "expiresAt": "2026-10-29T22:24:29Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/40920797814",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
