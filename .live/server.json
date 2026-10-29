@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://properties-gamma-extend-renaissance.trycloudflare.com",
-  "startedAt": "2026-10-29T12:22:52Z",
-  "expiresAt": "2026-10-29T17:22:52Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/40872577195",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
