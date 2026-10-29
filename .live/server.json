@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://cup-budapest-cordless-fixtures.trycloudflare.com",
-  "startedAt": "2026-10-29T02:19:50Z",
-  "expiresAt": "2026-10-29T07:19:50Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/40805567078",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
