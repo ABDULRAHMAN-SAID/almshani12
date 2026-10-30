@@ -1,8 +1,8 @@
 {
-  "status": "down",
-  "url": null,
-  "startedAt": null,
-  "expiresAt": null,
-  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/41026586591",
+  "status": "up",
+  "url": "https://coupled-represented-sec-studios.trycloudflare.com",
+  "startedAt": "2026-10-30T13:30:49Z",
+  "expiresAt": "2026-10-30T18:30:49Z",
+  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/41063657978",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
