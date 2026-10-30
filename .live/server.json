@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://aimed-container-ment-bedding.trycloudflare.com",
-  "startedAt": "2026-10-30T08:29:10Z",
-  "expiresAt": "2026-10-30T13:29:10Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/41026586591",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
