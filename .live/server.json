@@ -1,8 +1,8 @@
 {
-  "status": "down",
-  "url": null,
-  "startedAt": null,
-  "expiresAt": null,
-  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/41145069797",
+  "status": "up",
+  "url": "https://screw-completely-requirements-asin.trycloudflare.com",
+  "startedAt": "2026-10-31T04:35:05Z",
+  "expiresAt": "2026-10-31T09:35:05Z",
+  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/41169071230",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
