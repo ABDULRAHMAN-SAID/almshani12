@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://incurred-cycle-commands-offices.trycloudflare.com",
-  "startedAt": "2026-10-30T23:33:32Z",
-  "expiresAt": "2026-10-31T04:33:32Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/41145069797",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
