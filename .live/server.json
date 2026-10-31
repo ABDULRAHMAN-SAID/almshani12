@@ -1,8 +1,8 @@
 {
-  "status": "down",
-  "url": null,
-  "startedAt": null,
-  "expiresAt": null,
-  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/41189303602",
+  "status": "up",
+  "url": "https://stewart-walter-searches-rise.trycloudflare.com",
+  "startedAt": "2026-10-31T14:38:02Z",
+  "expiresAt": "2026-10-31T19:38:02Z",
+  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/41210954017",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
