@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://dsl-clearing-fires-luck.trycloudflare.com",
-  "startedAt": "2026-11-02T06:49:11Z",
-  "expiresAt": "2026-11-02T11:49:11Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/41402205706",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
