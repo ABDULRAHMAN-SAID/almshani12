@@ -1,8 +1,8 @@
 {
-  "status": "down",
-  "url": null,
-  "startedAt": null,
-  "expiresAt": null,
-  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/41439799329",
+  "status": "up",
+  "url": "https://liability-cookbook-liverpool-crimes.trycloudflare.com",
+  "startedAt": "2026-11-02T16:52:05Z",
+  "expiresAt": "2026-11-02T21:52:05Z",
+  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/41485419735",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
