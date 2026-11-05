@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://potential-modems-albums-vii.trycloudflare.com",
-  "startedAt": "2026-11-04T19:08:01Z",
-  "expiresAt": "2026-11-05T00:08:01Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/41893749094",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
