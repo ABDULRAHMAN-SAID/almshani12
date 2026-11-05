@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://cloud-large-family-ink.trycloudflare.com",
-  "startedAt": "2026-11-05T00:09:29Z",
-  "expiresAt": "2026-11-05T05:09:29Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/41939048827",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
