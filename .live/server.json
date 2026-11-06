@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://shall-modems-guides-encyclopedia.trycloudflare.com",
-  "startedAt": "2026-11-06T01:16:39Z",
-  "expiresAt": "2026-11-06T06:16:39Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/42142581188",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
