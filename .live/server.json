@@ -1,8 +1,8 @@
 {
-  "status": "down",
-  "url": null,
-  "startedAt": null,
-  "expiresAt": null,
-  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/42295988319",
+  "status": "up",
+  "url": "https://controversial-agency-stop-movers.trycloudflare.com",
+  "startedAt": "2026-11-07T02:23:35Z",
+  "expiresAt": "2026-11-07T07:23:35Z",
+  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/42328905678",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
