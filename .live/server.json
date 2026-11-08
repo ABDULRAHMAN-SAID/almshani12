@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://unexpected-liquid-sip-graduates.trycloudflare.com",
-  "startedAt": "2026-11-08T18:35:17Z",
-  "expiresAt": "2026-11-08T23:35:17Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/42510640967",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
