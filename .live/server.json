@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://cannon-strong-profits-symposium.trycloudflare.com",
-  "startedAt": "2026-11-09T09:39:23Z",
-  "expiresAt": "2026-11-09T14:39:23Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/42594950302",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
