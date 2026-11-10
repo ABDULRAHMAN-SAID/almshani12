@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://exceed-determines-july-jesus.trycloudflare.com",
-  "startedAt": "2026-11-10T05:45:32Z",
-  "expiresAt": "2026-11-10T10:45:32Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/42763937976",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
