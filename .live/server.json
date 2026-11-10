@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://philosophy-old-celebrity-doc.trycloudflare.com",
-  "startedAt": "2026-11-10T10:47:09Z",
-  "expiresAt": "2026-11-10T15:47:09Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/42801865187",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
