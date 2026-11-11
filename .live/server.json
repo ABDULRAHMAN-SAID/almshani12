@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://postal-copper-textbooks-penn.trycloudflare.com",
-  "startedAt": "2026-11-10T20:50:24Z",
-  "expiresAt": "2026-11-11T01:50:24Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/42898976265",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
