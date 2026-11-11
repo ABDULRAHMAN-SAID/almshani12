@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://fashion-set-excerpt-carefully.trycloudflare.com",
-  "startedAt": "2026-11-11T06:53:28Z",
-  "expiresAt": "2026-11-11T11:53:28Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/42975434358",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
