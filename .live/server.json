@@ -1,8 +1,8 @@
 {
-  "status": "down",
-  "url": null,
-  "startedAt": null,
-  "expiresAt": null,
-  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/42898976265",
+  "status": "up",
+  "url": "https://wax-polished-encourage-abu.trycloudflare.com",
+  "startedAt": "2026-11-11T01:52:03Z",
+  "expiresAt": "2026-11-11T06:52:03Z",
+  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/42941830681",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
