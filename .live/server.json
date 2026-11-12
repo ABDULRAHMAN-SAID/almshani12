@@ -1,8 +1,8 @@
 {
-  "status": "down",
-  "url": null,
-  "startedAt": null,
-  "expiresAt": null,
-  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/43275900729",
+  "status": "up",
+  "url": "https://sustainability-vatican-tire-follows.trycloudflare.com",
+  "startedAt": "2026-11-12T23:06:38Z",
+  "expiresAt": "2026-11-13T04:06:38Z",
+  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/43325808659",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
