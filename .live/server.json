@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://dairy-steering-interval-clinical.trycloudflare.com",
-  "startedAt": "2026-11-12T08:01:10Z",
-  "expiresAt": "2026-11-12T13:01:10Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/43179329393",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
