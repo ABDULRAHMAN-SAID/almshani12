@@ -1,8 +1,8 @@
 {
-  "status": "down",
-  "url": null,
-  "startedAt": null,
-  "expiresAt": null,
-  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/43223296379",
+  "status": "up",
+  "url": "https://suddenly-included-competent-barbara.trycloudflare.com",
+  "startedAt": "2026-11-12T18:05:16Z",
+  "expiresAt": "2026-11-12T23:05:16Z",
+  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/43275900729",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
