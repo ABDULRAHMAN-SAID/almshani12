@@ -1,8 +1,8 @@
 {
-  "status": "down",
-  "url": null,
-  "startedAt": null,
-  "expiresAt": null,
-  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/43363353541",
+  "status": "up",
+  "url": "https://walking-lisa-introducing-consult.trycloudflare.com",
+  "startedAt": "2026-11-13T09:09:43Z",
+  "expiresAt": "2026-11-13T14:09:43Z",
+  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/43398825196",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
