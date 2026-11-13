@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://customers-physically-committees-submitted.trycloudflare.com",
-  "startedAt": "2026-11-13T04:08:16Z",
-  "expiresAt": "2026-11-13T09:08:16Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/43363353541",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
