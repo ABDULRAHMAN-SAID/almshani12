@@ -1,8 +1,8 @@
 {
-  "status": "down",
-  "url": null,
-  "startedAt": null,
-  "expiresAt": null,
-  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/43584434112",
+  "status": "up",
+  "url": "https://covering-cut-neon-dependence.trycloudflare.com",
+  "startedAt": "2026-11-14T15:18:27Z",
+  "expiresAt": "2026-11-14T20:18:27Z",
+  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/43609348845",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
