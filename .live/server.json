@@ -1,8 +1,8 @@
 {
-  "status": "down",
-  "url": null,
-  "startedAt": null,
-  "expiresAt": null,
-  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/43685034964",
+  "status": "up",
+  "url": "https://investigated-worthy-junction-encourages.trycloudflare.com",
+  "startedAt": "2026-11-15T11:23:45Z",
+  "expiresAt": "2026-11-15T16:23:45Z",
+  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/43708608999",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
