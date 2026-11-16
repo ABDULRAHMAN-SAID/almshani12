@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://saints-stadium-dealtime-kyle.trycloudflare.com",
-  "startedAt": "2026-11-15T21:26:39Z",
-  "expiresAt": "2026-11-16T02:26:39Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/43763616638",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
