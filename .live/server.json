@@ -1,8 +1,8 @@
 {
-  "status": "down",
-  "url": null,
-  "startedAt": null,
-  "expiresAt": null,
-  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/44094582337",
+  "status": "up",
+  "url": "https://breach-insight-amend-hire.trycloudflare.com",
+  "startedAt": "2026-11-17T18:40:06Z",
+  "expiresAt": "2026-11-17T23:40:06Z",
+  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/44150083603",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
