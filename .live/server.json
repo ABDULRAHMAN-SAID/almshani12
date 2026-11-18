@@ -1,8 +1,8 @@
 {
-  "status": "down",
-  "url": null,
-  "startedAt": null,
-  "expiresAt": null,
-  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/44278520465",
+  "status": "up",
+  "url": "https://recommends-caroline-fitted-mini.trycloudflare.com",
+  "startedAt": "2026-11-18T14:45:35Z",
+  "expiresAt": "2026-11-18T19:45:35Z",
+  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/44327529257",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
