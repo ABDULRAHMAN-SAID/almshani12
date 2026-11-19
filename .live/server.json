@@ -1,8 +1,8 @@
 {
-  "status": "down",
-  "url": null,
-  "startedAt": null,
-  "expiresAt": null,
-  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/44431867203",
+  "status": "up",
+  "url": "https://traditional-september-suffering-ever.trycloudflare.com",
+  "startedAt": "2026-11-19T05:50:29Z",
+  "expiresAt": "2026-11-19T10:50:29Z",
+  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/44467754941",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
