@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://planners-comply-near-controls.trycloudflare.com",
-  "startedAt": "2026-11-18T19:47:32Z",
-  "expiresAt": "2026-11-19T00:47:32Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/44383661052",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
