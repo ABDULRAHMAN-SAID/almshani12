@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://brochure-dental-contacted-rubber.trycloudflare.com",
-  "startedAt": "2026-11-20T11:59:07Z",
-  "expiresAt": "2026-11-20T16:59:07Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/44731841293",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
