@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://activists-millennium-representatives-phantom.trycloudflare.com",
-  "startedAt": "2026-11-21T18:07:05Z",
-  "expiresAt": "2026-11-21T23:07:05Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/44933629268",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
