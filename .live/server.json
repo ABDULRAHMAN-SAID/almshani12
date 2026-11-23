@@ -1,8 +1,8 @@
 {
-  "status": "down",
-  "url": null,
-  "startedAt": null,
-  "expiresAt": null,
-  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/45203862158",
+  "status": "up",
+  "url": "https://liberal-farm-acquired-causing.trycloudflare.com",
+  "startedAt": "2026-11-23T20:21:52Z",
+  "expiresAt": "2026-11-24T01:21:52Z",
+  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/45258387199",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
