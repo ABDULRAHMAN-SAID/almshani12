@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://pirates-wars-transition-music.trycloudflare.com",
-  "startedAt": "2026-11-23T05:17:14Z",
-  "expiresAt": "2026-11-23T10:17:14Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/45116657183",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
