@@ -1,8 +1,8 @@
 {
-  "status": "down",
-  "url": null,
-  "startedAt": null,
-  "expiresAt": null,
-  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/45116657183",
+  "status": "up",
+  "url": "https://collectible-martin-enclosure-measuring.trycloudflare.com",
+  "startedAt": "2026-11-23T10:18:53Z",
+  "expiresAt": "2026-11-23T15:18:53Z",
+  "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/45154727788",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
