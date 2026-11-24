@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://popularity-gzip-doug-full.trycloudflare.com",
-  "startedAt": "2026-11-24T06:24:35Z",
-  "expiresAt": "2026-11-24T11:24:35Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/45340106759",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
