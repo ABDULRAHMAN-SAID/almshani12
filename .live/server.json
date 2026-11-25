@@ -1,8 +1,8 @@
 {
-  "status": "up",
-  "url": "https://stands-molecular-earl-terry.trycloudflare.com",
-  "startedAt": "2026-11-24T21:28:52Z",
-  "expiresAt": "2026-11-25T02:28:52Z",
+  "status": "down",
+  "url": null,
+  "startedAt": null,
+  "expiresAt": null,
   "runUrl": "https://github.com/ABDULRAHMAN-SAID/almshani12/actions/runs/45491346510",
   "note": "يكتبه تشغيل live-server تلقائياً: العنوان الحالي للخادم التجريبي (يتغيّر مع كل تشغيل)"
 }
